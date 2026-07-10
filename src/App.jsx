@@ -1514,8 +1514,22 @@ export default function App(){
   const loadFromStorage = () => {
     try {
       const saved = localStorage.getItem('ff_state');
-      return saved ? JSON.parse(saved) : null;
-    } catch { return null; }
+      if (!saved) return null;
+      const parsed = JSON.parse(saved);
+      // Проверяем совместимость данных — ключи weekItems должны быть строками "YYYY-Www"
+      if (parsed?.appState?.weekItems) {
+        const keys = Object.keys(parsed.appState.weekItems);
+        // Если ключи числовые (старый формат) — сбрасываем weekItems
+        if (keys.length > 0 && !isNaN(parseInt(keys[0]))) {
+          parsed.appState.weekItems = {};
+        }
+      }
+      return parsed;
+    } catch(e) {
+      // Битые данные — сбрасываем
+      try { localStorage.removeItem('ff_state'); } catch {}
+      return null;
+    }
   };
   const savedState = loadFromStorage();
 
