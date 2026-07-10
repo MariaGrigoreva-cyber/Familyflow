@@ -787,22 +787,44 @@ function PlanScreen({state,onToggle,onAdd,onEditTx}){
       {viewMode==='weeks'&&<>
         <SecTitle>СВОДКА ПО НЕДЕЛЯМ</SecTitle>
         {weeksSummary.length===0?<div style={{...s.card,textAlign:'center',padding:20,color:C.muted}}>Нет данных</div>
-        :weeksSummary.map(({wk,wSp,wTot,wInc,bal})=>{
-          const isCur=wk===curWeek,inPlus=bal>=0,{week:wNum,year:wYear}=parseWeekKey(wk);
-          return(
-            <button key={wk} onClick={()=>{setWeek(wk);setViewMode('detail');}} style={{...s.card,width:'100%',textAlign:'left',cursor:'pointer',marginBottom:6,borderLeft:`3px solid ${isCur?C.orange:inPlus?C.green:C.red}`,fontFamily:'inherit',boxSizing:'border-box'}}>
-              <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
-                <div><div style={{fontSize:12,fontWeight:600,color:isCur?C.orange:C.text}}>{isCur?'▶ ':''}{`Нед. ${wNum} · ${wYear}`}</div><div style={{fontSize:10,color:C.muted,marginTop:1}}>{weekRange(wk)}</div></div>
-                <span style={{...s.pill,background:inPlus?C.greenL:C.redL,borderColor:inPlus?C.greenB:C.redB,color:inPlus?C.green:C.red}}>{inPlus?'+':''}{fmt(bal)}</span>
+        :(()=>{
+          // Считаем накопительный остаток нарастающим итогом
+          let runningBalance=0;
+          return weeksSummary.map(({wk,wSp,wTot,wInc,bal},idx)=>{
+            runningBalance+=bal;
+            const isCur=wk===curWeek,inPlus=bal>=0,{week:wNum,year:wYear}=parseWeekKey(wk);
+            const runPlus=runningBalance>=0;
+            return(
+              <div key={wk}>
+                <button onClick={()=>{setWeek(wk);setViewMode('detail');}} style={{...s.card,width:'100%',textAlign:'left',cursor:'pointer',marginBottom:0,borderLeft:`3px solid ${isCur?C.orange:inPlus?C.green:C.red}`,borderTopLeftRadius:0,borderBottomLeftRadius:0,fontFamily:'inherit',boxSizing:'border-box'}}>
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
+                    <div>
+                      <div style={{fontSize:12,fontWeight:600,color:isCur?C.orange:C.text}}>{isCur?'▶ ':''}{`Нед. ${wNum} · ${wYear}`}</div>
+                      <div style={{fontSize:10,color:C.muted,marginTop:1}}>{weekRange(wk)}</div>
+                    </div>
+                    <span style={{...s.pill,background:inPlus?C.greenL:C.redL,borderColor:inPlus?C.greenB:C.redB,color:inPlus?C.green:C.red}}>{inPlus?'+':''}{fmt(bal)}</span>
+                  </div>
+                  <div style={{display:'flex',gap:4}}>
+                    {[['💰 Доходы',wInc,C.green],['📉 План',wTot,C.red],['💳 Факт',wSp,C.orange]].map(([l,v,col])=>(
+                      <div key={l} style={{flex:1,background:C.bg,borderRadius:6,padding:5}}>
+                        <div style={{fontSize:7,color:C.muted,marginBottom:2}}>{l}</div>
+                        <div style={{fontSize:9,fontWeight:600,color:v>0?col:C.muted}}>{v>0?fmt(v):'—'}</div>
+                      </div>
+                    ))}
+                  </div>
+                </button>
+                {/* Вариант В: накопительный остаток между карточками */}
+                <div style={{display:'flex',alignItems:'center',gap:6,padding:'4px 8px',marginBottom:6}}>
+                  <div style={{flex:1,height:'0.5px',background:C.border}}/>
+                  <span style={{fontSize:10,fontWeight:600,color:runPlus?C.green:C.red,whiteSpace:'nowrap'}}>
+                    🏦 баланс: {runPlus?'+':''}{fmt(runningBalance)}
+                  </span>
+                  <div style={{flex:1,height:'0.5px',background:C.border}}/>
+                </div>
               </div>
-              <div style={{display:'flex',gap:6,marginTop:8}}>
-                {[['💰',wInc,C.green],['📉',wTot,C.red],['💳',wSp,C.orange]].map(([l,v,col])=>(
-                  <div key={l} style={{flex:1,background:C.bg,borderRadius:6,padding:5}}><div style={{fontSize:8,color:C.muted,marginBottom:2}}>{l}</div><div style={{fontSize:10,fontWeight:600,color:v>0?col:C.muted}}>{v>0?fmt(v):'—'}</div></div>
-                ))}
-              </div>
-            </button>
-          );
-        })}
+            );
+          });
+        })()}
       </>}
 
       {viewMode==='months'&&<>
@@ -1498,7 +1520,7 @@ function EditIncomeModal({visible,income,member,onClose,onSave}){
 // ════════════════════════════════════════════════════════════════════════
 function TabBar({active,onPress}){
   return(
-    <div style={{display:'flex',background:'#fff',borderTop:`.5px solid ${C.border}`,paddingBottom:'env(safe-area-inset-bottom)',flexShrink:0}}>
+    <div style={{display:'flex',background:'#fff',borderTop:`.5px solid ${C.border}`,paddingBottom:'env(safe-area-inset-bottom)',position:'sticky',bottom:0,zIndex:100,flexShrink:0}}>
       {[['today','🌅','Сегодня'],['plan','💸','Ден. поток'],['budget','📅','Бюджет'],['health','❤️','Здоровье'],['settings','⚙️','Настройки']].map(([id,e,l])=>(
         <button key={id} onClick={()=>onPress(id)} style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:1,padding:'5px 0 6px',background:'none',border:'none',cursor:'pointer',fontFamily:'inherit'}}>
           <span style={{fontSize:18,opacity:active===id?1:.3}}>{e}</span>
@@ -1625,7 +1647,7 @@ export default function App(){
     });
   };
   const TAB_TITLES={today:'Сегодня',plan:'Денежный поток',budget:'Годовой бюджет',health:'Здоровье',settings:'Настройки'};
-  const shell={maxWidth:480,margin:'0 auto',minHeight:'100dvh',background:'#F8FAFC',display:'flex',flexDirection:'column',boxShadow:'0 0 40px rgba(0,0,0,0.12)',fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif'};
+  const shell={maxWidth:480,margin:'0 auto',minHeight:'100dvh',background:'#F8FAFC',display:'flex',flexDirection:'column',boxShadow:'0 0 40px rgba(0,0,0,0.12)',fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',position:'relative'};
   if(!consented)return<div style={shell}><ConsentScreen onAccept={()=>setConsented(true)}/></div>;
   if(!onboarded)return<div style={shell}><Onboarding onDone={handleOnboardingDone}/></div>;
   return(
@@ -1637,7 +1659,7 @@ export default function App(){
           <span style={{fontSize:11,color:C.muted}}>{appState.familyName}</span>
         </div>
       </div>
-      <div style={{flex:1,overflow:'hidden',display:'flex',flexDirection:'column',minHeight:0}}>
+      <div style={{flex:1,display:'flex',flexDirection:'column'}}>
         {tab==='today'&&<TodayScreen state={appState} onToggle={handleToggle} onAdd={()=>setShowAdd(true)} onEditPayment={handleEditPayment} onEditTx={handleEditTx}/>}
         {tab==='plan'&&<PlanScreen state={appState} onToggle={handleToggle} onAdd={()=>setShowAdd(true)} onEditTx={handleEditTx}/>}
         {tab==='budget'&&<BudgetScreen state={appState} onEditPlanned={item=>{setEditItem(item);setShowEdit(true);}} onAddPlanned={handleAddPlanned} onEditPayment={handleEditPayment} onAddExtra={()=>setShowAddExtra(true)}/>}
