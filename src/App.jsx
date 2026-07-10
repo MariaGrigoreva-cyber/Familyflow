@@ -63,13 +63,44 @@ const buildPaymentSchedule=(year,salaryDays=[],advanceDays=[],advancePct=40,mont
 };
 const generateAllWeeks=planned=>{
   const items={},start=isoMondayOf(new Date());
-  for(let i=0;i<104;i++){const wDate=new Date(start.getTime()+i*7*86400000),key=weekKey(wDate);
-    items[key]=planned.map(p=>{let inc=p.repeat==='weekly'||(p.repeat==='biweekly'&&i%2===0)||(p.repeat==='monthly'&&i%4===0);if(!inc)return null;return{id:`${p.id}-${key}`,catId:p.catId,name:p.name,amount:p.amount,memberId:p.memberId,isDone:false,plannedId:p.id};}).filter(Boolean);}
+  for(let i=0;i<104;i++){
+    const wDate=new Date(start.getTime()+i*7*86400000);
+    const wEnd=new Date(wDate.getTime()+6*86400000);
+    const key=weekKey(wDate);
+    items[key]=planned.map(p=>{
+      if(p.repeat==='weekly') return{id:`${p.id}-${key}`,catId:p.catId,name:p.name,amount:p.amount,memberId:p.memberId,isDone:false,plannedId:p.id};
+      if(p.repeat==='biweekly'&&i%2===0) return{id:`${p.id}-${key}`,catId:p.catId,name:p.name,amount:p.amount,memberId:p.memberId,isDone:false,plannedId:p.id};
+      if(p.repeat==='once'){
+        // Разовый платёж — показываем только в неделю конкретной даты
+        if(p.onceDate){
+          const od=new Date(p.onceDate); od.setHours(0,0,0,0);
+          if(od>=wDate&&od<=wEnd) return{id:`${p.id}-${key}`,catId:p.catId,name:p.name,amount:p.amount,memberId:p.memberId,isDone:false,plannedId:p.id};
+        }
+      }
+      if(p.repeat==='monthly'){
+        // Проверяем попадает ли хотя бы одно из указанных чисел в диапазон этой недели
+        const days=Array.isArray(p.days)&&p.days.length>0?p.days:[1];
+        const hit=days.some(day=>{
+          // Проверяем это число в месяце начала недели и в месяце конца недели
+          for(const refDate of [wDate,wEnd]){
+            const yr=refDate.getFullYear(),mn=refDate.getMonth();
+            const daysInMon=new Date(yr,mn+1,0).getDate();
+            const actualDay=Math.min(day,daysInMon);
+            const payDate=new Date(yr,mn,actualDay);
+            if(payDate>=wDate&&payDate<=wEnd) return true;
+          }
+          return false;
+        });
+        if(hit) return{id:`${p.id}-${key}`,catId:p.catId,name:p.name,amount:p.amount,memberId:p.memberId,isDone:false,plannedId:p.id};
+      }
+      return null;
+    }).filter(Boolean);
+  }
   return items;
 };
 
-const DEFAULT_CATS=[{id:'food',name:'Еда',emoji:'🍽️',color:'#FEF3C7'},{id:'beauty',name:'Красота',emoji:'💄',color:'#FCE7F3'},{id:'clothes',name:'Одежда',emoji:'👗',color:'#E0E7FF'},{id:'home',name:'Дом',emoji:'🏠',color:'#DBEAFE'},{id:'edu',name:'Образование',emoji:'🎓',color:'#EDE9FE'},{id:'mortgage',name:'Ипотека',emoji:'🏦',color:'#FEE2E2'},{id:'credit',name:'Кредит',emoji:'💳',color:'#FEF3C7'},{id:'transport',name:'Транспорт',emoji:'🚌',color:'#D1FAE5'},{id:'fun',name:'Развлечения',emoji:'🎬',color:'#FEE2E2'},{id:'gifts',name:'Подарки',emoji:'🎁',color:'#FEF9C3'},{id:'health',name:'Здоровье',emoji:'💊',color:'#D1FAE5'},{id:'sport',name:'Спорт',emoji:'🏋️',color:'#DCFCE7'},{id:'pets',name:'Питомцы',emoji:'🐾',color:'#FEF9C3'},{id:'piggy',name:'Piggy Bank',emoji:'🐷',color:'#F5F3FF'},{id:'other',name:'Прочее',emoji:'📦',color:'#F3F4F6'}];
-const REPEAT_OPTS=[{id:'weekly',label:'Каждую нед.'},{id:'biweekly',label:'Раз в 2 нед.'},{id:'monthly',label:'По числам'}];
+const DEFAULT_CATS=[{id:'food',name:'Еда',emoji:'🍽️',color:'#FEF3C7'},{id:'beauty',name:'Красота',emoji:'💄',color:'#FCE7F3'},{id:'clothes',name:'Одежда',emoji:'👗',color:'#E0E7FF'},{id:'home',name:'Дом',emoji:'🏠',color:'#DBEAFE'},{id:'edu',name:'Образование',emoji:'🎓',color:'#EDE9FE'},{id:'mortgage',name:'Ипотека',emoji:'🏦',color:'#FEE2E2'},{id:'credit',name:'Кредит',emoji:'💳',color:'#FEF3C7'},{id:'transport',name:'Транспорт',emoji:'🚌',color:'#D1FAE5'},{id:'fun',name:'Развлечения',emoji:'🎬',color:'#FEE2E2'},{id:'gifts',name:'Подарки',emoji:'🎁',color:'#FEF9C3'},{id:'health',name:'Здоровье',emoji:'💊',color:'#D1FAE5'},{id:'sport',name:'Спорт',emoji:'🏋️',color:'#DCFCE7'},{id:'pets',name:'Питомцы',emoji:'🐾',color:'#FEF9C3'},{id:'piggy',name:'Piggy Bank',emoji:'🐷',color:'#F5F3FF'},{id:'travel',name:'Путешествия',emoji:'✈️',color:'#E0F2FE'},{id:'other',name:'Прочее',emoji:'📦',color:'#F3F4F6'}];
+const REPEAT_OPTS=[{id:'weekly',label:'Каждую нед.'},{id:'biweekly',label:'Раз в 2 нед.'},{id:'monthly',label:'По числам'},{id:'once',label:'Разовый'}];
 const getCat=(id,custom=[])=>[...DEFAULT_CATS,...custom].find(c=>c.id===id);
 const PIE_COLORS=['#E03A22','#3B82F6','#16A34A','#F59E0B','#8B5CF6','#EC4899','#14B8A6','#F97316','#6366F1','#84CC16'];
 const DEMO_MEMBERS=[{id:'m1',name:'Мария',avatar:'👩',color:C.orange},{id:'m2',name:'Антон',avatar:'👨',color:C.dark}];
@@ -233,7 +264,14 @@ function Onboarding({onDone}){
   const memberIncomes=incomes.filter(i=>activeMembers.find(m=>m.id===i.memberId));
   const finish=()=>{
     const bm=members.filter(m=>m.name.trim());
-    const bp=Array.from(selectedCats).map(catId=>{const cat=DEFAULT_CATS.find(c=>c.id===catId);const setup=catSetup[catId]||{};return{id:uid(),catId,name:cat?.name||catId,amount:parseInt(setup.amount)||0,memberId:setup.memberId||bm[0]?.id||'m1',repeat:setup.repeat||'weekly',days:setup.days||[]};}).filter(p=>p.amount>0);
+    const bp=Array.from(selectedCats).map(catId=>{
+      const cat=DEFAULT_CATS.find(c=>c.id===catId);const setup=catSetup[catId]||{};
+      const rep=setup.repeat||'weekly';
+      const onceDate=rep==='once'?new Date(setup.onceYear||new Date().getFullYear(),
+        (setup.onceMonth||new Date().getMonth()+1)-1,setup.onceDay||new Date().getDate()).toISOString():undefined;
+      return{id:uid(),catId,name:cat?.name||catId,amount:parseInt(setup.amount)||0,
+        memberId:setup.memberId||bm[0]?.id||'m1',repeat:rep,days:setup.days||[],onceDate};
+    }).filter(p=>p.amount>0);
     const bi=incomes.filter(i=>(bm.length?bm:DEMO_MEMBERS).find(m=>m.id===i.memberId)).map(i=>({...i,gross:parseInt(i.gross)||0,net:calcAvgMonthlyNet(parseInt(i.gross)||0)}));
     onDone({familyName:familyName||'Моя семья',startBalance:parseInt(startBalance)||0,members:bm.length?bm:DEMO_MEMBERS,incomes:bi,planned:bp.length?bp:DEMO_PLANNED,customCats:[],payments:{},extraPayments:[],transactions:[]});
   };
@@ -468,6 +506,23 @@ function Onboarding({onDone}){
                     {REPEAT_OPTS.map(r=><button key={r.id} onClick={()=>updCat(catId,'repeat',r.id)} style={{flex:1,padding:'8px 4px',borderRadius:7,border:'none',background:rep===r.id?C.orangeL:'#f1f5f9',color:rep===r.id?'#991B1B':C.muted,fontSize:11,fontWeight:rep===r.id?600:400,cursor:'pointer',fontFamily:'inherit'}}>{r.label}</button>)}
                   </div>
                   {rep==='monthly'&&<DayPicker selected={setup.days||[]} onToggle={d=>toggleCatDay(catId,d)} title={`Числа: ${(setup.days||[]).length===0?'не выбрано':(setup.days||[]).join(', ')}`}/>}
+                  {rep==='once'&&(
+                    <div style={{...s.card,background:C.blueL,border:`.5px solid ${C.blueB}`,padding:10,marginBottom:8}}>
+                      <div style={{fontSize:11,fontWeight:700,color:C.blue,marginBottom:6}}>📅 Дата платежа</div>
+                      <div style={{display:'flex',gap:6,marginBottom:8}}>
+                        {[new Date().getFullYear(),new Date().getFullYear()+1,new Date().getFullYear()+2].map(y=>(
+                          <button key={y} onClick={()=>updCat(catId,'onceYear',y)} style={{flex:1,padding:5,borderRadius:7,border:`.5px solid ${(setup.onceYear||new Date().getFullYear())===y?C.orangeB:C.border}`,background:(setup.onceYear||new Date().getFullYear())===y?C.orangeL:'#fff',color:(setup.onceYear||new Date().getFullYear())===y?'#991B1B':C.text,fontSize:11,fontWeight:(setup.onceYear||new Date().getFullYear())===y?600:400,cursor:'pointer',fontFamily:'inherit'}}>{y}</button>
+                        ))}
+                      </div>
+                      <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8}}>
+                        {MONTH_SHORT.map((name,i)=>{const m=i+1,active=(setup.onceMonth||new Date().getMonth()+1)===m;return(
+                          <button key={m} onClick={()=>updCat(catId,'onceMonth',m)} style={{padding:'3px 6px',borderRadius:6,border:`.5px solid ${active?C.orangeB:C.border}`,background:active?C.orangeL:'#fff',color:active?'#991B1B':C.text,fontSize:10,fontWeight:active?600:400,cursor:'pointer',fontFamily:'inherit',minWidth:'30%'}}>{name}</button>
+                        );})}
+                      </div>
+                      <DayPicker selected={[setup.onceDay||new Date().getDate()]} onToggle={d=>updCat(catId,'onceDay',d)}/>
+                      <div style={{fontSize:11,color:C.blue,marginTop:4,fontWeight:600}}>✓ {setup.onceDay||new Date().getDate()} {MONTH_SHORT[(setup.onceMonth||new Date().getMonth()+1)-1]} {setup.onceYear||new Date().getFullYear()}</div>
+                    </div>
+                  )}
                   <div style={{fontSize:11,color:C.muted,marginBottom:5}}>Кто платит</div>
                   <div style={{display:'flex',gap:6}}>
                     {activeMembers.map(m=><button key={m.id} onClick={()=>updCat(catId,'memberId',m.id)} style={{padding:'5px 9px',borderRadius:7,border:`.5px solid ${(setup.memberId||activeMembers[0]?.id)===m.id?C.orangeB:C.border}`,background:(setup.memberId||activeMembers[0]?.id)===m.id?C.orangeL:'#f8fafc',color:(setup.memberId||activeMembers[0]?.id)===m.id?'#991B1B':C.muted,fontSize:10,cursor:'pointer',fontFamily:'inherit'}}>{m.avatar} {m.name}</button>)}
@@ -513,7 +568,7 @@ function Onboarding({onDone}){
 // ════════════════════════════════════════════════════════════════════════
 // СЕГОДНЯ
 // ════════════════════════════════════════════════════════════════════════
-function TodayScreen({state,onToggle,onAdd,onEditPayment}){
+function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx}){
   const{members,incomes,planned,weekItems,startBalance=0,payments={},customCats=[],transactions=[]}=state;
   const week=todayKey();
   const wItems=weekItems[week]||[];
@@ -527,7 +582,8 @@ function TodayScreen({state,onToggle,onAdd,onEditPayment}){
   const wPlan=wItems.reduce((s,i)=>s+i.amount,0);
   const pct=wPlan>0?Math.round(spent/wPlan*100):0;
   const upcoming=wItems.filter(i=>!i.isDone).slice(0,4);
-  const year=new Date().getFullYear(),now=new Date();
+  const year=new Date().getFullYear();
+  const now=new Date(); now.setHours(0,0,0,0); // начало дня чтобы сегодняшние выплаты не пропадали
   const allUpcomingPay=incomes.flatMap(inc=>{
     const m=members.find(x=>x.id===inc.memberId);
     return buildPaymentSchedule(year,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0)
@@ -594,11 +650,12 @@ function TodayScreen({state,onToggle,onAdd,onEditPayment}){
         {weekTxs.map(tx=>{
           const cat=getCat(tx.catId,customCats),mem=members.find(m=>m.id===tx.memberId),isInc=tx.type==='income';
           return(
-            <div key={tx.id} style={{...s.card,display:'flex',alignItems:'center',gap:9,background:isInc?C.greenL:C.orangeL,border:`.5px solid ${isInc?C.greenB:C.orangeB}`,marginBottom:6}}>
+            <button key={tx.id} onClick={()=>onEditTx&&onEditTx(tx)} style={{...s.card,display:'flex',alignItems:'center',gap:9,background:isInc?C.greenL:C.orangeL,border:`.5px solid ${isInc?C.greenB:C.orangeB}`,marginBottom:6,width:'100%',textAlign:'left',cursor:'pointer',fontFamily:'inherit',boxSizing:'border-box'}}>
               <div style={{width:34,height:34,borderRadius:9,background:isInc?C.greenL:'#FEF3C7',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,flexShrink:0}}>{isInc?'💰':(cat?.emoji||'📦')}</div>
               <div style={{flex:1}}><div style={{fontSize:12,fontWeight:500,color:isInc?C.green:C.text}}>{tx.name||cat?.name||'Запись'}</div><div style={{fontSize:10,color:C.muted}}>{mem?.name||''}</div></div>
               <div style={{fontSize:13,fontWeight:600,color:isInc?C.green:C.orange}}>{isInc?'+':'-'}{fmt(tx.amount)}</div>
-            </div>
+              <div style={{fontSize:9,color:C.muted,marginLeft:4}}>›</div>
+            </button>
           );
         })}
       </>}
@@ -608,7 +665,7 @@ function TodayScreen({state,onToggle,onAdd,onEditPayment}){
         :upcoming.map(item=>{
           const cat=getCat(item.catId,customCats),mem=members.find(m=>m.id===item.memberId);
           return(
-            <button key={item.id} onClick={()=>onToggle(week,item.id)} style={{...s.card,display:'flex',alignItems:'center',gap:9,width:'100%',textAlign:'left',cursor:'pointer',fontFamily:'inherit',marginBottom:6,boxSizing:'border-box'}}>
+            <button key={item.id} onClick={()=>onEditTx&&onEditTx({...item,week})} onDoubleClick={()=>onToggle(week,item.id)} style={{...s.card,display:'flex',alignItems:'center',gap:9,width:'100%',textAlign:'left',cursor:'pointer',fontFamily:'inherit',marginBottom:6,boxSizing:'border-box'}}>
               <div style={{width:22,height:22,borderRadius:11,border:`1.5px solid ${item.isDone?C.green:C.borderS}`,background:item.isDone?C.green:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{item.isDone&&<span style={{color:'#fff',fontSize:11}}>✓</span>}</div>
               <div style={{width:34,height:34,borderRadius:9,background:cat?.color||'#F1F5F9',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,flexShrink:0}}>{cat?.emoji||'📦'}</div>
               <div style={{flex:1}}><div style={{fontSize:13,color:C.text,textDecoration:item.isDone?'line-through':'none'}}>{item.name}</div><div style={{fontSize:10,color:C.muted}}>{mem?.name||''}</div></div>
@@ -624,7 +681,7 @@ function TodayScreen({state,onToggle,onAdd,onEditPayment}){
 // ════════════════════════════════════════════════════════════════════════
 // ДЕНЕЖНЫЙ ПОТОК
 // ════════════════════════════════════════════════════════════════════════
-function PlanScreen({state,onToggle,onAdd}){
+function PlanScreen({state,onToggle,onAdd,onEditTx}){
   const{members,planned,weekItems,incomes,customCats=[],transactions=[]}=state;
   const curWeek=todayKey();
   const[viewMode,setViewMode]=useState('detail');
@@ -697,7 +754,7 @@ function PlanScreen({state,onToggle,onAdd}){
           :filtered.map(item=>{
             const cat=getCat(item.catId,customCats),mem=members.find(m=>m.id===item.memberId);
             return(
-              <button key={item.id} onClick={()=>onToggle(week,item.id)} style={{...s.card,display:'flex',alignItems:'center',gap:9,width:'100%',textAlign:'left',cursor:'pointer',opacity:item.isDone?.55:1,fontFamily:'inherit',marginBottom:6,boxSizing:'border-box'}}>
+              <button key={item.id} onClick={()=>onEditTx&&onEditTx({...item,week})} style={{...s.card,display:'flex',alignItems:'center',gap:9,width:'100%',textAlign:'left',cursor:'pointer',opacity:item.isDone?.55:1,fontFamily:'inherit',marginBottom:6,boxSizing:'border-box'}}>
                 <div style={{width:22,height:22,borderRadius:11,border:`1.5px solid ${item.isDone?C.green:C.borderS}`,background:item.isDone?C.green:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{item.isDone&&<span style={{color:'#fff',fontSize:11}}>✓</span>}</div>
                 <span style={{fontSize:16}}>{cat?.emoji||'📦'}</span>
                 <div style={{flex:1}}><div style={{fontSize:13,color:C.text,textDecoration:item.isDone?'line-through':'none'}}>{item.name}</div><div style={{fontSize:10,color:C.muted}}>{mem?.name||''}</div></div>
@@ -809,11 +866,13 @@ function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onAddExtra
   const catTotals=allCats.map(cat=>{const items=planned.filter(p=>p.catId===cat.id);const monthly=items.reduce((s,p)=>s+(p.repeat==='weekly'?p.amount*4.3:p.repeat==='biweekly'?p.amount*2.15:p.amount),0);return{cat,monthly,yearly:monthly*12};}).filter(c=>c.yearly>0).sort((a,b)=>b.yearly-a.yearly);
   const totalYearlyExp=catTotals.reduce((s,c)=>s+c.yearly,0);
   const profit=totalYearlyIncome-totalYearlyExp,maxVal=catTotals[0]?.yearly||1;
-  const now=new Date(),budgetStart=new Date(),budgetEnd=new Date(budgetStart.getTime()+365*86400000);
+  const now=new Date();
+  const budgetStart=new Date(); budgetStart.setHours(0,0,0,0); // начало сегодняшнего дня
+  const budgetEnd=new Date(budgetStart.getTime()+365*86400000);
   const yearsInRange=[...new Set([budgetStart.getFullYear(),budgetEnd.getFullYear()])];
   const allPayments=incomes.flatMap(inc=>{const m=members.find(x=>x.id===inc.memberId);return yearsInRange.flatMap(yr=>buildPaymentSchedule(yr,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0)).filter(p=>p.date>=budgetStart&&p.date<=budgetEnd).map(p=>({...p,memberName:m?.name||'',memberAvatar:m?.avatar||'',...(payments[p.displayLabel]||{})}));}).sort((a,b)=>a.date-b.date);
-  const upcoming=allPayments.filter(p=>p.date>=now).slice(0,6);
-  const shiftedCnt=allPayments.filter(p=>p.date>=now&&p.shifted).length;
+  const upcoming=allPayments.filter(p=>p.date>=budgetStart).slice(0,6);
+  const shiftedCnt=allPayments.filter(p=>p.date>=budgetStart&&p.shifted).length;
   const extraUpcoming=(extraPayments||[]).filter(p=>new Date(p.date)>=now);
   const pad={padding:'14px 14px 80px'};
   return(
@@ -1039,6 +1098,17 @@ function SettingsScreen({state,onEditCat,onAddCat,onEditIncome}){
         })}
       </div>
       <div style={{height:20}}/>
+      {/* Кнопка сброса данных */}
+      <div style={{marginTop:8}}>
+        <button onClick={()=>{
+          if(window.confirm('Сбросить все данные и начать заново?')){
+            localStorage.removeItem('ff_state');
+            window.location.reload();
+          }
+        }} style={{width:'100%',padding:'10px',borderRadius:9,border:`.5px solid ${C.redB}`,background:C.redL,color:C.red,fontSize:12,cursor:'pointer',fontFamily:'inherit'}}>
+          🗑 Сбросить все данные
+        </button>
+      </div>
     </div></div>
   );
 }
@@ -1178,16 +1248,47 @@ function AddTxModal({visible,onClose,onSave,members,planned,customCats=[]}){
 
 const EMOJIS=['🍽️','💄','👗','🏠','🎓','🏦','💳','🚌','🎬','🎁','💊','🏋️','🐾','🐷','📦','🛒','🚗','✈️','🎮','📚','🌿','🎨','💻','📱','🏊','🚴','🎯','🔧','🌸','🍕','☕','🧴','🎸','💈'];
 function EditCatModal({visible,item,members,onClose,onSave,onDelete,customCats=[]}){
+  const now=new Date();
   const[amount,setAmount]=useState('');
   const[repeat,setRepeat]=useState('weekly');
   const[days,setDays]=useState([]);
   const[memberId,setMemberId]=useState('');
   const[catName,setCatName]=useState('');
   const[catEmoji,setCatEmoji]=useState('📦');
-  useEffect(()=>{if(item){setAmount(String(item.amount));setRepeat(item.repeat||'weekly');setDays(Array.isArray(item.days)?item.days:[]);setMemberId(item.memberId||members[0]?.id||'');setCatName(item.name||'');const cat=getCat(item.catId,customCats);setCatEmoji(item.emoji||cat?.emoji||'📦');}}, [item]);
+  // Для разового платежа — конкретная дата
+  const[onceDay,setOnceDay]=useState(now.getDate());
+  const[onceMonth,setOnceMonth]=useState(now.getMonth()+1);
+  const[onceYear,setOnceYear]=useState(now.getFullYear());
+  useEffect(()=>{
+    if(item){
+      setAmount(String(item.amount));
+      setRepeat(item.repeat||'weekly');
+      setDays(Array.isArray(item.days)?item.days:[]);
+      setMemberId(item.memberId||members[0]?.id||'');
+      setCatName(item.name||'');
+      const cat=getCat(item.catId,customCats);
+      setCatEmoji(item.emoji||cat?.emoji||'📦');
+      if(item.onceDate){
+        const d=new Date(item.onceDate);
+        setOnceDay(d.getDate());setOnceMonth(d.getMonth()+1);setOnceYear(d.getFullYear());
+      }
+    }
+  }, [item]);
   if(!item)return null;
   const isNew=item.isNew,cat=getCat(item.catId,customCats)||{};
-  const doSave=()=>{if(isNew&&!catName.trim()){alert('Введите название');return;}onSave({...item,name:isNew?catName.trim():item.name,emoji:isNew?catEmoji:undefined,amount:parseInt(amount)||0,repeat,days,memberId});onClose();};
+  const onceDateObj=new Date(onceYear,onceMonth-1,onceDay);
+  const doSave=()=>{
+    if(isNew&&!catName.trim()){alert('Введите название');return;}
+    onSave({
+      ...item,
+      name:isNew?catName.trim():item.name,
+      emoji:isNew?catEmoji:undefined,
+      amount:parseInt(amount)||0,
+      repeat,days,memberId,
+      onceDate:repeat==='once'?onceDateObj.toISOString():undefined,
+    });
+    onClose();
+  };
   return(
     <Modal visible={visible} onClose={onClose} title={`${isNew?catEmoji:cat.emoji||'📦'} ${isNew?catName||'Новая категория':item.name}`} onSave={doSave}>
       <div style={{padding:16,paddingBottom:40}}>
@@ -1219,8 +1320,98 @@ function EditCatModal({visible,item,members,onClose,onSave,onDelete,customCats=[
           {REPEAT_OPTS.map(r=><button key={r.id} onClick={()=>setRepeat(r.id)} style={{flex:1,padding:'8px 4px',borderRadius:7,border:'none',background:repeat===r.id?C.orangeL:'#f1f5f9',color:repeat===r.id?'#991B1B':C.muted,fontSize:11,fontWeight:repeat===r.id?600:400,cursor:'pointer',fontFamily:'inherit'}}>{r.label}</button>)}
         </div>
         {repeat==='monthly'&&<DayPicker selected={days} onToggle={d=>setDays(p=>p.includes(d)?p.filter(x=>x!==d):[...p,d].sort((a,b)=>a-b))} title={`Числа: ${days.length===0?'не выбрано':days.join(', ')}`}/>}
+        {repeat==='once'&&(
+          <div style={{...s.card,background:C.blueL,border:`.5px solid ${C.blueB}`,padding:12,marginBottom:12}}>
+            <div style={{fontSize:12,fontWeight:700,color:C.blue,marginBottom:8}}>📅 Дата платежа</div>
+            <div style={{display:'flex',gap:8,marginBottom:10}}>
+              {[now.getFullYear(),now.getFullYear()+1,now.getFullYear()+2].map(y=>(
+                <button key={y} onClick={()=>setOnceYear(y)} style={{flex:1,padding:6,borderRadius:8,border:`.5px solid ${onceYear===y?C.orangeB:C.border}`,background:onceYear===y?C.orangeL:'#fff',color:onceYear===y?'#991B1B':C.text,fontSize:12,fontWeight:onceYear===y?600:400,cursor:'pointer',fontFamily:'inherit'}}>{y}</button>
+              ))}
+            </div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:10}}>
+              {MONTH_FULL.map((name,i)=>{const m=i+1,active=onceMonth===m;return(
+                <button key={m} onClick={()=>setOnceMonth(m)} style={{padding:'4px 8px',borderRadius:7,border:`.5px solid ${active?C.orangeB:C.border}`,background:active?C.orangeL:'#fff',color:active?'#991B1B':C.text,fontSize:11,fontWeight:active?600:400,cursor:'pointer',fontFamily:'inherit',minWidth:'30%'}}>{name}</button>
+              );})}
+            </div>
+            <DayPicker selected={[onceDay]} onToggle={d=>setOnceDay(d)}/>
+            <div style={{fontSize:12,fontWeight:600,color:C.blue,marginTop:4}}>
+              ✓ {onceDay} {MONTH_SHORT[onceMonth-1]} {onceYear}
+            </div>
+          </div>
+        )}
         <Btn label={isNew?'Создать категорию':'Сохранить'} onClick={doSave}/>
         {!isNew&&<button onClick={()=>{if(window.confirm('Удалить категорию?')){onDelete(item.id);onClose();}}} style={{...s.btn,background:'transparent',border:`1px solid ${C.orange}`,color:C.orange,marginTop:8}}>Удалить</button>}
+      </div>
+    </Modal>
+  );
+}
+
+function EditTxModal({visible,item,onClose,onSave,onDelete,members,customCats=[]}){
+  const[amount,setAmount]=useState('');
+  const[note,setNote]=useState('');
+  const[memberId,setMemberId]=useState('');
+  const[isDone,setIsDone]=useState(false);
+  useEffect(()=>{
+    if(item){
+      setAmount(String(item.amount||''));
+      setNote(item.note||'');
+      setMemberId(item.memberId||members[0]?.id||'');
+      setIsDone(item.isDone||false);
+    }
+  },[item]);
+  if(!item)return null;
+  const cat=getCat(item.catId,customCats);
+  const isIncome=item.type==='income';
+  const doSave=()=>{
+    const n=parseInt(amount)||0;
+    if(!n){alert('Введите сумму');return;}
+    onSave({...item,amount:n,note,memberId,isDone});
+    onClose();
+  };
+  return(
+    <Modal visible={visible} onClose={onClose}
+      title={`${cat?.emoji||'📦'} ${item.name||cat?.name||'Запись'}`}
+      onSave={doSave}>
+      <div style={{padding:16,paddingBottom:40}}>
+        <div style={{...s.card,background:isIncome?C.greenL:C.orangeL,border:`.5px solid ${isIncome?C.greenB:C.orangeB}`,marginBottom:12,padding:10}}>
+          <div style={{fontSize:11,fontWeight:600,color:isIncome?C.green:C.orange}}>
+            {isIncome?'💰 Доход':'📤 Расход'} · {item.week?weekLabel(item.week):''}
+          </div>
+        </div>
+        <div style={s.card}>
+          <div style={{...s.row,borderBottom:`.5px solid ${C.border}`,justifyContent:'space-between'}}>
+            <span style={{fontSize:11,color:C.muted}}>Сумма</span>
+            <div style={{display:'flex',alignItems:'center',gap:4}}>
+              <input type="text" inputMode="numeric" value={amount} onChange={e=>setAmount(e.target.value)}
+                style={{width:100,textAlign:'right',border:'none',fontSize:15,fontWeight:600,outline:'none',fontFamily:'inherit',color:isIncome?C.green:C.orange}}/>
+              <span style={{fontSize:12,color:C.muted}}>₽</span>
+            </div>
+          </div>
+          <div style={{...s.row,borderBottom:`.5px solid ${C.border}`,justifyContent:'space-between'}}>
+            <span style={{fontSize:11,color:C.muted}}>Выполнено</span>
+            <div onClick={()=>setIsDone(p=>!p)} style={{width:44,height:26,borderRadius:13,cursor:'pointer',position:'relative',background:isDone?C.green:'#E2E8F0'}}>
+              <div style={{position:'absolute',top:3,left:isDone?21:3,width:20,height:20,borderRadius:10,background:'#fff',boxShadow:'0 1px 3px rgba(0,0,0,0.2)',transition:'left .2s'}}/>
+            </div>
+          </div>
+          <div style={{...s.row,borderBottom:'none'}}>
+            <span style={{fontSize:11,color:C.muted}}>Участник</span>
+            <div style={{display:'flex',gap:6}}>
+              {members.map(m=>(
+                <button key={m.id} onClick={()=>setMemberId(m.id)} style={{padding:'5px 9px',borderRadius:7,border:`.5px solid ${memberId===m.id?C.orangeB:C.border}`,background:memberId===m.id?C.orangeL:'#f8fafc',color:memberId===m.id?'#991B1B':C.muted,fontSize:10,cursor:'pointer',fontFamily:'inherit'}}>
+                  {m.avatar} {m.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div style={{fontSize:10,color:C.muted,textTransform:'uppercase',letterSpacing:.5,marginBottom:6}}>Комментарий</div>
+        <textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="Комментарий" rows={2}
+          style={{...s.input,resize:'none',marginBottom:14}}/>
+        <Btn label="Сохранить" onClick={doSave}/>
+        <button onClick={()=>{if(window.confirm('Удалить запись?')){onDelete(item.id);onClose();}}}
+          style={{...s.btn,background:'transparent',border:`1px solid ${C.red}`,color:C.red,marginTop:8}}>
+          Удалить
+        </button>
       </div>
     </Modal>
   );
@@ -1297,8 +1488,17 @@ function TabBar({active,onPress}){
 }
 
 export default function App(){
-  const[consented,setConsented]=useState(false);
-  const[onboarded,setOnboarded]=useState(false);
+  // ── localStorage: загружаем сохранённые данные при старте ──────────────
+  const loadFromStorage = () => {
+    try {
+      const saved = localStorage.getItem('ff_state');
+      return saved ? JSON.parse(saved) : null;
+    } catch { return null; }
+  };
+  const savedState = loadFromStorage();
+
+  const[consented,setConsentedRaw]=useState(()=>savedState?.consented||false);
+  const[onboarded,setOnboardedRaw]=useState(()=>savedState?.onboarded||false);
   const[tab,setTab]=useState('today');
   const[showAdd,setShowAdd]=useState(false);
   const[showEdit,setShowEdit]=useState(false);
@@ -1307,15 +1507,45 @@ export default function App(){
   const[editPayment,setEditPayment]=useState(null);
   const[showAddExtra,setShowAddExtra]=useState(false);
   const[showEditIncome,setShowEditIncome]=useState(false);
+  const[showEditTx,setShowEditTx]=useState(false);
+  const[editTxItem,setEditTxItem]=useState(null);
   const[editIncomeItem,setEditIncomeItem]=useState(null);
   const[editIncomeMember,setEditIncomeMember]=useState(null);
-  const[appState,setAppState]=useState({
-    familyName:'Ивановы',startBalance:50000,members:DEMO_MEMBERS,
-    incomes:[{id:'i1',memberId:'m1',gross:100000,net:calcAvgMonthlyNet(100000),salaryDays:[25],advanceDays:[10],advancePct:'40'},{id:'i2',memberId:'m2',gross:120000,net:calcAvgMonthlyNet(120000),salaryDays:[30],advanceDays:[15],advancePct:'40'}],
-    planned:DEMO_PLANNED,weekItems:{},streak:12,customCats:[],payments:{},extraPayments:[],transactions:[],budgetStartDate:new Date().toISOString(),
+  const[appState,setAppState]=useState(()=>{
+    if(savedState?.appState) return savedState.appState;
+    return {
+      familyName:'Ивановы',startBalance:50000,members:DEMO_MEMBERS,
+      incomes:[{id:'i1',memberId:'m1',gross:100000,net:calcAvgMonthlyNet(100000),salaryDays:[25],advanceDays:[10],advancePct:'40'},{id:'i2',memberId:'m2',gross:120000,net:calcAvgMonthlyNet(120000),salaryDays:[30],advanceDays:[15],advancePct:'40'}],
+      planned:DEMO_PLANNED,weekItems:{},streak:12,customCats:[],payments:{},extraPayments:[],transactions:[],budgetStartDate:new Date().toISOString(),
+    };
   });
+
+  // Обёртки для сохранения флагов в localStorage
+  const setConsented = (v) => { setConsentedRaw(v); try{ localStorage.setItem('ff_state', JSON.stringify({...loadFromStorage(), consented:v})); }catch{} };
+  const setOnboarded = (v) => { setOnboardedRaw(v); try{ localStorage.setItem('ff_state', JSON.stringify({...loadFromStorage(), onboarded:v})); }catch{} };
+
+  // Автосохранение appState при каждом изменении
+  useEffect(()=>{
+    if(!onboarded) return;
+    try {
+      const toSave = {consented:true, onboarded:true, appState};
+      localStorage.setItem('ff_state', JSON.stringify(toSave));
+    } catch(e) {
+      // localStorage может быть переполнен (weekItems большой)
+      // сохраняем без weekItems, восстановим при загрузке
+      try {
+        const {weekItems, ...rest} = appState;
+        localStorage.setItem('ff_state', JSON.stringify({consented:true, onboarded:true, appState:rest}));
+      } catch {}
+    }
+  }, [appState, onboarded]);
+
   useEffect(()=>{if(!onboarded)return;setAppState(prev=>{if(Object.keys(prev.weekItems).length>0)return prev;return{...prev,weekItems:generateAllWeeks(prev.planned)};});}, [onboarded]);
-  const handleOnboardingDone=data=>{setAppState(prev=>({...prev,...data,weekItems:generateAllWeeks(data.planned),streak:1,budgetStartDate:new Date().toISOString()}));setOnboarded(true);};
+  const handleOnboardingDone=data=>{
+    const newState={...data,weekItems:generateAllWeeks(data.planned),streak:1,budgetStartDate:new Date().toISOString()};
+    setAppState(newState);
+    setOnboarded(true);
+  };
   const handleToggle=(week,itemId)=>setAppState(prev=>({...prev,weekItems:{...prev.weekItems,[week]:(prev.weekItems[week]||[]).map(i=>i.id===itemId?{...i,isDone:!i.isDone}:i)}}));
   const handleAddTx=item=>{const week=todayKey();const tx={...item,week,date:new Date().toISOString(),isDone:true};setAppState(prev=>({...prev,transactions:[tx,...(prev.transactions||[])],weekItems:item.type==='expense'?{...prev.weekItems,[week]:[tx,...(prev.weekItems[week]||[])]}:prev.weekItems}));};
   const handleEditPlanned=updated=>{setAppState(prev=>{const np=updated.isNew?[...prev.planned,updated]:prev.planned.map(p=>p.id===updated.id?updated:p);return{...prev,planned:np,weekItems:generateAllWeeks(np)};});};
@@ -1324,6 +1554,29 @@ export default function App(){
   const handleEditPayment=payment=>{setEditPayment(payment);setShowEditPay(true);};
   const handleSavePayment=payment=>setAppState(prev=>({...prev,payments:{...prev.payments,[payment.displayLabel]:{actualAmount:payment.actualAmount,isDone:payment.isDone,note2:payment.note2}}}));
   const handleAddExtra=payment=>setAppState(prev=>({...prev,extraPayments:[...prev.extraPayments,payment]}));
+  const handleEditTx=(item)=>{setEditTxItem(item);setShowEditTx(true);};
+  const handleSaveTx=(updated)=>{
+    setAppState(prev=>{
+      // Обновляем в transactions (доп. записи)
+      const newTx=(prev.transactions||[]).map(t=>t.id===updated.id?updated:t);
+      // Обновляем в weekItems (плановые позиции)
+      const newWeekItems={};
+      Object.keys(prev.weekItems).forEach(wk=>{
+        newWeekItems[wk]=(prev.weekItems[wk]||[]).map(i=>i.id===updated.id?updated:i);
+      });
+      return{...prev,transactions:newTx,weekItems:newWeekItems};
+    });
+  };
+  const handleDeleteTx=(id)=>{
+    setAppState(prev=>{
+      const newTx=(prev.transactions||[]).filter(t=>t.id!==id);
+      const newWeekItems={};
+      Object.keys(prev.weekItems).forEach(wk=>{
+        newWeekItems[wk]=(prev.weekItems[wk]||[]).filter(i=>i.id!==id);
+      });
+      return{...prev,transactions:newTx,weekItems:newWeekItems};
+    });
+  };
   const handleEditIncome=(inc,member)=>{setEditIncomeItem(inc);setEditIncomeMember(member);setShowEditIncome(true);};
   const handleSaveIncome=updatedInc=>{
     setAppState(prev=>{
@@ -1349,8 +1602,8 @@ export default function App(){
         </div>
       </div>
       <div style={{flex:1,overflow:'hidden',display:'flex',flexDirection:'column',minHeight:0}}>
-        {tab==='today'&&<TodayScreen state={appState} onToggle={handleToggle} onAdd={()=>setShowAdd(true)} onEditPayment={handleEditPayment}/>}
-        {tab==='plan'&&<PlanScreen state={appState} onToggle={handleToggle} onAdd={()=>setShowAdd(true)}/>}
+        {tab==='today'&&<TodayScreen state={appState} onToggle={handleToggle} onAdd={()=>setShowAdd(true)} onEditPayment={handleEditPayment} onEditTx={handleEditTx}/>}
+        {tab==='plan'&&<PlanScreen state={appState} onToggle={handleToggle} onAdd={()=>setShowAdd(true)} onEditTx={handleEditTx}/>}
         {tab==='budget'&&<BudgetScreen state={appState} onEditPlanned={item=>{setEditItem(item);setShowEdit(true);}} onAddPlanned={handleAddPlanned} onEditPayment={handleEditPayment} onAddExtra={()=>setShowAddExtra(true)}/>}
         {tab==='health'&&<HealthScreen state={appState}/>}
         {tab==='settings'&&<SettingsScreen state={appState} onEditCat={item=>{setEditItem(item);setShowEdit(true);}} onAddCat={handleAddPlanned} onEditIncome={handleEditIncome}/>}
@@ -1360,6 +1613,9 @@ export default function App(){
       <EditCatModal visible={showEdit} item={editItem} members={appState.members} customCats={appState.customCats} onClose={()=>{setShowEdit(false);setEditItem(null);}} onSave={item=>{const{isNew,...rest}=item||{};handleEditPlanned(isNew?{...rest,isNew:true}:rest);}} onDelete={handleDeletePlanned}/>
       <EditPaymentModal visible={showEditPay} payment={editPayment} onClose={()=>{setShowEditPay(false);setEditPayment(null);}} onSave={handleSavePayment}/>
       <AddExtraModal visible={showAddExtra} onClose={()=>setShowAddExtra(false)} onSave={handleAddExtra} members={appState.members}/>
+      <EditTxModal visible={showEditTx} item={editTxItem} members={appState.members} customCats={appState.customCats}
+        onClose={()=>{setShowEditTx(false);setEditTxItem(null);}}
+        onSave={handleSaveTx} onDelete={id=>{handleDeleteTx(id);setShowEditTx(false);setEditTxItem(null);}}/>
       <EditIncomeModal visible={showEditIncome} income={editIncomeItem} member={editIncomeMember} onClose={()=>{setShowEditIncome(false);setEditIncomeItem(null);setEditIncomeMember(null);}} onSave={inc=>{handleSaveIncome(inc);setShowEditIncome(false);setEditIncomeItem(null);setEditIncomeMember(null);}}/>
     </div>
   );
