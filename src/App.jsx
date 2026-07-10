@@ -577,12 +577,30 @@ function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx}){
   const weekTxs=(transactions||[]).filter(t=>t.week===week);
   const txIncome=weekTxs.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
   const txExpense=weekTxs.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
-  const balance=startBalance+(totalNet-monthlyExp)+txIncome-txExpense;
+
+  // Фактически полученные выплаты (зарплата/аванс отмеченные как isDone)
+  const year=new Date().getFullYear();
+  const allPaymentsActual=incomes.flatMap(inc=>{
+    const sch=buildPaymentSchedule(year,inc.salaryDays||[],inc.advanceDays||[],
+      parseInt(inc.advancePct)||40,inc.gross||0);
+    return sch.map(p=>({...p,...(payments[p.displayLabel]||{})}));
+  });
+  // Сумма всех выплат которые отмечены как полученные (isDone)
+  const actualSalaryReceived=allPaymentsActual
+    .filter(p=>p.isDone)
+    .reduce((s,p)=>s+(p.actualAmount||p.amount),0);
+  // Сумма всех плановых расходов которые отмечены как выполненные (isDone) по всем неделям
+  const allSpentTotal=Object.values(weekItems)
+    .flat()
+    .filter(i=>i.isDone)
+    .reduce((s,i)=>s+i.amount,0)+txExpense;
+
+  // Баланс = стартовый + фактически полученные доходы + доп.доходы − фактически потраченное
+  const balance=startBalance+actualSalaryReceived+txIncome-allSpentTotal;
   const spent=wItems.filter(i=>i.isDone).reduce((s,i)=>s+i.amount,0)+txExpense;
   const wPlan=wItems.reduce((s,i)=>s+i.amount,0);
   const pct=wPlan>0?Math.round(spent/wPlan*100):0;
   const upcoming=wItems.filter(i=>!i.isDone).slice(0,4);
-  const year=new Date().getFullYear();
   const now=new Date(); now.setHours(0,0,0,0); // начало дня чтобы сегодняшние выплаты не пропадали
   const allUpcomingPay=incomes.flatMap(inc=>{
     const m=members.find(x=>x.id===inc.memberId);
@@ -1098,15 +1116,19 @@ function SettingsScreen({state,onEditCat,onAddCat,onEditIncome}){
         })}
       </div>
       <div style={{height:20}}/>
-      {/* Кнопка сброса данных */}
-      <div style={{marginTop:8}}>
+      {/* Сброс данных */}
+      <SecTitle>СБРОС</SecTitle>
+      <div style={{...s.card,background:C.redL,border:`.5px solid ${C.redB}`,padding:14}}>
+        <div style={{fontSize:12,color:C.red,marginBottom:8,lineHeight:'18px'}}>
+          Удалит все данные бюджета, категории и историю. Вернёт на первый экран.
+        </div>
         <button onClick={()=>{
-          if(window.confirm('Сбросить все данные и начать заново?')){
+          if(window.confirm('Удалить все данные и начать заново?\nЭто действие нельзя отменить.')){
             localStorage.removeItem('ff_state');
             window.location.reload();
           }
-        }} style={{width:'100%',padding:'10px',borderRadius:9,border:`.5px solid ${C.redB}`,background:C.redL,color:C.red,fontSize:12,cursor:'pointer',fontFamily:'inherit'}}>
-          🗑 Сбросить все данные
+        }} style={{width:'100%',padding:'11px',borderRadius:9,border:`1px solid ${C.red}`,background:C.red,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>
+          🗑 Сбросить все данные и начать заново
         </button>
       </div>
     </div></div>
