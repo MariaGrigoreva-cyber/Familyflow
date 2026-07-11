@@ -331,7 +331,7 @@ function Onboarding({onDone}){
         <div style={{minHeight:'100dvh',background:'#0f172a',overflowY:'auto',boxSizing:'border-box'}}>
           <div style={{padding:'24px 24px 48px'}}>
             <button onClick={onBack} style={{background:'none',border:'none',cursor:'pointer',fontSize:13,color:'rgba(255,255,255,0.35)',fontFamily:'inherit',marginBottom:24,padding:0,display:'block'}}>← Назад</button>
-            <div style={{fontSize:11,color:C.orange,fontWeight:700,letterSpacing:'1.5px',marginBottom:12}}>МЕТОДИКА</div>
+            <div style={{fontSize:11,color:C.orange,fontWeight:700,letterSpacing:'1.5px',marginBottom:12}}>КАК ЭТО РАБОТАЕТ</div>
             <div style={{fontSize:24,fontWeight:800,color:'#fff',lineHeight:'32px',marginBottom:6}}>Философия трёх<br/>направлений</div>
             <div style={{fontSize:13,color:'rgba(255,255,255,0.45)',marginBottom:28,lineHeight:'20px'}}>Разделите все расходы на три смысловых потока.</div>
             {[{e:'🛡️',t:'Защита',s:'Фундамент вашей стабильности',col:'#F87171',bg:'rgba(248,113,113,0.08)',bdr:'rgba(248,113,113,0.2)',d:'Обязательные платежи и резервный фонд.',items:['🏦 Ипотека и кредиты','🔌 Коммунальные платежи','🛡️ Страховки','🐷 Резерв (Piggy Bank)'],pct:'50–60%'},{e:'🍽️',t:'Жизнь',s:'Качество каждого дня',col:'#FBBF24',bg:'rgba(251,191,36,0.08)',bdr:'rgba(251,191,36,0.2)',d:'Ежедневные расходы на комфорт и радость.',items:['🍽️ Еда и продукты','🚌 Транспорт','💊 Здоровье и красота','🎬 Развлечения'],pct:'20–30%'},{e:'🎯',t:'Мечты',s:'То, ради чего стоит планировать',col:'#34D399',bg:'rgba(52,211,153,0.08)',bdr:'rgba(52,211,153,0.2)',d:'Накопления на важные цели.',items:['✈️ Отпуск и путешествия','🎓 Образование','🏠 Крупные покупки','📈 Инвестиции'],pct:'10–20%'}].map((b,i)=>(
@@ -683,11 +683,20 @@ function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx}){
         :upcoming.map(item=>{
           const cat=getCat(item.catId,customCats),mem=members.find(m=>m.id===item.memberId);
           return(
-            <button key={item.id} onClick={()=>onEditTx&&onEditTx({...item,week})} onDoubleClick={()=>onToggle(week,item.id)} style={{...s.card,display:'flex',alignItems:'center',gap:9,width:'100%',textAlign:'left',cursor:'pointer',fontFamily:'inherit',marginBottom:6,boxSizing:'border-box'}}>
+            <button key={item.id}
+              onClick={()=>onToggle(week,item.id)}
+              onContextMenu={e=>{e.preventDefault();onEditTx&&onEditTx({...item,week});}}
+              style={{...s.card,display:'flex',alignItems:'center',gap:9,width:'100%',textAlign:'left',cursor:'pointer',fontFamily:'inherit',marginBottom:6,boxSizing:'border-box',WebkitTouchCallout:'none'}}>
               <div style={{width:22,height:22,borderRadius:11,border:`1.5px solid ${item.isDone?C.green:C.borderS}`,background:item.isDone?C.green:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{item.isDone&&<span style={{color:'#fff',fontSize:11}}>✓</span>}</div>
               <div style={{width:34,height:34,borderRadius:9,background:cat?.color||'#F1F5F9',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,flexShrink:0}}>{cat?.emoji||'📦'}</div>
               <div style={{flex:1}}><div style={{fontSize:13,color:C.text,textDecoration:item.isDone?'line-through':'none'}}>{item.name}</div><div style={{fontSize:10,color:C.muted}}>{mem?.name||''}</div></div>
-              <div style={{fontSize:13,fontWeight:600,color:item.isDone?C.green:C.orange}}>{fmt(item.amount)}</div>
+              <div style={{display:'flex',alignItems:'center',gap:6}}>
+                <div style={{fontSize:13,fontWeight:600,color:item.isDone?C.green:C.orange}}>{fmt(item.amount)}</div>
+                <div onClick={e=>{e.stopPropagation();onEditTx&&onEditTx({...item,week});}}
+                  style={{width:24,height:24,borderRadius:12,background:'rgba(0,0,0,0.05)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',flexShrink:0}}>
+                  <span style={{fontSize:11}}>✏️</span>
+                </div>
+              </div>
             </button>
           );
         })
@@ -700,7 +709,7 @@ function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx}){
 // ДЕНЕЖНЫЙ ПОТОК
 // ════════════════════════════════════════════════════════════════════════
 function PlanScreen({state,onToggle,onAdd,onEditTx}){
-  const{members,planned,weekItems,incomes,customCats=[],transactions=[]}=state;
+  const{members,planned,weekItems,incomes,customCats=[],transactions=[],payments={}}=state;
   const curWeek=todayKey();
   const[viewMode,setViewMode]=useState('detail');
   const[week,setWeek]=useState(curWeek);
@@ -714,7 +723,8 @@ function PlanScreen({state,onToggle,onAdd,onEditTx}){
   const weekStart=weekKeyToDate(week),weekEnd=new Date(weekStart.getTime()+6*86400000);
   const weekIncome=incomes.reduce((s,inc)=>{
     const yr=weekStart.getFullYear();
-    const sch=buildPaymentSchedule(yr,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0);
+    const sch=buildPaymentSchedule(yr,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0)
+      .map(p=>({...p,...(payments[p.displayLabel]||{})})); // учитываем скорректированные суммы
     return s+sch.filter(p=>p.date>=weekStart&&p.date<=weekEnd).reduce((ss,p)=>ss+(p.actualAmount||p.amount),0);
   },0);
   const weekTxIncome=(transactions||[]).filter(t=>t.week===week&&t.type==='income').reduce((s,t)=>s+t.amount,0);
@@ -726,7 +736,7 @@ function PlanScreen({state,onToggle,onAdd,onEditTx}){
     const wSp=items.filter(x=>x.isDone).reduce((s,x)=>s+x.amount,0);
     const wTot=items.reduce((s,x)=>s+x.amount,0);
     const wS=weekKeyToDate(wk),wE=new Date(wS.getTime()+6*86400000);
-    const wInc=incomes.reduce((s,inc)=>{const yr=wS.getFullYear();const sch=buildPaymentSchedule(yr,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0);return s+sch.filter(p=>p.date>=wS&&p.date<=wE).reduce((ss,p)=>ss+(p.actualAmount||p.amount),0);},0);
+    const wInc=incomes.reduce((s,inc)=>{const yr=wS.getFullYear();const sch=buildPaymentSchedule(yr,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0).map(p=>({...p,...(payments[p.displayLabel]||{})}));return s+sch.filter(p=>p.date>=wS&&p.date<=wE).reduce((ss,p)=>ss+(p.actualAmount||p.amount),0);},0);
     const txInc=(transactions||[]).filter(t=>t.week===wk&&t.type==='income').reduce((s,t)=>s+t.amount,0);
     return{wk,wSp,wTot,wInc:wInc+txInc,bal:(wInc+txInc)-wTot};
   };
@@ -1093,7 +1103,130 @@ function HealthScreen({state}){
 function SettingsScreen({state,onEditCat,onAddCat,onEditIncome}){
   const{members,incomes,planned,familyName,customCats=[]}=state;
   const allCats=[...DEFAULT_CATS,...customCats];
+  const[showHow,setShowHow]=useState(false);
   const pad={padding:'14px 14px 80px'};
+
+  // Слайды "Как это работает"
+  const HOW_SLIDES=[
+    // Слайд 1: Система счетов
+    ()=>(
+      <div style={{background:'#1a1a2e',minHeight:'100%',padding:'28px 20px 36px',boxSizing:'border-box'}}>
+        <div style={{textAlign:'center',marginBottom:28}}>
+          <div style={{fontSize:11,color:C.orange,fontWeight:700,letterSpacing:'2px',marginBottom:10}}>КАК ЭТО РАБОТАЕТ</div>
+          <div style={{fontSize:22,fontWeight:800,color:'#fff',lineHeight:1.3,marginBottom:8}}>Система четырёх счетов</div>
+          <div style={{fontSize:13,color:'rgba(255,255,255,0.45)',lineHeight:1.6,maxWidth:300,margin:'0 auto'}}>Один ритуал в начале каждой недели — и деньги работают правильно</div>
+        </div>
+        <div style={{display:'flex',justifyContent:'center',marginBottom:8}}>
+          <div style={{background:'rgba(22,163,74,0.15)',border:'0.5px solid rgba(22,163,74,0.4)',borderRadius:12,padding:'10px 24px',textAlign:'center'}}>
+            <div style={{fontSize:10,color:'rgba(22,163,74,0.7)',letterSpacing:'1px',fontWeight:600,marginBottom:2}}>ДОХОД</div>
+            <div style={{fontSize:15,fontWeight:700,color:'#4ade80'}}>💰 Зарплата семьи</div>
+          </div>
+        </div>
+        <div style={{display:'flex',justifyContent:'center',marginBottom:8}}>
+          <div style={{display:'flex',flexDirection:'column',alignItems:'center'}}>
+            <div style={{width:1.5,height:20,background:'rgba(22,163,74,0.5)'}}/>
+            <div style={{width:0,height:0,borderLeft:'5px solid transparent',borderRight:'5px solid transparent',borderTop:'7px solid rgba(22,163,74,0.5)'}}/>
+          </div>
+        </div>
+        <div style={{background:'rgba(29,158,117,0.18)',border:'1.5px solid rgba(29,158,117,0.5)',borderRadius:14,padding:'14px 16px',marginBottom:6,textAlign:'center',position:'relative'}}>
+          <div style={{position:'absolute',top:-9,left:'50%',transform:'translateX(-50%)',background:'#1a1a2e',padding:'0 8px'}}>
+            <span style={{fontSize:9,color:'#1D9E75',fontWeight:700,letterSpacing:'1.5px'}}>ГЛАВНЫЙ СЧЁТ</span>
+          </div>
+          <div style={{fontSize:18,marginBottom:4}}>🏦</div>
+          <div style={{fontSize:15,fontWeight:700,color:'#4ade80',marginBottom:2}}>Saving</div>
+          <div style={{fontSize:11,color:'rgba(52,211,153,0.6)'}}>Все деньги поступают сюда · трогать нельзя</div>
+        </div>
+        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+          <div style={{flex:1,height:'0.5px',background:'rgba(255,255,255,0.1)'}}/>
+          <div style={{fontSize:10,color:'rgba(255,255,255,0.3)',whiteSpace:'nowrap'}}>каждый понедельник → переводим по плану</div>
+          <div style={{flex:1,height:'0.5px',background:'rgba(255,255,255,0.1)'}}/>
+        </div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6,marginBottom:20,paddingTop:14,position:'relative'}}>
+          <div style={{position:'absolute',top:0,left:0,right:0,display:'flex',justifyContent:'space-around',pointerEvents:'none'}}>
+            {[['rgba(248,113,113,0.5)'],['rgba(251,191,36,0.5)'],['rgba(96,165,250,0.5)']].map(([col],i)=>(
+              <div key={i} style={{display:'flex',flexDirection:'column',alignItems:'center'}}>
+                <div style={{width:1,height:8,background:col}}/>
+                <div style={{width:0,height:0,borderLeft:'4px solid transparent',borderRight:'4px solid transparent',borderTop:`5px solid ${col}`}}/>
+              </div>
+            ))}
+          </div>
+          {[['🛡️','ЗАЩИТА','#F87171','rgba(248,113,113,0.1)','rgba(248,113,113,0.3)','Piggy Bank','Накоп. счёт №2','rgba(248,113,113,0.6)'],
+            ['🍽️','ЖИЗНЬ','#FBBF24','rgba(251,191,36,0.1)','rgba(251,191,36,0.3)','Карточный','Карта на каждый день','rgba(251,191,36,0.6)'],
+            ['🛋️','КОМФОРТ','#60A5FA','rgba(96,165,250,0.1)','rgba(96,165,250,0.3)','До востр.','Крупные покупки','rgba(96,165,250,0.6)'],
+          ].map(([emoji,label,col,bg,bdr,title,sub,subcol])=>(
+            <div key={label} style={{background:bg,border:`0.5px solid ${bdr}`,borderRadius:12,padding:'12px 8px',textAlign:'center'}}>
+              <div style={{fontSize:20,marginBottom:5}}>{emoji}</div>
+              <div style={{fontSize:10,fontWeight:700,color:col,letterSpacing:'.5px',marginBottom:3}}>{label}</div>
+              <div style={{fontSize:11,fontWeight:600,color:'rgba(255,255,255,0.8)',marginBottom:5}}>{title}</div>
+              <div style={{height:'0.5px',background:bdr,marginBottom:5}}/>
+              <div style={{fontSize:10,color:subcol,lineHeight:1.5}}>{sub}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{background:'rgba(255,255,255,0.04)',border:'0.5px solid rgba(255,255,255,0.08)',borderRadius:12,padding:14,marginBottom:16}}>
+          <div style={{fontSize:10,color:'rgba(255,255,255,0.3)',letterSpacing:'1px',fontWeight:600,marginBottom:10}}>ЧТО ПЕРЕВОДИМ В ПОНЕДЕЛЬНИК</div>
+          {[['🐷','Piggy Bank → накопительный счёт','#F87171','rgba(248,113,113,0.15)','rgba(248,113,113,0.3)'],
+            ['🍽️','Еда, транспорт → карточный счёт','#FBBF24','rgba(251,191,36,0.15)','rgba(251,191,36,0.3)'],
+            ['👗','Одежда, дом, кредиты → до востр.','#60A5FA','rgba(96,165,250,0.15)','rgba(96,165,250,0.3)'],
+          ].map(([icon,text,col,bg,bdr])=>(
+            <div key={text} style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
+              <div style={{width:28,height:28,borderRadius:8,background:bg,border:`0.5px solid ${bdr}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,flexShrink:0}}>{icon}</div>
+              <div style={{flex:1,fontSize:12,color:'rgba(255,255,255,0.6)'}}>{text}</div>
+              <div style={{fontSize:11,fontWeight:600,color:col}}>=план</div>
+            </div>
+          ))}
+        </div>
+        <div style={{background:'rgba(224,58,34,0.1)',border:'0.5px solid rgba(224,58,34,0.3)',borderRadius:12,padding:14,textAlign:'center'}}>
+          <div style={{fontSize:13,fontWeight:700,color:'#fff',marginBottom:4}}>Saving остаётся нетронутым 🏦</div>
+          <div style={{fontSize:12,color:'rgba(255,255,255,0.5)',lineHeight:1.6}}>Вы тратите только то что перевели.<br/>Всё остальное работает на вас.</div>
+        </div>
+      </div>
+    ),
+    // Слайд 2: Философия 3 направлений (уже есть в онбординге — используем тот же контент)
+    ()=>(
+      <div style={{minHeight:'100%',background:'#0f172a',overflowY:'auto',boxSizing:'border-box'}}>
+        <div style={{padding:'24px 20px 48px'}}>
+          <div style={{fontSize:11,color:C.orange,fontWeight:700,letterSpacing:'1.5px',marginBottom:12}}>КАК ЭТО РАБОТАЕТ</div>
+          <div style={{fontSize:24,fontWeight:800,color:'#fff',lineHeight:'32px',marginBottom:6}}>Философия трёх<br/>направлений</div>
+          <div style={{fontSize:13,color:'rgba(255,255,255,0.45)',marginBottom:28,lineHeight:'20px'}}>Разделите все расходы на три смысловых потока.</div>
+          {[{e:'🛡️',t:'Защита',s:'Фундамент вашей стабильности',col:'#F87171',bg:'rgba(248,113,113,0.08)',bdr:'rgba(248,113,113,0.2)',d:'Обязательные платежи и резервный фонд.',items:['🏦 Ипотека и кредиты','🔌 Коммунальные платежи','🛡️ Страховки','🐷 Резерв (Piggy Bank)'],pct:'50–60%'},
+            {e:'🍽️',t:'Жизнь',s:'Качество каждого дня',col:'#FBBF24',bg:'rgba(251,191,36,0.08)',bdr:'rgba(251,191,36,0.2)',d:'Ежедневные расходы на комфорт и радость.',items:['🍽️ Еда и продукты','🚌 Транспорт','💊 Здоровье и красота','🎬 Развлечения'],pct:'20–30%'},
+            {e:'🛋️',t:'Комфорт',s:'Качество вашей жизни',col:'#60A5FA',bg:'rgba(96,165,250,0.08)',bdr:'rgba(96,165,250,0.2)',d:'Крупные и нерегулярные расходы на себя.',items:['👗 Одежда и красота','🏠 Дом и ремонт','💳 Кредиты','✈️ Путешествия'],pct:'10–20%'},
+          ].map((b,i)=>(
+            <div key={i} style={{background:b.bg,borderRadius:16,border:`0.5px solid ${b.bdr}`,padding:16,marginBottom:14}}>
+              <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:10}}>
+                <div style={{width:52,height:52,borderRadius:16,background:'rgba(255,255,255,0.07)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,flexShrink:0}}>{b.e}</div>
+                <div style={{flex:1}}><div style={{fontSize:20,fontWeight:800,color:b.col}}>{b.t}</div><div style={{fontSize:11,color:'rgba(255,255,255,0.45)',marginTop:1}}>{b.s}</div></div>
+                <span style={{fontSize:9,color:b.col,fontWeight:600,background:b.bg,padding:'4px 8px',borderRadius:8,border:`0.5px solid ${b.bdr}`,flexShrink:0}}>{b.pct}</span>
+              </div>
+              <div style={{fontSize:12,color:'rgba(255,255,255,0.5)',lineHeight:'18px',marginBottom:10}}>{b.d}</div>
+              <div style={{display:'flex',flexDirection:'column',gap:5}}>{b.items.map((item,j)=><div key={j} style={{display:'flex',alignItems:'center',gap:8}}><div style={{width:4,height:4,borderRadius:2,background:b.col,opacity:.6,flexShrink:0}}/><span style={{fontSize:12,color:'rgba(255,255,255,0.6)'}}>{item}</span></div>)}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    ),
+  ];
+  const[howSlide,setHowSlide]=useState(0);
+
+  if(showHow) return(
+    <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
+      <div style={{display:'flex',alignItems:'center',padding:'10px 16px',background:'#1a1a2e',borderBottom:'0.5px solid rgba(255,255,255,0.1)',flexShrink:0,justifyContent:'space-between'}}>
+        <button onClick={()=>{setShowHow(false);setHowSlide(0);}} style={{background:'none',border:'none',cursor:'pointer',fontSize:13,color:'rgba(255,255,255,0.5)',fontFamily:'inherit'}}>← Назад</button>
+        <div style={{display:'flex',gap:5}}>
+          {HOW_SLIDES.map((_,i)=><div key={i} onClick={()=>setHowSlide(i)} style={{width:i===howSlide?20:6,height:6,borderRadius:3,background:i===howSlide?C.orange:'rgba(255,255,255,0.2)',transition:'width .2s',cursor:'pointer'}}/>)}
+        </div>
+        {howSlide<HOW_SLIDES.length-1
+          ?<button onClick={()=>setHowSlide(p=>p+1)} style={{background:'none',border:'none',cursor:'pointer',fontSize:13,color:C.orange,fontFamily:'inherit',fontWeight:600}}>Далее →</button>
+          :<button onClick={()=>{setShowHow(false);setHowSlide(0);}} style={{background:'none',border:'none',cursor:'pointer',fontSize:13,color:C.orange,fontFamily:'inherit',fontWeight:600}}>Готово ✓</button>
+        }
+      </div>
+      <div style={{flex:1,overflowY:'auto',WebkitOverflowScrolling:'touch'}}>
+        {HOW_SLIDES[howSlide]()}
+      </div>
+    </div>
+  );
+
   return(
     <div style={{overflowY:'auto',flex:1,WebkitOverflowScrolling:'touch'}}><div style={pad}>
       <div style={s.hero}>
@@ -1101,6 +1234,15 @@ function SettingsScreen({state,onEditCat,onAddCat,onEditIncome}){
         <div style={{fontSize:20,fontWeight:700}}>{familyName}</div>
         <div style={{display:'flex',gap:8,marginTop:8}}>{members.map(m=><div key={m.id} style={{width:44,height:44,borderRadius:22,background:m.color,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>{m.avatar}</div>)}</div>
       </div>
+      {/* Кнопка "Как это работает" */}
+      <button onClick={()=>setShowHow(true)} style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'12px 14px',marginBottom:10,background:`rgba(224,58,34,0.06)`,border:`0.5px solid rgba(224,58,34,0.2)`,borderRadius:10,cursor:'pointer',fontFamily:'inherit',textAlign:'left',boxSizing:'border-box'}}>
+        <div style={{width:36,height:36,borderRadius:10,background:`rgba(224,58,34,0.12)`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>📖</div>
+        <div style={{flex:1}}>
+          <div style={{fontSize:13,fontWeight:600,color:C.orange}}>Как это работает</div>
+          <div style={{fontSize:11,color:C.muted,marginTop:1}}>Система счетов и философия бюджета</div>
+        </div>
+        <span style={{fontSize:16,color:C.orange}}>›</span>
+      </button>
       <SecTitle>ДОХОДЫ</SecTitle>
       <div style={{...s.card,padding:0}}>
         {incomes.filter(i=>i.gross>0).map((inc,idx)=>{
@@ -1586,19 +1728,51 @@ export default function App(){
   useEffect(()=>{
     if(!onboarded) return;
     try {
-      const toSave = {consented:true, onboarded:true, appState};
+      // Сохраняем только те недели где есть отмеченные позиции или транзакции
+      // Это сильно уменьшает размер и не даёт переполнить localStorage
+      const weekItemsCompact = {};
+      Object.entries(appState.weekItems||{}).forEach(([wk,items])=>{
+        const changed = items.filter(i=>i.isDone); // только отмеченные
+        if(changed.length>0) weekItemsCompact[wk]=items; // сохраняем всю неделю если есть отметки
+      });
+      const toSave = {
+        consented:true,
+        onboarded:true,
+        appState:{...appState, weekItems:weekItemsCompact}
+      };
       localStorage.setItem('ff_state', JSON.stringify(toSave));
     } catch(e) {
-      // localStorage может быть переполнен (weekItems большой)
-      // сохраняем без weekItems, восстановим при загрузке
+      // Если всё равно не влезает — сохраняем без weekItems (крайний случай)
       try {
-        const {weekItems, ...rest} = appState;
-        localStorage.setItem('ff_state', JSON.stringify({consented:true, onboarded:true, appState:rest}));
+        const {weekItems,...rest}=appState;
+        localStorage.setItem('ff_state',JSON.stringify({consented:true,onboarded:true,appState:rest}));
       } catch {}
     }
   }, [appState, onboarded]);
 
-  useEffect(()=>{if(!onboarded)return;setAppState(prev=>{if(Object.keys(prev.weekItems).length>0)return prev;return{...prev,weekItems:generateAllWeeks(prev.planned)};});}, [onboarded]);
+  useEffect(()=>{
+    if(!onboarded)return;
+    setAppState(prev=>{
+      // Генерируем полный план на 104 недели
+      const fresh=generateAllWeeks(prev.planned);
+      // Мёржим с сохранёнными: для недель с отметками берём сохранённые данные
+      const merged={...fresh};
+      Object.keys(prev.weekItems||{}).forEach(wk=>{
+        if(prev.weekItems[wk]&&merged[wk]){
+          // Переносим статус isDone из сохранённых в свежесгенерированные
+          const savedMap={};
+          prev.weekItems[wk].forEach(i=>{ savedMap[i.plannedId||i.id]=i.isDone; });
+          merged[wk]=merged[wk].map(i=>({
+            ...i,
+            isDone:savedMap[i.plannedId||i.id]||false
+          }));
+        } else if(prev.weekItems[wk]) {
+          merged[wk]=prev.weekItems[wk];
+        }
+      });
+      return{...prev,weekItems:merged};
+    });
+  },[onboarded]);
   const handleOnboardingDone=data=>{
     const newState={...data,weekItems:generateAllWeeks(data.planned),streak:1,budgetStartDate:new Date().toISOString()};
     setAppState(newState);
