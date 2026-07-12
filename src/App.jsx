@@ -602,29 +602,80 @@ function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx}){
     return buildPaymentSchedule(year,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0)
       .map(p=>({...p,memberName:m?.name||'',...(payments[p.displayLabel]||{})}));
   }).filter(p=>p.date>=now).sort((a,b)=>a.date-b.date).slice(0,3);
+  // Здоровье для главного экрана
+  const mExp=planned.reduce((s,p)=>s+(p.repeat==='weekly'?p.amount*4.3:p.repeat==='biweekly'?p.amount*2.15:p.amount),0);
+  const piggyM=planned.filter(p=>p.catId==='piggy').reduce((s,p)=>s+(p.repeat==='weekly'?p.amount*4.3:p.repeat==='biweekly'?p.amount*2.15:p.amount),0);
+  const freeCashM=totalNet-(mExp-piggyM);
+  const savRate=totalNet>0?Math.round((piggyM+Math.max(freeCashM,0))/totalNet*100):0;
+  const piggyAct=Object.values(weekItems).reduce((t,items)=>t+items.filter(i=>i.catId==='piggy'&&i.isDone).reduce((s,i)=>s+i.amount,0),0);
+  const cushionM=piggyAct>0?piggyAct:Math.round(piggyM/4.3*4);
+  const hScore=Math.max(0,Math.min(100,(savRate>=20?30:savRate>=10?15:0)+(mExp<=totalNet*.7?30:mExp<=totalNet*.9?15:0)+(cushionM>=mExp*3?20:cushionM>=mExp?10:0)+(freeCashM>0?20:0)));
+  const hColor=hScore>=80?'#4ade80':hScore>=60?'#fbbf24':hScore>=40?'#f97316':'#f87171';
+  const hLabel=hScore>=80?'Отлично':'Хорошо';
+  const daysInMonth=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();
+  const daysLeft=daysInMonth-new Date().getDate();
+  const canSpend=Math.max(balance,0);
+  // Фонды по направлениям
+  const fondGroups=[
+    {e:'🛡️',n:'Защита',col:'#F87171',bg:'rgba(248,113,113,0.1)',bdr:'rgba(248,113,113,0.2)',cats:['mortgage','credit','piggy']},
+    {e:'🍽️',n:'Жизнь',col:'#FBBF24',bg:'rgba(251,191,36,0.1)',bdr:'rgba(251,191,36,0.2)',cats:['food','transport','health','fun']},
+    {e:'🛋️',n:'Комфорт',col:'#60A5FA',bg:'rgba(96,165,250,0.1)',bdr:'rgba(96,165,250,0.2)',cats:['clothes','beauty','home','gifts','edu','sport','pets','other','travel']},
+  ].map(g=>{
+    const total=planned.filter(p=>g.cats.includes(p.catId)).reduce((s,p)=>s+(p.repeat==='weekly'?p.amount*4.3:p.repeat==='biweekly'?p.amount*2.15:p.amount),0);
+    const spent2=Object.values(weekItems).flat().filter(i=>g.cats.includes(i.catId)&&i.isDone).reduce((s,i)=>s+i.amount,0);
+    const pct2=total>0?Math.round(spent2/total*100):0;
+    const left=Math.max(total-spent2,0);
+    return{...g,total,spent:spent2,pct:pct2,left};
+  }).filter(g=>g.total>0);
   const pad={padding:'14px 14px 80px'};
   return(
     <div style={{overflowY:'auto',flex:1,WebkitOverflowScrolling:'touch'}}><div style={pad}>
-      <div style={{...s.hero}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:10}}>
-          <div>
-            <div style={{fontSize:11,color:'rgba(255,255,255,0.45)',marginBottom:4}}>Баланс · {new Date().toLocaleString('ru',{month:'long',year:'numeric'})}</div>
-            <div style={{fontSize:24,fontWeight:600,color:balance>=0?'#4ade80':'#f87171'}}>{balance>=0?'+':''}{fmt(balance)}</div>
-            <div style={{display:'flex',alignItems:'center',gap:5,marginTop:4}}>
-              <span style={{fontSize:10,background:'rgba(74,222,128,0.12)',border:'0.5px solid rgba(74,222,128,0.25)',color:'#4ade80',padding:'2px 7px',borderRadius:20}}>остаток на руках сейчас</span>
-            </div>
+      {/* Большая карточка здоровья */}
+      <div style={{background:'#1a1a2e',borderRadius:16,padding:'20px 16px',marginBottom:12}}>
+        <div style={{fontSize:10,color:'rgba(255,255,255,0.3)',letterSpacing:'1px',marginBottom:10,textAlign:'center'}}>ФИНАНСОВОЕ ЗДОРОВЬЕ СЕМЬИ</div>
+        <div style={{textAlign:'center',marginBottom:14}}>
+          <div style={{fontSize:56,fontWeight:800,color:hColor,lineHeight:1}}>{hScore}%</div>
+          <div style={{fontSize:14,color:hColor,marginTop:4,fontWeight:500}}>{hScore>=80?'🟢':'🟡'} {hLabel} — вы идёте по плану</div>
+          <div style={{height:6,background:'rgba(255,255,255,0.1)',borderRadius:3,overflow:'hidden',margin:'12px 0'}}>
+            <div style={{height:6,width:`${hScore}%`,background:hColor,borderRadius:3,transition:'width .5s'}}/>
           </div>
-          <span style={{background:'rgba(255,255,255,0.1)',borderRadius:6,padding:'3px 8px',fontSize:11,color:'rgba(255,255,255,0.7)',flexShrink:0}}>{weekLabel(week)}</span>
         </div>
-        <div style={{display:'flex',gap:5,marginTop:6}}>
-          {[['получено',actualSalaryReceived+txIncome,'#4ade80'],['потрачено',allSpentTotal,'#f87171'],['старт',startBalance,'rgba(255,255,255,0.5)']].map(([l,v,col])=>(
-            <div key={l} style={{flex:1,background:'rgba(255,255,255,0.06)',borderRadius:8,padding:7}}>
-              <div style={{fontSize:9,color:'rgba(255,255,255,0.35)',marginBottom:2}}>{l}</div>
-              <div style={{fontSize:11,fontWeight:500,color:col}}>{l==='потрачено'?'-':l==='получено'?'+':''}{fmt(v)}</div>
+        <div style={{display:'flex',gap:8}}>
+          <div style={{flex:1,background:'rgba(255,255,255,0.05)',borderRadius:10,padding:'10px 8px',textAlign:'center'}}>
+            <div style={{fontSize:10,color:'rgba(255,255,255,0.35)',marginBottom:4}}>до конца месяца</div>
+            <div style={{fontSize:16,fontWeight:600,color:'#fff'}}>{daysLeft} дней</div>
+          </div>
+          <div style={{flex:1,background:canSpend>0?'rgba(74,222,128,0.1)':'rgba(248,113,113,0.1)',border:`0.5px solid ${canSpend>0?'rgba(74,222,128,0.2)':'rgba(248,113,113,0.2)'}`,borderRadius:10,padding:'10px 8px',textAlign:'center'}}>
+            <div style={{fontSize:10,color:canSpend>0?'rgba(74,222,128,0.6)':'rgba(248,113,113,0.6)',marginBottom:4}}>можно потратить</div>
+            <div style={{fontSize:16,fontWeight:700,color:canSpend>0?'#4ade80':'#f87171'}}>{fmt(canSpend)}</div>
+          </div>
+          <div style={{flex:1,background:'rgba(255,255,255,0.05)',borderRadius:10,padding:'10px 8px',textAlign:'center'}}>
+            <div style={{fontSize:10,color:'rgba(255,255,255,0.35)',marginBottom:4}}>баланс</div>
+            <div style={{fontSize:16,fontWeight:600,color:balance>=0?'#4ade80':'#f87171'}}>{balance>=0?'+':''}{fmt(balance)}</div>
+          </div>
+        </div>
+      </div>
+      {/* Фонды по направлениям */}
+      {fondGroups.length>0&&<>
+        <SecTitle>ФОНДЫ НА ЭТУ НЕДЕЛЮ</SecTitle>
+        <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:10}}>
+          {fondGroups.map(g=>(
+            <div key={g.n} style={{background:g.bg,border:`0.5px solid ${g.bdr}`,borderRadius:10,padding:'10px 12px'}}>
+              <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+                <span style={{fontSize:18}}>{g.e}</span>
+                <span style={{flex:1,fontSize:12,fontWeight:500,color:g.col}}>{g.n}</span>
+                <span style={{fontSize:12,fontWeight:600,color:g.pct>=100?'rgba(255,255,255,0.3)':g.col}}>
+                  {g.pct>=100?'исчерпан':`осталось ${fmt(g.left)}`}
+                </span>
+              </div>
+              <div style={{height:4,background:'rgba(255,255,255,0.1)',borderRadius:2,overflow:'hidden'}}>
+                <div style={{height:4,width:`${Math.min(g.pct,100)}%`,background:g.col,borderRadius:2}}/>
+              </div>
+              <div style={{fontSize:10,color:'rgba(255,255,255,0.35)',marginTop:4}}>{g.pct}% · план {fmt(g.total)}</div>
             </div>
           ))}
         </div>
-      </div>
+      </>}
       <div style={{...s.card,display:'flex',gap:12,alignItems:'flex-start'}}>
         <div style={{textAlign:'center',width:50,flexShrink:0}}>
           <div style={{fontSize:20,fontWeight:700,color:C.orange}}>{pct}%</div>
@@ -640,6 +691,28 @@ function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx}){
           <PBar pct={pct}/>
         </div>
       </div>
+      {/* Утренний дайджест */}
+      {fondGroups.length>0&&(()=>{
+        const alerts=[];
+        fondGroups.forEach(g=>{
+          if(g.pct>=100)alerts.push({icon:'⚠️',text:`${g.n} — исчерпан на этой неделе`,col:'#f87171',bg:'rgba(248,113,113,0.08)',bdr:'rgba(248,113,113,0.2)'});
+          else if(g.pct>=80)alerts.push({icon:'⚠️',text:`${g.n} — осталось ${fmt(g.left)}, будьте внимательны`,col:'#fbbf24',bg:'rgba(251,191,36,0.08)',bdr:'rgba(251,191,36,0.2)'});
+          else alerts.push({icon:'✅',text:`${g.n} — идёт по плану`,col:'#4ade80',bg:'rgba(74,222,128,0.08)',bdr:'rgba(74,222,128,0.15)'});
+        });
+        return(
+          <div style={{...s.card,background:'#1a1a2e',border:'none',padding:'14px 16px',marginBottom:10}}>
+            <div style={{fontSize:11,color:'rgba(255,255,255,0.4)',marginBottom:10}}>Доброе утро ☀️ · {new Date().toLocaleDateString('ru',{weekday:'long',day:'numeric',month:'long'})}</div>
+            <div style={{display:'flex',flexDirection:'column',gap:6}}>
+              {alerts.map((a,i)=>(
+                <div key={i} style={{display:'flex',alignItems:'center',gap:10,background:a.bg,border:`0.5px solid ${a.bdr}`,borderRadius:9,padding:'8px 11px'}}>
+                  <span style={{fontSize:14,flexShrink:0}}>{a.icon}</span>
+                  <span style={{fontSize:12,color:a.col}}>{a.text}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
       {allUpcomingPay.length>0&&<>
         <SecTitle>БЛИЖАЙШИЕ ВЫПЛАТЫ</SecTitle>
         {allUpcomingPay.map((p,i)=>(
@@ -1451,6 +1524,27 @@ function AddTxModal({visible,onClose,onSave,members,planned,customCats=[]}){
           {[['expense','— Расход'],['income','+ Доход']].map(([t,l])=><button key={t} onClick={()=>{setType(t);setCatId(t==='income'?'salary':'food');}} style={{flex:1,padding:8,borderRadius:7,border:'none',background:type===t?(t==='expense'?C.orangeL:C.greenL):'transparent',color:type===t?C.text:C.muted,fontSize:12,fontWeight:type===t?600:400,cursor:'pointer',fontFamily:'inherit'}}>{l}</button>)}
         </div>
         <Numpad value={amount} onChange={setAmount}/>
+        {parseInt(amount)>0&&type==='expense'&&(()=>{
+          const spent2=parseInt(amount)||0;
+          const fondCat=planned.find(p=>p.catId===catId);
+          const fondTotal=fondCat?(fondCat.repeat==='weekly'?fondCat.amount*4.3:fondCat.repeat==='biweekly'?fondCat.amount*2.15:fondCat.amount):0;
+          const fondSpent=Object.values({}).flat().reduce((s,i)=>s,0);
+          if(fondTotal>0){
+            const left=fondTotal-spent2;
+            const isOk=left>0;
+            return(
+              <div style={{...s.card,background:isOk?C.greenL:C.redL,border:`.5px solid ${isOk?C.greenB:C.redB}`,padding:'10px 12px',marginBottom:10}}>
+                <div style={{fontSize:12,fontWeight:600,color:isOk?C.green:C.red,marginBottom:2}}>
+                  {isOk?'🟢 Укладываетесь в план':'🔴 Превышение фонда'}
+                </div>
+                <div style={{fontSize:11,color:isOk?C.green:C.red}}>
+                  {isOk?`Останется ${fmt(left)} в фонде «${fondCat?.name||''}»`:`Фонд «${fondCat?.name||''}» превышен на ${fmt(Math.abs(left))}`}
+                </div>
+              </div>
+            );
+          }
+          return null;
+        })()}
         <div style={{fontSize:10,color:C.muted,textTransform:'uppercase',letterSpacing:.5,marginBottom:6}}>Категория</div>
         <div style={{display:'flex',gap:7,overflowX:'auto',marginBottom:12,paddingBottom:4}}>
           {cats.map(cat=><button key={cat.id} onClick={()=>setCatId(cat.id)} style={{display:'flex',alignItems:'center',gap:5,flexShrink:0,padding:'8px 11px',borderRadius:20,border:`.5px solid ${catId===cat.id?C.orangeB:C.border}`,background:catId===cat.id?C.orangeL:'#fff',color:catId===cat.id?'#991B1B':C.muted,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}><span style={{fontSize:15}}>{cat.emoji}</span>{cat.name}</button>)}
