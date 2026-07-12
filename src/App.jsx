@@ -584,13 +584,15 @@ function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx}){
   const actualSalaryReceived=allPaymentsActual
     .filter(p=>p.isDone)
     .reduce((s,p)=>s+(p.actualAmount||p.amount),0);
-  // Сумма всех плановых расходов которые отмечены как выполненные (isDone) по всем неделям
-  const allSpentTotal=Object.values(weekItems)
-    .flat()
-    .filter(i=>i.isDone)
-    .reduce((s,i)=>s+i.amount,0)+txExpense;
+  // Только текущая неделя — отмеченные плановые расходы + ручные расходы
+  const weekSpent=wItems.filter(i=>i.isDone).reduce((s,i)=>s+i.amount,0)+txExpense;
+  // Накопленные расходы по всем прошлым неделям (для точного баланса)
+  const pastSpent=Object.entries(weekItems)
+    .filter(([wk])=>wk<week)
+    .reduce((s,[,items])=>s+items.filter(i=>i.isDone).reduce((ss,i)=>ss+i.amount,0),0);
+  const allSpentTotal=weekSpent+pastSpent;
 
-  // Баланс = стартовый + фактически полученные доходы + доп.доходы − фактически потраченное
+  // Баланс = стартовый + все полученные доходы + все доп.доходы − всё потраченное
   const balance=startBalance+actualSalaryReceived+txIncome-allSpentTotal;
   const spent=wItems.filter(i=>i.isDone).reduce((s,i)=>s+i.amount,0)+txExpense;
   const wPlan=wItems.reduce((s,i)=>s+i.amount,0);
@@ -614,6 +616,8 @@ function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx}){
   const hLabel=hScore>=80?'Отлично':'Хорошо';
   const daysInMonth=new Date(new Date().getFullYear(),new Date().getMonth()+1,0).getDate();
   const daysLeft=daysInMonth-new Date().getDate();
+  // "Можно потратить" = остаток недельного плана (не потраченное из запланированного)
+  const weekRemaining=Math.max(wPlan-weekSpent,0);
   const canSpend=Math.max(balance,0);
   // Фонды по направлениям
   const fondGroups=[
@@ -646,8 +650,8 @@ function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx}){
             <div style={{fontSize:16,fontWeight:600,color:'#fff'}}>{daysLeft} дней</div>
           </div>
           <div style={{flex:1,background:canSpend>0?'rgba(74,222,128,0.1)':'rgba(248,113,113,0.1)',border:`0.5px solid ${canSpend>0?'rgba(74,222,128,0.2)':'rgba(248,113,113,0.2)'}`,borderRadius:10,padding:'10px 8px',textAlign:'center'}}>
-            <div style={{fontSize:10,color:canSpend>0?'rgba(74,222,128,0.6)':'rgba(248,113,113,0.6)',marginBottom:4}}>можно потратить</div>
-            <div style={{fontSize:16,fontWeight:700,color:canSpend>0?'#4ade80':'#f87171'}}>{fmt(canSpend)}</div>
+            <div style={{fontSize:10,color:weekRemaining>0?'rgba(74,222,128,0.6)':'rgba(248,113,113,0.6)',marginBottom:4}}>остаток плана</div>
+            <div style={{fontSize:16,fontWeight:700,color:weekRemaining>0?'#4ade80':'#f87171'}}>{fmt(weekRemaining)}</div>
           </div>
           <div style={{flex:1,background:'rgba(255,255,255,0.05)',borderRadius:10,padding:'10px 8px',textAlign:'center'}}>
             <div style={{fontSize:10,color:'rgba(255,255,255,0.35)',marginBottom:4}}>баланс</div>
