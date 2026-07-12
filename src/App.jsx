@@ -703,21 +703,7 @@ function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx}){
           ))}
         </div>
       </>}
-      <div style={{...s.card,display:'flex',gap:12,alignItems:'flex-start'}}>
-        <div style={{textAlign:'center',width:50,flexShrink:0}}>
-          <div style={{fontSize:20,fontWeight:700,color:C.orange}}>{pct}%</div>
-          <div style={{fontSize:9,color:C.muted}}>план</div>
-        </div>
-        <div style={{flex:1}}>
-          <div style={{fontSize:13,fontWeight:600,color:C.text,marginBottom:5}}>{weekLabel(week)} · {weekRange(week)}</div>
-          {[['Запланировано',wPlan,C.text2],['Потрачено',spent,C.orange],['Остаток',wPlan-spent,C.green]].map(([l,v,col])=>(
-            <div key={l} style={{display:'flex',justifyContent:'space-between',marginBottom:3}}>
-              <span style={{fontSize:11,color:C.muted}}>{l}</span><span style={{fontSize:11,fontWeight:500,color:col}}>{fmt(v)}</span>
-            </div>
-          ))}
-          <PBar pct={pct}/>
-        </div>
-      </div>
+
       {/* Утренний дайджест */}
       {fondGroups.length>0&&(()=>{
         const alerts=[];
