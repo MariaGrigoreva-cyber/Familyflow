@@ -296,7 +296,7 @@ function Onboarding({onDone}){
             <div style={{width:40,height:2,background:C.orange,borderRadius:1,marginBottom:24}}/>
             <div style={{fontSize:15,color:'rgba(255,255,255,0.6)',lineHeight:'24px',maxWidth:290}}>Это не просто учёт расходов.<br/>Это готовая методика управления<br/>семейными финансами на год вперёд.</div>
             <div style={{display:'flex',gap:20,marginTop:32}}>
-              {[['📅','Год вперёд'],['❤️','Здоровье'],['🐷','Копилка'],['🎯','Мечты']].map(([e,l])=>(
+              {[['📅','Год вперёд'],['❤️','Здоровье'],['🐷','Копилка'],['🛋️','Комфорт']].map(([e,l])=>(
                 <div key={l} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:6}}>
                   <div style={{width:44,height:44,borderRadius:13,background:'rgba(255,255,255,0.07)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22}}>{e}</div>
                   <span style={{fontSize:10,color:'rgba(255,255,255,0.35)'}}>{l}</span>
@@ -334,7 +334,7 @@ function Onboarding({onDone}){
             <div style={{fontSize:11,color:C.orange,fontWeight:700,letterSpacing:'1.5px',marginBottom:12}}>КАК ЭТО РАБОТАЕТ</div>
             <div style={{fontSize:24,fontWeight:800,color:'#fff',lineHeight:'32px',marginBottom:6}}>Философия трёх<br/>направлений</div>
             <div style={{fontSize:13,color:'rgba(255,255,255,0.45)',marginBottom:28,lineHeight:'20px'}}>Разделите все расходы на три смысловых потока.</div>
-            {[{e:'🛡️',t:'Защита',s:'Фундамент вашей стабильности',col:'#F87171',bg:'rgba(248,113,113,0.08)',bdr:'rgba(248,113,113,0.2)',d:'Обязательные платежи и резервный фонд.',items:['🏦 Ипотека и кредиты','🔌 Коммунальные платежи','🛡️ Страховки','🐷 Резерв (Piggy Bank)'],pct:'50–60%'},{e:'🍽️',t:'Жизнь',s:'Качество каждого дня',col:'#FBBF24',bg:'rgba(251,191,36,0.08)',bdr:'rgba(251,191,36,0.2)',d:'Ежедневные расходы на комфорт и радость.',items:['🍽️ Еда и продукты','🚌 Транспорт','💊 Здоровье и красота','🎬 Развлечения'],pct:'20–30%'},{e:'🎯',t:'Мечты',s:'То, ради чего стоит планировать',col:'#34D399',bg:'rgba(52,211,153,0.08)',bdr:'rgba(52,211,153,0.2)',d:'Накопления на важные цели.',items:['✈️ Отпуск и путешествия','🎓 Образование','🏠 Крупные покупки','📈 Инвестиции'],pct:'10–20%'}].map((b,i)=>(
+            {[{e:'🛡️',t:'Защита',s:'Фундамент вашей стабильности',col:'#F87171',bg:'rgba(248,113,113,0.08)',bdr:'rgba(248,113,113,0.2)',d:'Обязательные платежи и резервный фонд.',items:['🏦 Ипотека и кредиты','🔌 Коммунальные платежи','🛡️ Страховки','🐷 Резерв (Piggy Bank)'],pct:'50–60%'},{e:'🍽️',t:'Жизнь',s:'Качество каждого дня',col:'#FBBF24',bg:'rgba(251,191,36,0.08)',bdr:'rgba(251,191,36,0.2)',d:'Ежедневные расходы на комфорт и радость.',items:['🍽️ Еда и продукты','🚌 Транспорт','💊 Здоровье и красота','🎬 Развлечения'],pct:'20–30%'},{e:'🛋️',t:'Комфорт',s:'Качество вашей жизни',col:'#60A5FA',bg:'rgba(96,165,250,0.08)',bdr:'rgba(96,165,250,0.2)',d:'Крупные и нерегулярные расходы на себя.',items:['👗 Одежда и красота','🏠 Дом и ремонт','💳 Кредиты','✈️ Путешествия'],pct:'10–20%'}].map((b,i)=>(
               <div key={i} style={{background:b.bg,borderRadius:16,border:`0.5px solid ${b.bdr}`,padding:16,marginBottom:14}}>
                 <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:10}}>
                   <div style={{width:52,height:52,borderRadius:16,background:'rgba(255,255,255,0.07)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,flexShrink:0}}>{b.e}</div>
@@ -782,11 +782,17 @@ function PlanScreen({state,onToggle,onAdd,onEditTx}){
           :filtered.map(item=>{
             const cat=getCat(item.catId,customCats),mem=members.find(m=>m.id===item.memberId);
             return(
-              <button key={item.id} onClick={()=>onEditTx&&onEditTx({...item,week})} style={{...s.card,display:'flex',alignItems:'center',gap:9,width:'100%',textAlign:'left',cursor:'pointer',opacity:item.isDone?.55:1,fontFamily:'inherit',marginBottom:6,boxSizing:'border-box'}}>
+              <button key={item.id} onClick={()=>onToggle(week,item.id)} style={{...s.card,display:'flex',alignItems:'center',gap:9,width:'100%',textAlign:'left',cursor:'pointer',opacity:item.isDone?.55:1,fontFamily:'inherit',marginBottom:6,boxSizing:'border-box'}}>
                 <div style={{width:22,height:22,borderRadius:11,border:`1.5px solid ${item.isDone?C.green:C.borderS}`,background:item.isDone?C.green:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{item.isDone&&<span style={{color:'#fff',fontSize:11}}>✓</span>}</div>
                 <span style={{fontSize:16}}>{cat?.emoji||'📦'}</span>
                 <div style={{flex:1}}><div style={{fontSize:13,color:C.text,textDecoration:item.isDone?'line-through':'none'}}>{item.name}</div><div style={{fontSize:10,color:C.muted}}>{mem?.name||''}</div></div>
-                <div style={{fontSize:13,fontWeight:600,color:item.isDone?C.green:C.orange}}>{fmt(item.amount)}</div>
+                <div style={{display:'flex',alignItems:'center',gap:6}}>
+                  <div style={{fontSize:13,fontWeight:600,color:item.isDone?C.green:C.orange}}>{fmt(item.amount)}</div>
+                  <div onClick={e=>{e.stopPropagation();onEditTx&&onEditTx({...item,week});}}
+                    style={{width:24,height:24,borderRadius:12,background:'rgba(0,0,0,0.05)',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',flexShrink:0}}>
+                    <span style={{fontSize:11}}>✏️</span>
+                  </div>
+                </div>
               </button>
             );
           })
