@@ -345,6 +345,91 @@ function Onboarding({onDone}){
                 <div style={{display:'flex',flexDirection:'column',gap:5}}>{b.items.map((item,j)=><div key={j} style={{display:'flex',alignItems:'center',gap:8}}><div style={{width:4,height:4,borderRadius:2,background:b.col,opacity:.6,flexShrink:0}}/><span style={{fontSize:12,color:'rgba(255,255,255,0.6)'}}>{item}</span></div>)}</div>
               </div>
             ))}
+            <Btn label="Далее →" onClick={onNext}/>
+          </div>
+        </div>
+      ),
+
+      // ─── 3: Система четырёх счетов ──────────────────────────────────────
+      (onNext,onBack)=>(
+        <div style={{minHeight:'100dvh',background:'#1a1a2e',overflowY:'auto',boxSizing:'border-box'}}>
+          <div style={{padding:'24px 20px 48px'}}>
+            <button onClick={onBack} style={{background:'none',border:'none',cursor:'pointer',fontSize:13,color:'rgba(255,255,255,0.35)',fontFamily:'inherit',marginBottom:24,padding:0,display:'block'}}>← Назад</button>
+            <div style={{fontSize:11,color:C.orange,fontWeight:700,letterSpacing:'1.5px',marginBottom:10}}>КАК ЭТО РАБОТАЕТ</div>
+            <div style={{fontSize:22,fontWeight:800,color:'#fff',lineHeight:1.3,marginBottom:8}}>Система четырёх счетов</div>
+            <div style={{fontSize:13,color:'rgba(255,255,255,0.45)',lineHeight:1.6,marginBottom:20}}>Один ритуал в начале каждой недели — и деньги работают правильно</div>
+
+            {/* Зарплата */}
+            <div style={{display:'flex',justifyContent:'center',marginBottom:8}}>
+              <div style={{background:'rgba(22,163,74,0.15)',border:'0.5px solid rgba(22,163,74,0.4)',borderRadius:12,padding:'10px 24px',textAlign:'center'}}>
+                <div style={{fontSize:10,color:'rgba(22,163,74,0.7)',letterSpacing:'1px',fontWeight:600,marginBottom:2}}>ДОХОД</div>
+                <div style={{fontSize:15,fontWeight:700,color:'#4ade80'}}>💰 Зарплата семьи</div>
+              </div>
+            </div>
+            {/* Стрелка */}
+            <div style={{display:'flex',justifyContent:'center',marginBottom:8}}>
+              <div style={{display:'flex',flexDirection:'column',alignItems:'center'}}>
+                <div style={{width:1.5,height:20,background:'rgba(22,163,74,0.5)'}}/>
+                <div style={{width:0,height:0,borderLeft:'5px solid transparent',borderRight:'5px solid transparent',borderTop:'7px solid rgba(22,163,74,0.5)'}}/>
+              </div>
+            </div>
+            {/* Saving */}
+            <div style={{background:'rgba(29,158,117,0.18)',border:'1.5px solid rgba(29,158,117,0.5)',borderRadius:14,padding:'14px 16px',marginBottom:6,textAlign:'center',position:'relative'}}>
+              <div style={{position:'absolute',top:-9,left:'50%',transform:'translateX(-50%)',background:'#1a1a2e',padding:'0 8px'}}>
+                <span style={{fontSize:9,color:'#1D9E75',fontWeight:700,letterSpacing:'1.5px'}}>ГЛАВНЫЙ СЧЁТ</span>
+              </div>
+              <div style={{fontSize:18,marginBottom:4}}>🏦</div>
+              <div style={{fontSize:15,fontWeight:700,color:'#4ade80',marginBottom:2}}>Saving</div>
+              <div style={{fontSize:11,color:'rgba(52,211,153,0.6)'}}>Все деньги поступают сюда · трогать нельзя</div>
+            </div>
+            {/* Метка */}
+            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+              <div style={{flex:1,height:'0.5px',background:'rgba(255,255,255,0.1)'}}/>
+              <div style={{fontSize:10,color:'rgba(255,255,255,0.3)',whiteSpace:'nowrap'}}>каждый понедельник → переводим по плану</div>
+              <div style={{flex:1,height:'0.5px',background:'rgba(255,255,255,0.1)'}}/>
+            </div>
+            {/* Три счёта */}
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6,marginBottom:20,paddingTop:14,position:'relative'}}>
+              <div style={{position:'absolute',top:0,left:0,right:0,display:'flex',justifyContent:'space-around',pointerEvents:'none'}}>
+                {[['rgba(248,113,113,0.5)'],['rgba(251,191,36,0.5)'],['rgba(96,165,250,0.5)']].map(([col],i)=>(
+                  <div key={i} style={{display:'flex',flexDirection:'column',alignItems:'center'}}>
+                    <div style={{width:1,height:8,background:col}}/>
+                    <div style={{width:0,height:0,borderLeft:'4px solid transparent',borderRight:'4px solid transparent',borderTop:`5px solid ${col}`}}/>
+                  </div>
+                ))}
+              </div>
+              {[['🛡️','ЗАЩИТА','#F87171','rgba(248,113,113,0.1)','rgba(248,113,113,0.3)','Piggy Bank','Накоп. счёт №2','rgba(248,113,113,0.6)'],
+                ['🍽️','ЖИЗНЬ','#FBBF24','rgba(251,191,36,0.1)','rgba(251,191,36,0.3)','Карточный','Карта на каждый день','rgba(251,191,36,0.6)'],
+                ['🛋️','КОМФОРТ','#60A5FA','rgba(96,165,250,0.1)','rgba(96,165,250,0.3)','До востр.','Крупные покупки','rgba(96,165,250,0.6)'],
+              ].map(([emoji,label,col,bg,bdr,title,sub,subcol])=>(
+                <div key={label} style={{background:bg,border:`0.5px solid ${bdr}`,borderRadius:12,padding:'12px 8px',textAlign:'center'}}>
+                  <div style={{fontSize:20,marginBottom:5}}>{emoji}</div>
+                  <div style={{fontSize:10,fontWeight:700,color:col,letterSpacing:'.5px',marginBottom:3}}>{label}</div>
+                  <div style={{fontSize:11,fontWeight:600,color:'rgba(255,255,255,0.8)',marginBottom:5}}>{title}</div>
+                  <div style={{height:'0.5px',background:bdr,marginBottom:5}}/>
+                  <div style={{fontSize:10,color:subcol,lineHeight:1.5}}>{sub}</div>
+                </div>
+              ))}
+            </div>
+            {/* Таблица переводов */}
+            <div style={{background:'rgba(255,255,255,0.04)',border:'0.5px solid rgba(255,255,255,0.08)',borderRadius:12,padding:14,marginBottom:16}}>
+              <div style={{fontSize:10,color:'rgba(255,255,255,0.3)',letterSpacing:'1px',fontWeight:600,marginBottom:10}}>ЧТО ПЕРЕВОДИМ В ПОНЕДЕЛЬНИК</div>
+              {[['🐷','Piggy Bank → накопительный счёт','#F87171','rgba(248,113,113,0.15)','rgba(248,113,113,0.3)'],
+                ['🍽️','Еда, транспорт → карточный счёт','#FBBF24','rgba(251,191,36,0.15)','rgba(251,191,36,0.3)'],
+                ['👗','Одежда, дом, кредиты → до востр.','#60A5FA','rgba(96,165,250,0.15)','rgba(96,165,250,0.3)'],
+              ].map(([icon,text,col,bg,bdr])=>(
+                <div key={text} style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
+                  <div style={{width:28,height:28,borderRadius:8,background:bg,border:`0.5px solid ${bdr}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,flexShrink:0}}>{icon}</div>
+                  <div style={{flex:1,fontSize:12,color:'rgba(255,255,255,0.6)'}}>{text}</div>
+                  <div style={{fontSize:11,fontWeight:600,color:col}}>=план</div>
+                </div>
+              ))}
+            </div>
+            {/* Итог */}
+            <div style={{background:'rgba(224,58,34,0.1)',border:'0.5px solid rgba(224,58,34,0.3)',borderRadius:12,padding:14,marginBottom:20,textAlign:'center'}}>
+              <div style={{fontSize:13,fontWeight:700,color:'#fff',marginBottom:4}}>Saving остаётся нетронутым 🏦</div>
+              <div style={{fontSize:12,color:'rgba(255,255,255,0.5)',lineHeight:1.6}}>Вы тратите только то что перевели.<br/>Всё остальное работает на вас.</div>
+            </div>
             <Btn label="Начать настройку →" onClick={onNext}/>
           </div>
         </div>
