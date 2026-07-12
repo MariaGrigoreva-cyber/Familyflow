@@ -700,16 +700,17 @@ function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx}){
           <div>
             <div style={{fontSize:11,color:'rgba(255,255,255,0.45)',marginBottom:4}}>Баланс · {new Date().toLocaleString('ru',{month:'long',year:'numeric'})}</div>
             <div style={{fontSize:24,fontWeight:600,color:balance>=0?'#4ade80':'#f87171'}}>{balance>=0?'+':''}{fmt(balance)}</div>
+            <div style={{display:'flex',alignItems:'center',gap:5,marginTop:4}}>
+              <span style={{fontSize:10,background:'rgba(74,222,128,0.12)',border:'0.5px solid rgba(74,222,128,0.25)',color:'#4ade80',padding:'2px 7px',borderRadius:20}}>остаток на руках сейчас</span>
+            </div>
           </div>
-          <div style={{display:'flex',flexDirection:'column',gap:4,alignItems:'flex-end'}}>
-            <span style={{background:'rgba(255,255,255,0.1)',borderRadius:6,padding:'3px 8px',fontSize:11,color:'rgba(255,255,255,0.7)'}}>{weekLabel(week)}</span>
-          </div>
+          <span style={{background:'rgba(255,255,255,0.1)',borderRadius:6,padding:'3px 8px',fontSize:11,color:'rgba(255,255,255,0.7)',flexShrink:0}}>{weekLabel(week)}</span>
         </div>
-        <div style={{display:'flex',gap:6}}>
-          {[['Доходы/мес',totalNet+txIncome,'#4ade80'],['Расходы/мес',monthlyExp,'#f87171'],['Нед. план',wPlan,'#fbbf24']].map(([l,v,col])=>(
-            <div key={l} style={{flex:1,background:'rgba(255,255,255,0.07)',borderRadius:8,padding:7}}>
-              <div style={{fontSize:9,color:'rgba(255,255,255,0.4)',marginBottom:2}}>{l}</div>
-              <div style={{fontSize:11,fontWeight:500,color:col}}>{fmt(v)}</div>
+        <div style={{display:'flex',gap:5,marginTop:6}}>
+          {[['получено',actualSalaryReceived+txIncome,'#4ade80'],['потрачено',allSpentTotal,'#f87171'],['старт',startBalance,'rgba(255,255,255,0.5)']].map(([l,v,col])=>(
+            <div key={l} style={{flex:1,background:'rgba(255,255,255,0.06)',borderRadius:8,padding:7}}>
+              <div style={{fontSize:9,color:'rgba(255,255,255,0.35)',marginBottom:2}}>{l}</div>
+              <div style={{fontSize:11,fontWeight:500,color:col}}>{l==='потрачено'?'-':l==='получено'?'+':''}{fmt(v)}</div>
             </div>
           ))}
         </div>
@@ -764,14 +765,22 @@ function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx}){
       </>}
       <SecTitle>ПЛАТЕЖИ НЕДЕЛИ</SecTitle>
       {upcoming.length===0
-        ?<div style={{...s.card,textAlign:'center',padding:20,color:C.green,fontWeight:600}}>✅ Все закрыто!</div>
+        ?<div style={{...s.card,textAlign:'center',padding:24,background:C.greenL,border:`.5px solid ${C.greenB}`}}>
+          <div style={{fontSize:28,marginBottom:8}}>🎉</div>
+          <div style={{fontSize:15,fontWeight:600,color:C.green,marginBottom:6}}>Все платежи закрыты!</div>
+          <div style={{fontSize:12,color:C.green,opacity:.7,lineHeight:'18px',marginBottom:12}}>Самое время перевести деньги по счетам на следующую неделю</div>
+          <div style={{fontSize:12,color:C.green,background:'rgba(22,163,74,0.1)',borderRadius:8,padding:'8px 12px'}}>🏦 Saving · 🛡️ Накопления · 🍽️ Карта · 🛋️ До востр.</div>
+        </div>
         :upcoming.map(item=>{
           const cat=getCat(item.catId,customCats),mem=members.find(m=>m.id===item.memberId);
           return(
             <button key={item.id}
               onClick={()=>onToggle(week,item.id)}
               onContextMenu={e=>{e.preventDefault();onEditTx&&onEditTx({...item,week});}}
-              style={{...s.card,display:'flex',alignItems:'center',gap:9,width:'100%',textAlign:'left',cursor:'pointer',fontFamily:'inherit',marginBottom:6,boxSizing:'border-box',WebkitTouchCallout:'none'}}>
+              style={{...s.card,display:'flex',alignItems:'center',gap:9,width:'100%',textAlign:'left',cursor:'pointer',fontFamily:'inherit',marginBottom:6,boxSizing:'border-box',WebkitTouchCallout:'none',
+                background:item.isDone?C.greenL:'#fff',
+                border:`.5px solid ${item.isDone?C.greenB:C.border}`,
+                transition:'background .2s,border .2s'}}>
               <div style={{width:22,height:22,borderRadius:11,border:`1.5px solid ${item.isDone?C.green:C.borderS}`,background:item.isDone?C.green:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{item.isDone&&<span style={{color:'#fff',fontSize:11}}>✓</span>}</div>
               <div style={{width:34,height:34,borderRadius:9,background:cat?.color||'#F1F5F9',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,flexShrink:0}}>{cat?.emoji||'📦'}</div>
               <div style={{flex:1}}><div style={{fontSize:13,color:C.text,textDecoration:item.isDone?'line-through':'none'}}>{item.name}</div><div style={{fontSize:10,color:C.muted}}>{mem?.name||''}</div></div>
@@ -1116,12 +1125,36 @@ function HealthScreen({state}){
   const pad={padding:'14px 14px 80px'};
   return(
     <div style={{overflowY:'auto',flex:1,WebkitOverflowScrolling:'touch'}}><div style={pad}>
-      <div style={{...s.hero,textAlign:'center',padding:'20px 14px'}}>
-        <div style={{fontSize:11,color:'rgba(255,255,255,0.45)',marginBottom:6}}>ФИНАНСОВОЕ ЗДОРОВЬЕ</div>
-        <div style={{fontSize:48,fontWeight:800,color:healthColor}}>{healthScore}</div>
-        <div style={{fontSize:16,color:'#fff',fontWeight:600,marginTop:4}}>{healthLabel}</div>
-        <div style={{marginTop:12}}><PBar pct={healthScore} color={healthColor} h={8}/></div>
-        <div style={{fontSize:10,color:'rgba(255,255,255,0.35)',marginTop:6}}>из 100 возможных баллов</div>
+      <div style={{...s.hero,padding:'16px 14px'}}>
+        <div style={{textAlign:'center',marginBottom:12}}>
+          <div style={{fontSize:11,color:'rgba(255,255,255,0.45)',marginBottom:6}}>ФИНАНСОВОЕ ЗДОРОВЬЕ</div>
+          <div style={{fontSize:48,fontWeight:800,color:healthColor}}>{healthScore}</div>
+          <div style={{fontSize:16,color:'#fff',fontWeight:600,marginTop:4}}>{healthLabel}</div>
+          <div style={{marginTop:10}}><PBar pct={healthScore} color={healthColor} h={8}/></div>
+        </div>
+        <div style={{borderTop:'0.5px solid rgba(255,255,255,0.1)',paddingTop:12}}>
+          <div style={{fontSize:10,color:'rgba(255,255,255,0.3)',letterSpacing:.5,marginBottom:8}}>КАК СЧИТАЕТСЯ БАЛЛ</div>
+          {[
+            [savingsRate>=20?C.green:savingsRate>=10?C.yellow:C.red, `Норма сбережений ${savingsRate}%`, savingsRate>=20?30:15, 30],
+            [monthlyExp<=totalNet*.7?C.green:monthlyExp<=totalNet*.9?C.yellow:C.red, `Расходы ${totalNet>0?Math.round(monthlyExp/totalNet*100):0}% от дохода`, monthlyExp<=totalNet*.7?30:15, 30],
+            [cushion>=monthlyExp*3?C.green:cushion>=monthlyExp?C.yellow:C.red, `Piggy Bank ${monthlyExp>0?Math.round(cushion/monthlyExp*10)/10:0} мес расходов`, cushion>=monthlyExp*3?20:cushion>=monthlyExp?10:0, 20],
+            [freeCash>0?C.green:C.red, freeCash>0?'Есть свободные средства':'Нет свободных средств', freeCash>0?20:0, 20],
+          ].map(([col,label,got,max],i)=>(
+            <div key={i} style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
+              <div style={{width:18,height:18,borderRadius:9,background:col==='#16A34A'?'rgba(22,163,74,0.2)':col===C.yellow?'rgba(146,64,14,0.2)':'rgba(220,38,38,0.2)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+                <span style={{fontSize:10,color:col}}>{got===max?'✓':got>0?'~':'✗'}</span>
+              </div>
+              <span style={{flex:1,fontSize:11,color:'rgba(255,255,255,0.6)'}}>{label}</span>
+              <span style={{fontSize:11,fontWeight:600,color:col}}>{got}/{max}</span>
+            </div>
+          ))}
+          <div style={{borderTop:'0.5px solid rgba(255,255,255,0.1)',paddingTop:8,marginTop:4}}>
+            <div style={{fontSize:11,color:'rgba(255,255,255,0.35)',lineHeight:'16px'}}>
+              {healthScore<80?`Чтобы достичь 80: ${cushion<monthlyExp*3?`накопить ${fmt(monthlyExp*3-cushion)} в Piggy Bank`:'увеличить норму сбережений'}`:
+              'Отличный результат — продолжай в том же духе!'}
+            </div>
+          </div>
+        </div>
       </div>
       <div style={{display:'flex',gap:6,marginBottom:10}}>
         <div style={{...s.card,flex:1,background:freeCash>=0?C.greenL:C.redL,border:`.5px solid ${freeCash>=0?C.greenB:C.redB}`,marginBottom:0}}>
