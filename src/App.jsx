@@ -681,6 +681,7 @@ function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx}){
           ))}
         </div>
       </div>
+      {fondGroups.length>0&&<>
         <SecTitle>ПЛАН НЕДЕЛИ · {weekLabel(week)}</SecTitle>
         <div style={{background:'#fff',border:`.5px solid ${C.border}`,borderRadius:12,overflow:'hidden',marginBottom:10}}>
           {fondGroups.map((g,idx)=>(
