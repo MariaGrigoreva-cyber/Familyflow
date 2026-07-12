@@ -287,150 +287,60 @@ function Onboarding({onDone}){
   // INTRO
   if(step===0){
     const PAGES=[
+      // ─── Слайд 0: Splash + механика ─────────────────────────────────────
       (onNext)=>(
         <div style={{minHeight:'100dvh',background:C.dark,display:'flex',flexDirection:'column',justifyContent:'space-between',padding:28,boxSizing:'border-box'}}>
           <div style={{flex:1,display:'flex',flexDirection:'column',justifyContent:'center',alignItems:'center',textAlign:'center'}}>
-            <div style={{width:90,height:90,borderRadius:28,background:C.orange,display:'flex',alignItems:'center',justifyContent:'center',fontSize:46,marginBottom:24,boxShadow:'0 0 40px rgba(224,58,34,0.4)'}}>💰</div>
-            <div style={{fontSize:30,fontWeight:900,color:'#fff',letterSpacing:'-.5px',marginBottom:6}}>FamilyFlow</div>
-            <div style={{fontSize:14,fontWeight:600,color:'rgba(255,255,255,0.55)',marginBottom:24}}>Финансовый директор семьи</div>
-            <div style={{width:40,height:2,background:C.orange,borderRadius:1,marginBottom:24}}/>
-            <div style={{fontSize:15,color:'rgba(255,255,255,0.6)',lineHeight:'24px',maxWidth:290}}>Это не просто учёт расходов.<br/>Это готовая методика управления<br/>семейными финансами на год вперёд.</div>
-            <div style={{display:'flex',gap:20,marginTop:32}}>
-              {[['📅','Год вперёд'],['❤️','Здоровье'],['🐷','Копилка'],['🛋️','Комфорт']].map(([e,l])=>(
-                <div key={l} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:6}}>
-                  <div style={{width:44,height:44,borderRadius:13,background:'rgba(255,255,255,0.07)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:22}}>{e}</div>
-                  <span style={{fontSize:10,color:'rgba(255,255,255,0.35)'}}>{l}</span>
+            <div style={{width:80,height:80,borderRadius:26,background:C.orange,display:'flex',alignItems:'center',justifyContent:'center',fontSize:40,marginBottom:20,boxShadow:'0 0 40px rgba(224,58,34,0.4)'}}>💰</div>
+            <div style={{fontSize:28,fontWeight:800,color:'#fff',letterSpacing:'-.5px',marginBottom:6}}>FamilyFlow</div>
+            <div style={{fontSize:13,color:'rgba(255,255,255,0.45)',marginBottom:24}}>Финансовый директор семьи</div>
+            <div style={{width:36,height:2,background:C.orange,borderRadius:1,marginBottom:24}}/>
+            <div style={{display:'flex',flexDirection:'column',gap:8,width:'100%',marginBottom:8}}>
+              {[['🏦','Все деньги → Saving','один главный накопительный счёт'],
+                ['📅','Каждый понедельник','распределяем план по трём счетам'],
+                ['✅','Тратим только переведённое','Saving остаётся нетронутым']
+              ].map(([e,t,s])=>(
+                <div key={t} style={{display:'flex',alignItems:'center',gap:12,background:'rgba(255,255,255,0.05)',borderRadius:10,padding:'10px 12px',textAlign:'left'}}>
+                  <span style={{fontSize:20,flexShrink:0}}>{e}</span>
+                  <div><div style={{fontSize:12,fontWeight:600,color:'#fff'}}>{t}</div><div style={{fontSize:11,color:'rgba(255,255,255,0.4)',marginTop:1}}>{s}</div></div>
                 </div>
               ))}
             </div>
           </div>
-          <div style={{display:'flex',flexDirection:'column',gap:10}}><Btn label="Узнать как это работает →" onClick={onNext}/><div style={{fontSize:11,color:'rgba(255,255,255,0.2)',textAlign:'center'}}>Данные хранятся только на вашем устройстве</div></div>
-        </div>
-      ),
-      (onNext,onBack)=>(
-        <div style={{minHeight:'100dvh',background:'#0f172a',overflowY:'auto',boxSizing:'border-box'}}>
-          <div style={{padding:'24px 24px 48px'}}>
-            <button onClick={onBack} style={{background:'none',border:'none',cursor:'pointer',fontSize:13,color:'rgba(255,255,255,0.35)',fontFamily:'inherit',marginBottom:24,padding:0,display:'block'}}>← Назад</button>
-            <div style={{fontSize:11,color:C.orange,fontWeight:700,letterSpacing:'1.5px',marginBottom:12}}>ЗАЧЕМ FAMILYFLOW?</div>
-            <div style={{fontSize:24,fontWeight:800,color:'#fff',lineHeight:'32px',marginBottom:6}}>Вы когда-нибудь<br/>задавали себе эти<br/>вопросы?</div>
-            <div style={{fontSize:13,color:'rgba(255,255,255,0.4)',marginBottom:30,lineHeight:'20px'}}>Большинство семей не знают ответов.<br/>FamilyFlow даёт их заранее.</div>
-            {[{q:'Хватит ли денег через три месяца?',icon:'📆',a:'Прогноз баланса на год вперёд',col:'#60A5FA'},{q:'Когда возникнет кассовый разрыв?',icon:'⚠️',a:'Индикатор рисков в разделе «Здоровье»',col:'#FBBF24'},{q:'Можно ли позволить себе отпуск?',icon:'✈️',a:'Анализ свободных средств и Piggy Bank',col:'#34D399'},{q:'Что будет, если взять ипотеку?',icon:'🏦',a:'Пересчёт бюджета с новой категорией',col:'#F87171'},{q:'Сколько получится накопить через год?',icon:'🐷',a:'Прогноз накоплений по взносам в Piggy Bank',col:'#A78BFA'}].map((item,i)=>(
-              <div key={i} style={{display:'flex',gap:14,marginBottom:16,background:'rgba(255,255,255,0.04)',borderRadius:14,padding:14,borderLeft:`3px solid ${item.col}`}}>
-                <span style={{fontSize:26,flexShrink:0,marginTop:2}}>{item.icon}</span>
-                <div><div style={{fontSize:14,fontWeight:700,color:'#fff',lineHeight:'20px',marginBottom:5}}>{item.q}</div><div style={{display:'flex',alignItems:'center',gap:6}}><div style={{width:6,height:6,borderRadius:3,background:item.col,flexShrink:0}}/><span style={{fontSize:11,color:'rgba(255,255,255,0.45)'}}>{item.a}</span></div></div>
-              </div>
-            ))}
-            <div style={{background:'rgba(224,58,34,0.1)',borderRadius:12,border:'0.5px solid rgba(224,58,34,0.3)',padding:14,marginBottom:24,textAlign:'center'}}>
-              <span style={{fontSize:12,color:'rgba(255,255,255,0.55)',lineHeight:'19px'}}>FamilyFlow строит финансовую картину семьи<br/>и обновляет её каждую неделю</span>
-            </div>
-            <Btn label="Далее →" onClick={onNext}/>
+          <div style={{display:'flex',flexDirection:'column',gap:10}}>
+            <Btn label="Узнать про три направления →" onClick={onNext}/>
+            <div style={{fontSize:11,color:'rgba(255,255,255,0.2)',textAlign:'center'}}>Данные хранятся только на вашем устройстве</div>
           </div>
         </div>
       ),
+      // ─── Слайд 1: Три направления ────────────────────────────────────────
       (onNext,onBack)=>(
         <div style={{minHeight:'100dvh',background:'#0f172a',overflowY:'auto',boxSizing:'border-box'}}>
-          <div style={{padding:'24px 24px 48px'}}>
-            <button onClick={onBack} style={{background:'none',border:'none',cursor:'pointer',fontSize:13,color:'rgba(255,255,255,0.35)',fontFamily:'inherit',marginBottom:24,padding:0,display:'block'}}>← Назад</button>
-            <div style={{fontSize:11,color:C.orange,fontWeight:700,letterSpacing:'1.5px',marginBottom:12}}>КАК ЭТО РАБОТАЕТ</div>
-            <div style={{fontSize:24,fontWeight:800,color:'#fff',lineHeight:'32px',marginBottom:6}}>Философия трёх<br/>направлений</div>
-            <div style={{fontSize:13,color:'rgba(255,255,255,0.45)',marginBottom:28,lineHeight:'20px'}}>Разделите все расходы на три смысловых потока.</div>
-            {[{e:'🛡️',t:'Защита',s:'Фундамент вашей стабильности',col:'#F87171',bg:'rgba(248,113,113,0.08)',bdr:'rgba(248,113,113,0.2)',d:'Обязательные платежи и резервный фонд.',items:['🏦 Ипотека и кредиты','🔌 Коммунальные платежи','🛡️ Страховки','🐷 Резерв (Piggy Bank)'],pct:'50–60%'},{e:'🍽️',t:'Жизнь',s:'Качество каждого дня',col:'#FBBF24',bg:'rgba(251,191,36,0.08)',bdr:'rgba(251,191,36,0.2)',d:'Ежедневные расходы на комфорт и радость.',items:['🍽️ Еда и продукты','🚌 Транспорт','💊 Здоровье и красота','🎬 Развлечения'],pct:'20–30%'},{e:'🛋️',t:'Комфорт',s:'Качество вашей жизни',col:'#60A5FA',bg:'rgba(96,165,250,0.08)',bdr:'rgba(96,165,250,0.2)',d:'Крупные и нерегулярные расходы на себя.',items:['👗 Одежда и красота','🏠 Дом и ремонт','💳 Кредиты','✈️ Путешествия'],pct:'10–20%'}].map((b,i)=>(
-              <div key={i} style={{background:b.bg,borderRadius:16,border:`0.5px solid ${b.bdr}`,padding:16,marginBottom:14}}>
-                <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:10}}>
-                  <div style={{width:52,height:52,borderRadius:16,background:'rgba(255,255,255,0.07)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,flexShrink:0}}>{b.e}</div>
-                  <div style={{flex:1}}><div style={{fontSize:20,fontWeight:800,color:b.col}}>{b.t}</div><div style={{fontSize:11,color:'rgba(255,255,255,0.45)',marginTop:1}}>{b.s}</div></div>
-                  <span style={{fontSize:9,color:b.col,fontWeight:600,background:b.bg,padding:'4px 8px',borderRadius:8,border:`0.5px solid ${b.bdr}`,flexShrink:0}}>{b.pct}</span>
-                </div>
-                <div style={{fontSize:12,color:'rgba(255,255,255,0.5)',lineHeight:'18px',marginBottom:10}}>{b.d}</div>
-                <div style={{display:'flex',flexDirection:'column',gap:5}}>{b.items.map((item,j)=><div key={j} style={{display:'flex',alignItems:'center',gap:8}}><div style={{width:4,height:4,borderRadius:2,background:b.col,opacity:.6,flexShrink:0}}/><span style={{fontSize:12,color:'rgba(255,255,255,0.6)'}}>{item}</span></div>)}</div>
-              </div>
-            ))}
-            <Btn label="Далее →" onClick={onNext}/>
-          </div>
-        </div>
-      ),
-
-      // ─── 3: Система четырёх счетов ──────────────────────────────────────
-      (onNext,onBack)=>(
-        <div style={{minHeight:'100dvh',background:'#1a1a2e',overflowY:'auto',boxSizing:'border-box'}}>
           <div style={{padding:'24px 20px 48px'}}>
             <button onClick={onBack} style={{background:'none',border:'none',cursor:'pointer',fontSize:13,color:'rgba(255,255,255,0.35)',fontFamily:'inherit',marginBottom:24,padding:0,display:'block'}}>← Назад</button>
-            <div style={{fontSize:11,color:C.orange,fontWeight:700,letterSpacing:'1.5px',marginBottom:10}}>КАК ЭТО РАБОТАЕТ</div>
-            <div style={{fontSize:22,fontWeight:800,color:'#fff',lineHeight:1.3,marginBottom:8}}>Система четырёх счетов</div>
-            <div style={{fontSize:13,color:'rgba(255,255,255,0.45)',lineHeight:1.6,marginBottom:20}}>Один ритуал в начале каждой недели — и деньги работают правильно</div>
-
-            {/* Зарплата */}
-            <div style={{display:'flex',justifyContent:'center',marginBottom:8}}>
-              <div style={{background:'rgba(22,163,74,0.15)',border:'0.5px solid rgba(22,163,74,0.4)',borderRadius:12,padding:'10px 24px',textAlign:'center'}}>
-                <div style={{fontSize:10,color:'rgba(22,163,74,0.7)',letterSpacing:'1px',fontWeight:600,marginBottom:2}}>ДОХОД</div>
-                <div style={{fontSize:15,fontWeight:700,color:'#4ade80'}}>💰 Зарплата семьи</div>
-              </div>
-            </div>
-            {/* Стрелка */}
-            <div style={{display:'flex',justifyContent:'center',marginBottom:8}}>
-              <div style={{display:'flex',flexDirection:'column',alignItems:'center'}}>
-                <div style={{width:1.5,height:20,background:'rgba(22,163,74,0.5)'}}/>
-                <div style={{width:0,height:0,borderLeft:'5px solid transparent',borderRight:'5px solid transparent',borderTop:'7px solid rgba(22,163,74,0.5)'}}/>
-              </div>
-            </div>
-            {/* Saving */}
-            <div style={{background:'rgba(29,158,117,0.18)',border:'1.5px solid rgba(29,158,117,0.5)',borderRadius:14,padding:'14px 16px',marginBottom:6,textAlign:'center',position:'relative'}}>
-              <div style={{position:'absolute',top:-9,left:'50%',transform:'translateX(-50%)',background:'#1a1a2e',padding:'0 8px'}}>
-                <span style={{fontSize:9,color:'#1D9E75',fontWeight:700,letterSpacing:'1.5px'}}>ГЛАВНЫЙ СЧЁТ</span>
-              </div>
-              <div style={{fontSize:18,marginBottom:4}}>🏦</div>
-              <div style={{fontSize:15,fontWeight:700,color:'#4ade80',marginBottom:2}}>Saving</div>
-              <div style={{fontSize:11,color:'rgba(52,211,153,0.6)'}}>Все деньги поступают сюда · трогать нельзя</div>
-            </div>
-            {/* Метка */}
-            <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
-              <div style={{flex:1,height:'0.5px',background:'rgba(255,255,255,0.1)'}}/>
-              <div style={{fontSize:10,color:'rgba(255,255,255,0.3)',whiteSpace:'nowrap'}}>каждый понедельник → переводим по плану</div>
-              <div style={{flex:1,height:'0.5px',background:'rgba(255,255,255,0.1)'}}/>
-            </div>
-            {/* Три счёта */}
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6,marginBottom:20,paddingTop:14,position:'relative'}}>
-              <div style={{position:'absolute',top:0,left:0,right:0,display:'flex',justifyContent:'space-around',pointerEvents:'none'}}>
-                {[['rgba(248,113,113,0.5)'],['rgba(251,191,36,0.5)'],['rgba(96,165,250,0.5)']].map(([col],i)=>(
-                  <div key={i} style={{display:'flex',flexDirection:'column',alignItems:'center'}}>
-                    <div style={{width:1,height:8,background:col}}/>
-                    <div style={{width:0,height:0,borderLeft:'4px solid transparent',borderRight:'4px solid transparent',borderTop:`5px solid ${col}`}}/>
-                  </div>
-                ))}
-              </div>
-              {[['🛡️','ЗАЩИТА','#F87171','rgba(248,113,113,0.1)','rgba(248,113,113,0.3)','Piggy Bank','Накоп. счёт №2','rgba(248,113,113,0.6)'],
-                ['🍽️','ЖИЗНЬ','#FBBF24','rgba(251,191,36,0.1)','rgba(251,191,36,0.3)','Карточный','Карта на каждый день','rgba(251,191,36,0.6)'],
-                ['🛋️','КОМФОРТ','#60A5FA','rgba(96,165,250,0.1)','rgba(96,165,250,0.3)','До востр.','Крупные покупки','rgba(96,165,250,0.6)'],
-              ].map(([emoji,label,col,bg,bdr,title,sub,subcol])=>(
-                <div key={label} style={{background:bg,border:`0.5px solid ${bdr}`,borderRadius:12,padding:'12px 8px',textAlign:'center'}}>
-                  <div style={{fontSize:20,marginBottom:5}}>{emoji}</div>
-                  <div style={{fontSize:10,fontWeight:700,color:col,letterSpacing:'.5px',marginBottom:3}}>{label}</div>
-                  <div style={{fontSize:11,fontWeight:600,color:'rgba(255,255,255,0.8)',marginBottom:5}}>{title}</div>
-                  <div style={{height:'0.5px',background:bdr,marginBottom:5}}/>
-                  <div style={{fontSize:10,color:subcol,lineHeight:1.5}}>{sub}</div>
+            <div style={{fontSize:11,color:C.orange,fontWeight:700,letterSpacing:'1.5px',marginBottom:10}}>ТРИ НАПРАВЛЕНИЯ</div>
+            <div style={{fontSize:22,fontWeight:800,color:'#fff',lineHeight:1.3,marginBottom:6}}>Разделите расходы<br/>на три потока</div>
+            <div style={{fontSize:13,color:'rgba(255,255,255,0.45)',marginBottom:24,lineHeight:'20px'}}>Это даёт ясность — куда уходят деньги и где есть резервы.</div>
+            {[{e:'🛡️',t:'Защита',s:'Piggy Bank, ипотека, кредиты, страховки',col:'#F87171',bg:'rgba(248,113,113,0.1)',bdr:'rgba(248,113,113,0.25)',pct:'50–60%',acc:'накопительный счёт №2'},
+              {e:'🍽️',t:'Жизнь',s:'Еда, транспорт, здоровье, развлечения',col:'#FBBF24',bg:'rgba(251,191,36,0.1)',bdr:'rgba(251,191,36,0.25)',pct:'20–30%',acc:'карточный счёт'},
+              {e:'🛋️',t:'Комфорт',s:'Одежда, дом, красота, путешествия',col:'#60A5FA',bg:'rgba(96,165,250,0.1)',bdr:'rgba(96,165,250,0.25)',pct:'10–20%',acc:'счёт до востребования'},
+            ].map((b,i)=>(
+              <div key={i} style={{background:b.bg,border:`0.5px solid ${b.bdr}`,borderRadius:12,padding:'12px 14px',marginBottom:10}}>
+                <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:6}}>
+                  <span style={{fontSize:24,flexShrink:0}}>{b.e}</span>
+                  <div style={{flex:1}}><div style={{fontSize:15,fontWeight:700,color:b.col}}>{b.t}</div><div style={{fontSize:11,color:'rgba(255,255,255,0.4)',marginTop:1}}>{b.s}</div></div>
+                  <span style={{fontSize:10,color:b.col,fontWeight:600,padding:'3px 8px',borderRadius:20,background:b.bg,border:`0.5px solid ${b.bdr}`,flexShrink:0}}>{b.pct}</span>
                 </div>
-              ))}
-            </div>
-            {/* Таблица переводов */}
-            <div style={{background:'rgba(255,255,255,0.04)',border:'0.5px solid rgba(255,255,255,0.08)',borderRadius:12,padding:14,marginBottom:16}}>
-              <div style={{fontSize:10,color:'rgba(255,255,255,0.3)',letterSpacing:'1px',fontWeight:600,marginBottom:10}}>ЧТО ПЕРЕВОДИМ В ПОНЕДЕЛЬНИК</div>
-              {[['🐷','Piggy Bank → накопительный счёт','#F87171','rgba(248,113,113,0.15)','rgba(248,113,113,0.3)'],
-                ['🍽️','Еда, транспорт → карточный счёт','#FBBF24','rgba(251,191,36,0.15)','rgba(251,191,36,0.3)'],
-                ['👗','Одежда, дом, кредиты → до востр.','#60A5FA','rgba(96,165,250,0.15)','rgba(96,165,250,0.3)'],
-              ].map(([icon,text,col,bg,bdr])=>(
-                <div key={text} style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
-                  <div style={{width:28,height:28,borderRadius:8,background:bg,border:`0.5px solid ${bdr}`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:14,flexShrink:0}}>{icon}</div>
-                  <div style={{flex:1,fontSize:12,color:'rgba(255,255,255,0.6)'}}>{text}</div>
-                  <div style={{fontSize:11,fontWeight:600,color:col}}>=план</div>
+                <div style={{display:'flex',alignItems:'center',gap:6,paddingTop:6,borderTop:`0.5px solid ${b.bdr}`}}>
+                  <span style={{fontSize:10,color:b.col,opacity:.7}}>→ переводим на</span>
+                  <span style={{fontSize:10,fontWeight:600,color:b.col}}>{b.acc}</span>
                 </div>
-              ))}
+              </div>
+            ))}
+            <div style={{background:'rgba(224,58,34,0.08)',border:'0.5px solid rgba(224,58,34,0.2)',borderRadius:10,padding:'10px 14px',marginBottom:24,textAlign:'center'}}>
+              <span style={{fontSize:12,color:'rgba(255,255,255,0.5)'}}>FamilyFlow покажет баланс между направлениями и предупредит о рисках</span>
             </div>
-            {/* Итог */}
-            <div style={{background:'rgba(224,58,34,0.1)',border:'0.5px solid rgba(224,58,34,0.3)',borderRadius:12,padding:14,marginBottom:20,textAlign:'center'}}>
-              <div style={{fontSize:13,fontWeight:700,color:'#fff',marginBottom:4}}>Saving остаётся нетронутым 🏦</div>
-              <div style={{fontSize:12,color:'rgba(255,255,255,0.5)',lineHeight:1.6}}>Вы тратите только то что перевели.<br/>Всё остальное работает на вас.</div>
-            </div>
-            <Btn label="Начать настройку →" onClick={onNext}/>
+            <Btn label="Настроить бюджет →" onClick={onNext}/>
           </div>
         </div>
       ),
