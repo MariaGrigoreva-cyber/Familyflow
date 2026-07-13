@@ -617,12 +617,19 @@ function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx}){
     .filter(p=>p.isDone && p.date>=budgetStart)
     .reduce((s,p)=>s+(p.actualAmount||p.amount),0);
   // Только текущая неделя — отмеченные плановые расходы + ручные расходы
-  const weekSpent=wItems.filter(i=>i.isDone).reduce((s,i)=>s+i.amount,0)+txExpense;
-  // Накопленные расходы по всем прошлым неделям (для точного баланса)
+  // Piggy Bank исключаем из потраченного — это накопления, не расходы
+  const isPiggy=i=>i.catId==='piggy';
+  const weekSpent=wItems.filter(i=>i.isDone&&!isPiggy(i)).reduce((s,i)=>s+i.amount,0)+txExpense;
+  const weekSaved=wItems.filter(i=>i.isDone&&isPiggy(i)).reduce((s,i)=>s+i.amount,0); // накоплено
+  // Накопленные расходы по всем прошлым неделям (без Piggy Bank)
   const pastSpent=Object.entries(weekItems)
     .filter(([wk])=>wk<week)
-    .reduce((s,[,items])=>s+items.filter(i=>i.isDone).reduce((ss,i)=>ss+i.amount,0),0);
+    .reduce((s,[,items])=>s+items.filter(i=>i.isDone&&!isPiggy(i)).reduce((ss,i)=>ss+i.amount,0),0);
+  const pastSaved=Object.entries(weekItems)
+    .filter(([wk])=>wk<week)
+    .reduce((s,[,items])=>s+items.filter(i=>i.isDone&&isPiggy(i)).reduce((ss,i)=>ss+i.amount,0),0);
   const allSpentTotal=weekSpent+pastSpent;
+  const totalSaved=weekSaved+pastSaved; // всего накоплено в Piggy Bank
 
   // Баланс = стартовый + все полученные доходы + все доп.доходы − всё потраченное
   const balance=startBalance+actualSalaryReceived+txIncome-allSpentTotal;
@@ -705,17 +712,23 @@ function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx}){
           </div>
         </div>
         <div style={{display:'flex',gap:6}}>
-          {[
-            ['получено',actualSalaryReceived+txIncome,'#4ade80',`зарплаты + доходы`],
-            ['потрачено',allSpentTotal,'#f87171',`тек. ${fmt(weekSpent)} + прошл. ${fmt(pastSpent)}`],
-            ['старт',startBalance,'rgba(255,255,255,0.5)','начальный остаток'],
-          ].map(([l,v,col,hint])=>(
-            <div key={l} style={{flex:1,background:'rgba(255,255,255,0.06)',borderRadius:8,padding:'8px 10px'}}>
-              <div style={{fontSize:10,color:'rgba(255,255,255,0.35)',marginBottom:3}}>{l}</div>
-              <div style={{fontSize:12,fontWeight:500,color:col}}>{l==='потрачено'?'−':l==='получено'?'+':''}{fmt(v)}</div>
-              <div style={{fontSize:9,color:'rgba(255,255,255,0.2)',marginTop:2,lineHeight:'12px'}}>{hint}</div>
-            </div>
-          ))}
+          <div style={{display:'flex',gap:6}}>
+            {[
+              ['получено',actualSalaryReceived+txIncome,'#4ade80'],
+              ['потрачено',allSpentTotal,'#f87171'],
+              ['старт',startBalance,'rgba(255,255,255,0.5)'],
+            ].map(([l,v,col])=>(
+              <div key={l} style={{flex:1,background:'rgba(255,255,255,0.06)',borderRadius:8,padding:'8px 10px'}}>
+                <div style={{fontSize:10,color:'rgba(255,255,255,0.35)',marginBottom:3}}>{l}</div>
+                <div style={{fontSize:12,fontWeight:500,color:col}}>{l==='потрачено'?'−':l==='получено'?'+':''}{fmt(v)}</div>
+              </div>
+            ))}
+          </div>
+          {totalSaved>0&&<div style={{display:'flex',alignItems:'center',gap:8,marginTop:8,background:'rgba(134,239,172,0.1)',border:'0.5px solid rgba(134,239,172,0.2)',borderRadius:8,padding:'7px 10px'}}>
+            <span style={{fontSize:14}}>🐷</span>
+            <span style={{fontSize:11,color:'rgba(134,239,172,0.8)'}}>Накоплено в Piggy Bank</span>
+            <span style={{fontSize:13,fontWeight:600,color:'#86efac',marginLeft:'auto'}}>+{fmt(totalSaved)}</span>
+          </div>}
         </div>
       </div>
       {fondGroups.length>0&&<>
@@ -930,8 +943,8 @@ function PlanScreen({state,onToggle,onAdd,onEditTx}){
   const allWeekKeys=Object.keys(weekItems).sort();
   const getWData=wk=>{
     const items=weekItems[wk]||[];
-    const wSp=items.filter(x=>x.isDone).reduce((s,x)=>s+x.amount,0);
-    const wTot=items.reduce((s,x)=>s+x.amount,0);
+    const wSp=items.filter(x=>x.isDone&&x.catId!=='piggy').reduce((s,x)=>s+x.amount,0); // без Piggy Bank
+    const wTot=items.filter(x=>x.catId!=='piggy').reduce((s,x)=>s+x.amount,0);
     const wS=weekKeyToDate(wk),wE=new Date(wS.getTime()+6*86400000);
     const wInc=incomes.reduce((s,inc)=>{const yr=wS.getFullYear();const sch=buildPaymentSchedule(yr,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0).map(p=>({...p,...(payments[p.displayLabel]||{})}));return s+sch.filter(p=>p.date>=wS&&p.date<=wE).reduce((ss,p)=>ss+(p.actualAmount||p.amount),0);},0);
     const txInc=(transactions||[]).filter(t=>t.week===wk&&t.type==='income').reduce((s,t)=>s+t.amount,0);
