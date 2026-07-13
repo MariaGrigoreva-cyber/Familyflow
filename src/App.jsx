@@ -2326,8 +2326,12 @@ export default function App(){
   const handleAddTx=item=>{const week=addWeek||todayKey();const tx={...item,week,date:new Date().toISOString(),isDone:true};setAppState(prev=>({...prev,transactions:[tx,...(prev.transactions||[])],weekItems:item.type==='expense'?{...prev.weekItems,[week]:[tx,...(prev.weekItems[week]||[])]}:prev.weekItems}));setAddWeek(null);};
   const handleEditPlanned=updated=>{setAppState(prev=>{
     const{isNew,...cleanItem}=updated;
-    const itemWithDate=isNew?{...cleanItem,addedAt:cleanItem.addedAt||new Date().toISOString()}:cleanItem;
-    const np=isNew?[...prev.planned,itemWithDate]:prev.planned.map(p=>p.id===cleanItem.id?itemWithDate:p);
+    // Определяем новая ли категория по наличию id в текущем списке
+    const existsInPlanned=prev.planned.some(p=>p.id===cleanItem.id);
+    const itemWithDate={...cleanItem,addedAt:cleanItem.addedAt||new Date().toISOString()};
+    const np=existsInPlanned
+      ?prev.planned.map(p=>p.id===cleanItem.id?itemWithDate:p)  // обновляем
+      :[...prev.planned,itemWithDate];                            // добавляем новую
     return{...prev,planned:np,weekItems:generateAllWeeks(np)};
   });};
   const handleDeletePlanned=id=>setAppState(prev=>{const np=prev.planned.filter(p=>p.id!==id);return{...prev,planned:np,weekItems:generateAllWeeks(np)};});
