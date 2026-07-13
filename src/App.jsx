@@ -1018,7 +1018,11 @@ function PlanScreen({state,onToggle,onAdd,onEditTx}){
         {weeksSummary.length===0?<div style={{...s.card,textAlign:'center',padding:20,color:C.muted}}>Нет данных</div>
         :(()=>{
           // Накопительный баланс: стартовый + все доходы − все фактические расходы
-          let runningBalance=state.startBalance||0;
+          // Стартовый баланс на Saving = startBalance минус уже отложенное в Piggy
+          const totalPiggySaved=Object.values(state.weekItems||{})
+            .flat().filter(i=>i.catId==='piggy'&&i.isDone).reduce((s,i)=>s+i.amount,0)
+            +(state.transactions||[]).filter(t=>t.catId==='piggy').reduce((s,t)=>s+t.amount,0);
+          let runningBalance=(state.startBalance||0)-totalPiggySaved;
           return weeksSummary.map(({wk,wSp,wTot,wInc,bal},idx)=>{
             // wSp уже без Piggy Bank — остаток только на Saving счёте
             runningBalance=runningBalance+wInc-wSp;
@@ -1063,7 +1067,10 @@ function PlanScreen({state,onToggle,onAdd,onEditTx}){
         <SecTitle>ВСЕ МЕСЯЦЫ</SecTitle>
         {monthsSummary().length===0?<div style={{...s.card,textAlign:'center',padding:20,color:C.muted}}>Нет данных</div>
         :(()=>{
-          let runBal=state.startBalance||0;
+          const piggySavedTotal=Object.values(state.weekItems||{})
+            .flat().filter(i=>i.catId==='piggy'&&i.isDone).reduce((s,i)=>s+i.amount,0)
+            +(state.transactions||[]).filter(t=>t.catId==='piggy').reduce((s,t)=>s+t.amount,0);
+          let runBal=(state.startBalance||0)-piggySavedTotal;
           return monthsSummary().map(({mk,wTot,wSp,wInc})=>{
           const isCur=mk===todayMonthKey(),bal=wInc-wSp,inPlus=bal>=0,pctD=wTot>0?Math.round(wSp/wTot*100):0;
           runBal=runBal+wInc-wSp;
@@ -1489,7 +1496,10 @@ function HealthScreen({state}){
       {(()=>{
         const allWeekKeys=Object.keys(weekItems).sort();
         const riskyWeeks=[];
-        let runBal=state.startBalance||0;
+        const piggySaved2=Object.values(state.weekItems||{})
+          .flat().filter(i=>i.catId==='piggy'&&i.isDone).reduce((s,i)=>s+i.amount,0)
+          +(state.transactions||[]).filter(t=>t.catId==='piggy').reduce((s,t)=>s+t.amount,0);
+        let runBal=(state.startBalance||0)-piggySaved2;
         // считаем накопительный баланс по неделям
         for(let i=0;i<Math.min(allWeekKeys.length-1,12);i++){
           const wk=allWeekKeys[i];
