@@ -732,7 +732,7 @@ function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx}){
         {allUpcomingPay.map((p,i)=>(
           <button key={i} onClick={()=>onEditPayment(p)} style={{...s.card,display:'flex',alignItems:'center',gap:9,width:'100%',textAlign:'left',cursor:'pointer',background:p.isDone?C.greenL:C.blueL,border:`.5px solid ${p.isDone?C.greenB:C.blueB}`,fontFamily:'inherit',marginBottom:6,boxSizing:'border-box'}}>
             <div style={{width:22,height:22,borderRadius:11,border:`1.5px solid ${p.isDone?C.green:C.blueB}`,background:p.isDone?C.green:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{p.isDone&&<span style={{color:'#fff',fontSize:11}}>✓</span>}</div>
-            <span style={{fontSize:18}}>{p.type==='salary'?'💰':'💸'}</span>
+            <span style={{fontSize:18}}>{p.type==='salary'?'💰':p.type==='vacation'?'✈️':'💸'}</span>
             <div style={{flex:1}}>
               <div style={{fontSize:12,fontWeight:500,color:p.isDone?C.green:C.blue}}>{p.type==='salary'?'Зарплата':'Аванс'} · {p.memberName}</div>
               <div style={{fontSize:10,color:p.isDone?C.green:C.blue,marginTop:1}}>{p.label}</div>
@@ -1003,8 +1003,11 @@ function PlanScreen({state,onToggle,onAdd,onEditTx}){
 function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onAddExtra}){
   const[showVacPlanner,setShowVacPlanner]=useState(false);
   const[vacStart,setVacStart]=useState('');
+  // сброс статуса при смене параметров
+  const resetVacAdded=()=>setVacAdded(false);
   const[vacDays,setVacDays]=useState(14);
   const[vacActual12,setVacActual12]=useState('');
+  const[vacAdded,setVacAdded]=useState(false);
   const{incomes,planned,members,customCats=[],payments={},extraPayments=[],transactions=[]}=state;
   const allCats=[...DEFAULT_CATS,...customCats];
   const totalNet=incomes.reduce((s,i)=>s+calcAvgMonthlyNet(parseInt(i.gross)||0),0);
@@ -1066,7 +1069,7 @@ function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onAddExtra
       <div style={{...s.card,padding:0,marginBottom:10}}>
         {upcoming.map((p,idx)=>(
           <button key={idx} onClick={()=>onEditPayment(p)} style={{display:'flex',alignItems:'center',gap:10,padding:9,borderBottom:idx<upcoming.length-1?`.5px solid ${C.border}`:'none',width:'100%',textAlign:'left',cursor:'pointer',background:p.isDone?C.greenL:p.shifted&&!p.isDone?'#FFFBEB':'#fff',fontFamily:'inherit',border:'none',boxSizing:'border-box'}}>
-            <div style={{width:34,height:34,borderRadius:17,background:p.isDone?C.greenL:p.type==='salary'?C.blueL:C.greenL,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,flexShrink:0}}>{p.isDone?'✅':p.type==='salary'?'💰':'💸'}</div>
+            <div style={{width:34,height:34,borderRadius:17,background:p.isDone?C.greenL:p.type==='salary'?C.blueL:C.greenL,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,flexShrink:0}}>{p.isDone?'✅':p.type==='salary'?'💰':p.type==='vacation'?'✈️':'💸'}</div>
             <div style={{flex:1}}>
               <div style={{fontSize:11,fontWeight:500,color:p.isDone?C.green:C.text}}>{p.type==='salary'?'Зарплата':'Аванс'} · {p.memberAvatar} {p.memberName}</div>
               <div style={{fontSize:10,color:p.shifted?C.yellow:C.muted}}>{p.label}{p.shifted?` (${p.note})`:''}</div>
@@ -1096,25 +1099,30 @@ function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onAddExtra
               <span style={{fontSize:12,color:vacActual12?C.green:C.yellow}}>Фактический заработок за 12 мес.:</span>
               <div style={{display:'flex',alignItems:'center',gap:6}}>
                 <input type="text" inputMode="numeric" value={vacActual12||''} onChange={e=>setVacActual12(e.target.value)}
-                  placeholder={String(Math.round(vacBasis12))}
+                  placeholder={`~${fmt(Math.round(vacBasis12))} (годовая сумма)`}
                   style={{width:110,border:`.5px solid ${vacActual12?C.greenB:C.yellowB}`,borderRadius:7,padding:'4px 8px',fontSize:13,outline:'none',fontFamily:'inherit',background:vacActual12?'rgba(22,163,74,0.1)':'rgba(146,64,14,0.1)'}}/>
                 <span style={{fontSize:12,color:C.muted}}>₽</span>
               </div>
-              {!vacActual12&&<span style={{fontSize:11,color:C.muted}}>← из справки 2-НДФЛ</span>}
+              {!vacActual12&&<span style={{fontSize:11,color:C.muted}}>← годовая сумма (~gross × 12)</span>}
             </div>
+            {vacActual12&&parseInt(vacActual12)<(monthlyGross||0)&&(
+              <div style={{fontSize:11,color:C.red,marginTop:6,padding:'6px 8px',background:C.redL,borderRadius:6}}>
+                ⚠️ Похоже введена месячная сумма. Укажите годовую: ~{fmt((monthlyGross||0)*12)}
+              </div>
+            )}
           </div>
           {/* Параметры */}
           <div style={{display:'flex',flexDirection:'column',gap:8,marginBottom:12}}>
             <div style={{display:'flex',alignItems:'center',gap:8}}>
               <span style={{fontSize:13,color:C.muted,flex:1}}>Дата начала</span>
-              <input type="date" value={vacStart} onChange={e=>setVacStart(e.target.value)}
+              <input type="date" value={vacStart} onChange={e=>{setVacStart(e.target.value);setVacAdded(false);}}
                 style={{border:`.5px solid ${C.border}`,borderRadius:7,padding:'5px 8px',fontSize:13,outline:'none',fontFamily:'inherit',background:'#fff',color:C.text}}/>
             </div>
             <div style={{display:'flex',alignItems:'center',gap:8}}>
               <span style={{fontSize:13,color:C.muted,flex:1}}>Количество дней</span>
               <div style={{display:'flex',gap:4}}>
                 {[7,14,21,28].map(d=>(
-                  <button key={d} onClick={()=>setVacDays(d)}
+                  <button key={d} onClick={()=>{setVacDays(d);setVacAdded(false);}}
                     style={{padding:'5px 10px',borderRadius:7,border:`.5px solid ${vacDays===d?C.orangeB:C.border}`,background:vacDays===d?C.orangeL:'#fff',color:vacDays===d?'#991B1B':C.text,fontSize:12,cursor:'pointer',fontFamily:'inherit'}}>
                     {d}
                   </button>
@@ -1167,6 +1175,29 @@ function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onAddExtra
                     <div style={{fontSize:12,fontWeight:500,color:totalMonth>=net?C.green:C.yellow}}>{totalMonth>=net?'+':''}{fmt(totalMonth-net)}</div>
                   </div>
                 </div>
+              </div>
+                <button onClick={()=>{
+                  // Добавляем отпускные как доп. выплату
+                  const basis2=vacActual12?parseInt(vacActual12):vacBasis12;
+                  const sdz2=basis2/12/29.3;
+                  const vacG=sdz2*vacDays;
+                  const vacN=Math.round(vacG-Math.round(vacG*0.13));
+                  const startD2=new Date(vacStart);
+                  const payD2=new Date(startD2);payD2.setDate(payD2.getDate()-3);
+                  const label=`Отпускные (${vacDays} дн. с ${startD2.getDate()}.${String(startD2.getMonth()+1).padStart(2,'0')})`;
+                  onAddExtra({
+                    id:uid(),
+                    label,
+                    amount:vacN,
+                    date:payD2.toISOString(),
+                    type:'vacation',
+                    note:`Расчёт по ТК РФ ст.139. СДЗ=${Math.round(sdz2)} ₽/день × ${vacDays} дней`
+                  });
+                  setVacAdded(true);
+                  setTimeout(()=>setShowVacPlanner(false),1200);
+                }} style={{width:'100%',padding:12,borderRadius:10,border:'none',background:vacAdded?C.greenL:C.green,border:vacAdded?`.5px solid ${C.greenB}`:'none',color:vacAdded?C.green:'#fff',fontSize:14,fontWeight:600,cursor:'pointer',fontFamily:'inherit',marginTop:4}}>
+                  {vacAdded?'✓ Добавлено в выплаты!':'Добавить отпускные в бюджет'}
+                </button>
               </div>
             );
           })()}
@@ -2078,7 +2109,18 @@ export default function App(){
   const handleAddPlanned=()=>{setEditItem({id:uid(),catId:'other',name:'Новая',amount:0,memberId:appState.members[0]?.id||'m1',repeat:'weekly',days:[],isNew:true});setShowEdit(true);};
   const handleEditPayment=payment=>{setEditPayment(payment);setShowEditPay(true);};
   const handleSavePayment=payment=>setAppState(prev=>({...prev,payments:{...prev.payments,[payment.displayLabel]:{actualAmount:payment.actualAmount,isDone:payment.isDone,note2:payment.note2}}}));
-  const handleAddExtra=payment=>setAppState(prev=>({...prev,extraPayments:[...prev.extraPayments,payment]}));
+  const handleAddExtra=payment=>{
+    const ep={
+      id:payment.id||uid(),
+      label:payment.label||payment.name||'Доп. выплата',
+      amount:parseInt(payment.amount)||0,
+      date:payment.date||new Date().toISOString(),
+      memberId:payment.memberId||appState.members[0]?.id||'m1',
+      type:payment.type||'extra',
+      note:payment.note||'',
+    };
+    setAppState(prev=>({...prev,extraPayments:[...prev.extraPayments,ep]}));
+  };
   const handleEditTx=(item)=>{setEditTxItem(item);setShowEditTx(true);};
   const handleSaveTx=(updated)=>{
     setAppState(prev=>{
@@ -2129,7 +2171,7 @@ export default function App(){
       <div style={{flex:1,display:'flex',flexDirection:'column'}}>
         {tab==='today'&&<TodayScreen state={appState} onToggle={handleToggle} onAdd={()=>setShowAdd(true)} onEditPayment={handleEditPayment} onEditTx={handleEditTx}/>}
         {tab==='plan'&&<PlanScreen state={appState} onToggle={handleToggle} onAdd={(wk)=>{setAddWeek(wk);setShowAdd(true);}} onEditTx={handleEditTx}/>}
-        {tab==='budget'&&<BudgetScreen state={appState} onEditPlanned={item=>{setEditItem(item);setShowEdit(true);}} onAddPlanned={handleAddPlanned} onEditPayment={handleEditPayment} onAddExtra={()=>setShowAddExtra(true)}/>}
+        {tab==='budget'&&<BudgetScreen state={appState} onEditPlanned={item=>{setEditItem(item);setShowEdit(true);}} onAddPlanned={handleAddPlanned} onEditPayment={handleEditPayment} onAddExtra={(data)=>{if(data&&data.amount){handleAddExtra(data);}else{setShowAddExtra(true);}}}/>}
         {tab==='health'&&<HealthScreen state={appState}/>}
         {tab==='settings'&&<SettingsScreen state={appState} onEditCat={item=>{setEditItem(item);setShowEdit(true);}} onAddCat={handleAddPlanned} onEditIncome={handleEditIncome}/>}
       </div>
