@@ -1155,6 +1155,7 @@ function PlanScreen({state,onToggle,onAdd,onEditTx}){
                 ))}
               </div>
             </div>
+            </div>
             <div style={{display:'flex',alignItems:'center',gap:10,padding:'7px 14px',marginBottom:6,background:runPlusYr?C.greenL:C.redL,border:`.5px solid ${runPlusYr?C.greenB:C.redB}`,borderRadius:'0 0 10px 10px'}}>
               <span style={{fontSize:13}}>🏦</span>
               <span style={{flex:1,fontSize:12,color:runPlusYr?C.green:C.red}}>Накопительный баланс</span>
