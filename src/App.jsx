@@ -1420,7 +1420,16 @@ function HealthScreen({state}){
   const savingsRate=totalNet>0?Math.round(totalSavings/totalNet*100):0;
   const expenseRatio=totalNet>0?Math.round(expWithoutPiggy/totalNet*100):0;
   // transactions piggy попадает в weekItems через handleAddTx, не считаем дважды
-  const piggyActual=Object.values(weekItems).reduce((total,items)=>total+items.filter(i=>i.catId==='piggy'&&i.isDone).reduce((s,i)=>s+i.amount,0),0);
+  // Piggy Bank: из weekItems (плановые галочки) + из transactions (ручные записи)
+  // Без дублей: если есть transaction для недели — берём только её
+  const txPiggyMap={};
+  (state.transactions||[]).filter(t=>t.catId==='piggy').forEach(t=>{
+    txPiggyMap[t.week]=(txPiggyMap[t.week]||0)+t.amount;
+  });
+  const piggyActual=Object.entries(weekItems).reduce((total,[wk,items])=>{
+    if(txPiggyMap[wk]) return total+txPiggyMap[wk]; // ручная запись приоритетнее
+    return total+items.filter(i=>i.catId==='piggy'&&i.isDone).reduce((s,i)=>s+i.amount,0);
+  },0)+Object.entries(txPiggyMap).filter(([wk])=>!weekItems[wk]).reduce((s,[,v])=>s+v,0);
   const cushion=piggyActual>0?piggyActual:Math.round(piggyMonthly/4.3*4);
   const isDeficit=monthlyExp>totalNet; // годовой дефицит
   const healthScore=Math.max(0,Math.min(100,
