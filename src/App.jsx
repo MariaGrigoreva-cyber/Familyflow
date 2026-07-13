@@ -65,6 +65,24 @@ const buildPaymentSchedule=(year,salaryDays=[],advanceDays=[],advancePct=40,mont
     for(const d of salaryDays){const info=fmtPayDate(year,m,d);result.push({type:'salary',amount:salAmt,month:m,bracket,...info,displayLabel:`Зарплата·${info.label}`,actualAmount:salAmt,isDone:false,note2:'',ndfl:monthlyNDFL});}}
   return result.sort((a,b)=>a.date-b.date);
 };
+// Мёрж: регенерирует недели по новому плану, сохраняя отметки isDone и ручные записи
+const regenWeeksKeepDone=(planned,prevWeekItems)=>{
+  const fresh=generateAllWeeks(planned);
+  const merged={...fresh};
+  Object.keys(prevWeekItems||{}).forEach(wk=>{
+    if(prevWeekItems[wk]&&merged[wk]){
+      const savedMap={};
+      prevWeekItems[wk].forEach(i=>{savedMap[i.plannedId||i.id]=i.isDone;});
+      merged[wk]=merged[wk].map(i=>({...i,isDone:savedMap[i.plannedId||i.id]??i.isDone}));
+      // Ручные записи (транзакции в weekItems) — переносим как есть
+      const manualItems=prevWeekItems[wk].filter(i=>i.week); // транзакции имеют поле week
+      manualItems.forEach(m=>{if(!merged[wk].some(x=>x.id===m.id))merged[wk].push(m);});
+    } else if(prevWeekItems[wk]&&!merged[wk]){
+      merged[wk]=prevWeekItems[wk];
+    }
+  });
+  return merged;
+};
 const generateAllWeeks=planned=>{
   const items={},start=isoMondayOf(new Date());
   for(let i=0;i<104;i++){
@@ -1820,20 +1838,21 @@ function SettingsScreen({state,onEditCat,onAddCat,onEditIncome}){
       {/* Сетка неактивных категорий для быстрого добавления */}
       {(()=>{
         const activeCatIds=planned.map(p=>p.catId);
-        const inactive=allCats.filter(c=>!activeCatIds.includes(c.id));
         return(
           <div style={{marginBottom:10}}>
             <div style={{fontSize:12,color:C.muted,marginBottom:8}}>
-              {inactive.length>0?'Нажмите на категорию чтобы добавить:':'Все стандартные категории добавлены'}
+              Нажмите чтобы добавить категорию (можно несколько раз — например для разных членов семьи):
             </div>
             <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
-              {inactive.map(cat=>(
+              {allCats.map(cat=>(
                 <button key={cat.id}
                   onClick={()=>onEditCat({id:uid(),catId:cat.id,name:cat.name,amount:0,memberId:members[0]?.id||'m1',repeat:'weekly',days:[],isNew:true,addedAt:new Date().toISOString()})}
-                  style={{display:'flex',alignItems:'center',gap:6,padding:'8px 12px',borderRadius:10,border:`.5px solid ${C.border}`,background:'#fff',cursor:'pointer',fontFamily:'inherit',boxShadow:'0 1px 2px rgba(0,0,0,0.04)'}}>
+                  style={{display:'flex',alignItems:'center',gap:6,padding:'8px 12px',borderRadius:10,border:`.5px solid ${activeCatIds.includes(cat.id)?C.greenB:C.border}`,background:activeCatIds.includes(cat.id)?C.greenL:'#fff',cursor:'pointer',fontFamily:'inherit',boxShadow:'0 1px 2px rgba(0,0,0,0.04)'}}>
                   <span style={{fontSize:18}}>{cat.emoji}</span>
                   <span style={{fontSize:13,color:C.text}}>{cat.name}</span>
-                  <span style={{fontSize:12,color:C.green,fontWeight:700}}>+</span>
+                  {activeCatIds.filter(id=>id===cat.id).length>0
+                    ?<span style={{fontSize:10,color:C.green,fontWeight:600,background:'rgba(22,163,74,0.15)',padding:'1px 6px',borderRadius:10}}>{activeCatIds.filter(id=>id===cat.id).length}</span>
+                    :<span style={{fontSize:12,color:C.green,fontWeight:700}}>+</span>}
                 </button>
               ))}
               <button onClick={()=>onEditCat({id:uid(),catId:'custom_'+uid(),name:'',amount:0,memberId:members[0]?.id||'m1',repeat:'weekly',days:[],isNew:true,addedAt:new Date().toISOString()})}
@@ -2399,9 +2418,9 @@ export default function App(){
     const np=existsInPlanned
       ?prev.planned.map(p=>p.id===cleanItem.id?itemWithDate:p)  // обновляем
       :[...prev.planned,itemWithDate];                            // добавляем новую
-    return{...prev,planned:np,weekItems:generateAllWeeks(np)};
+    return{...prev,planned:np,weekItems:regenWeeksKeepDone(np,prev.weekItems)};
   });};
-  const handleDeletePlanned=id=>setAppState(prev=>{const np=prev.planned.filter(p=>p.id!==id);return{...prev,planned:np,weekItems:generateAllWeeks(np)};});
+  const handleDeletePlanned=id=>setAppState(prev=>{const np=prev.planned.filter(p=>p.id!==id);return{...prev,planned:np,weekItems:regenWeeksKeepDone(np,prev.weekItems)};});
   const handleAddPlanned=()=>{setEditItem({id:uid(),catId:'other',name:'Новая',amount:0,memberId:appState.members[0]?.id||'m1',repeat:'weekly',days:[],isNew:true});setShowEdit(true);};
   const handleEditPayment=payment=>{setEditPayment(payment);setShowEditPay(true);};
   const handleSavePayment=payment=>setAppState(prev=>({...prev,payments:{...prev.payments,[payment.displayLabel]:{actualAmount:payment.actualAmount,isDone:payment.isDone,note2:payment.note2}}}));
