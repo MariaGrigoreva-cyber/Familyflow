@@ -1043,7 +1043,8 @@ function PlanScreen({state,onToggle,onAdd,onEditTx}){
           runBal=runBal+wInc-wSp;
           const runPlus=runBal>=0;
           return(
-            <div key={mk} style={{...s.card,marginBottom:8,borderLeft:`3px solid ${isCur?C.orange:inPlus?C.green:C.red}`}}>
+            <div key={mk}>
+            <div style={{...s.card,marginBottom:0,borderLeft:`3px solid ${isCur?C.orange:inPlus?C.green:C.red}`,borderBottomLeftRadius:0,borderBottomRightRadius:0}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
                 <div><div style={{fontSize:13,fontWeight:700,color:isCur?C.orange:C.text}}>{isCur?'▶ ':''}{monthLabel(mk)}</div><div style={{fontSize:10,color:C.muted,marginTop:1}}>Выполнено {pctD}%</div></div>
                 <span style={{...s.pill,background:inPlus?C.greenL:C.redL,borderColor:inPlus?C.greenB:C.redB,color:inPlus?C.green:C.red}}>{inPlus?'+':''}{fmt(bal)}</span>
@@ -1059,6 +1060,7 @@ function PlanScreen({state,onToggle,onAdd,onEditTx}){
               <span style={{fontSize:13}}>🏦</span>
               <span style={{flex:1,fontSize:12,color:runPlus?C.green:C.red}}>Накопительный баланс</span>
               <span style={{fontSize:13,fontWeight:600,color:runPlus?C.green:C.red}}>{runPlus?'+':''}{fmt(runBal)}</span>
+            </div>
             </div>
           );
         })})()}
