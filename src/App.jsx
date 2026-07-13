@@ -1142,24 +1142,25 @@ function PlanScreen({state,onToggle,onAdd,onEditTx}){
           runBalYr=runBalYr+wInc-deductYr;
           const runPlusYr=runBalYr>=0;
           return(
-            <div key={yr} style={{...s.card,marginBottom:10,borderLeft:`3px solid ${isCur?C.orange:inPlus?C.green:C.red}`}}>
-              <div style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
-                <span style={{fontSize:18,fontWeight:800,color:isCur?C.orange:C.text}}>{isCur?'▶ ':''}{yr}</span>
-                <span style={{...s.pill,background:inPlus?C.greenL:C.redL,borderColor:inPlus?C.greenB:C.redB,color:inPlus?C.green:C.red}}>{inPlus?'+':'−'}{fmt(bal)}</span>
+            <div key={yr} style={{marginBottom:6}}>
+              <div style={{...s.card,marginBottom:0,borderLeft:`3px solid ${isCur?C.orange:inPlus?C.green:C.red}`,borderBottomLeftRadius:0,borderBottomRightRadius:0}}>
+                <div style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
+                  <span style={{fontSize:18,fontWeight:800,color:isCur?C.orange:C.text}}>{isCur?'▶ ':''}{yr}</span>
+                  <span style={{...s.pill,background:inPlus?C.greenL:C.redL,borderColor:inPlus?C.greenB:C.redB,color:inPlus?C.green:C.red}}>{inPlus?'+':'−'}{fmt(bal)}</span>
+                </div>
+                <PBar pct={wInc>0?(wTot/wInc*100):0} color={C.orange} h={5}/>
+                <div style={{fontSize:9,color:C.muted,marginTop:3,marginBottom:8}}>Расходы {wInc>0?Math.round(wTot/wInc*100):0}% от дохода · выполнено {pctD}%</div>
+                <div style={{display:'flex',gap:8}}>
+                  {[['Доходы',wInc,'#4ade80'],['Расходы',wTot,'#f87171'],['Оплачено',wSp,C.orange],['Накоплено',Math.max(bal,0),C.green]].map(([l,v,col])=>(
+                    <div key={l} style={{flex:1,background:C.bg,borderRadius:8,padding:7,textAlign:'center'}}><div style={{fontSize:7,color:C.muted,marginBottom:3}}>{l}</div><div style={{fontSize:10,fontWeight:700,color:v>0?col:C.muted}}>{v>0?fmt(v):'—'}</div></div>
+                  ))}
+                </div>
               </div>
-              <PBar pct={wInc>0?(wTot/wInc*100):0} color={C.orange} h={5}/>
-              <div style={{fontSize:9,color:C.muted,marginTop:3,marginBottom:8}}>Расходы {wInc>0?Math.round(wTot/wInc*100):0}% от дохода · выполнено {pctD}%</div>
-              <div style={{display:'flex',gap:8}}>
-                {[['Доходы',wInc,'#4ade80'],['Расходы',wTot,'#f87171'],['Оплачено',wSp,C.orange],['Накоплено',Math.max(bal,0),C.green]].map(([l,v,col])=>(
-                  <div key={l} style={{flex:1,background:C.bg,borderRadius:8,padding:7,textAlign:'center'}}><div style={{fontSize:7,color:C.muted,marginBottom:3}}>{l}</div><div style={{fontSize:10,fontWeight:700,color:v>0?col:C.muted}}>{v>0?fmt(v):'—'}</div></div>
-                ))}
+              <div style={{display:'flex',alignItems:'center',gap:10,padding:'7px 14px',background:runPlusYr?C.greenL:C.redL,border:`.5px solid ${runPlusYr?C.greenB:C.redB}`,borderRadius:'0 0 10px 10px'}}>
+                <span style={{fontSize:13}}>🏦</span>
+                <span style={{flex:1,fontSize:12,color:runPlusYr?C.green:C.red}}>Накопительный баланс</span>
+                <span style={{fontSize:13,fontWeight:600,color:runPlusYr?C.green:C.red}}>{runPlusYr?'+':'−'}{fmt(runBalYr)}</span>
               </div>
-            </div>
-            </div>
-            <div style={{display:'flex',alignItems:'center',gap:10,padding:'7px 14px',marginBottom:6,background:runPlusYr?C.greenL:C.redL,border:`.5px solid ${runPlusYr?C.greenB:C.redB}`,borderRadius:'0 0 10px 10px'}}>
-              <span style={{fontSize:13}}>🏦</span>
-              <span style={{flex:1,fontSize:12,color:runPlusYr?C.green:C.red}}>Накопительный баланс</span>
-              <span style={{fontSize:13,fontWeight:600,color:runPlusYr?C.green:C.red}}>{runPlusYr?'+':'−'}{fmt(runBalYr)}</span>
             </div>
           );
         });})()}
