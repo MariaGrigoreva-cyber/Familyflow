@@ -72,6 +72,8 @@ const generateAllWeeks=planned=>{
     const wEnd=new Date(wDate.getTime()+6*86400000);
     const key=weekKey(wDate);
     items[key]=planned.map(p=>{
+      // Если категория добавлена позже начала этой недели — не показываем в прошлых неделях
+      if(p.addedAt){const added=new Date(p.addedAt);added.setHours(0,0,0,0);if(wDate<added)return null;}
       if(p.repeat==='weekly') return{id:`${p.id}-${key}`,catId:p.catId,name:p.name,amount:p.amount,memberId:p.memberId,isDone:false,plannedId:p.id};
       if(p.repeat==='biweekly'&&i%2===0) return{id:`${p.id}-${key}`,catId:p.catId,name:p.name,amount:p.amount,memberId:p.memberId,isDone:false,plannedId:p.id};
       if(p.repeat==='once'){
@@ -525,7 +527,10 @@ function Onboarding({onDone}){
                   <div style={{display:'flex',gap:4,marginBottom:8}}>
                     {REPEAT_OPTS.map(r=><button key={r.id} onClick={()=>updCat(catId,'repeat',r.id)} style={{flex:1,padding:'8px 4px',borderRadius:7,border:'none',background:rep===r.id?C.orangeL:'#f1f5f9',color:rep===r.id?'#991B1B':C.muted,fontSize:11,fontWeight:rep===r.id?600:400,cursor:'pointer',fontFamily:'inherit'}}>{r.label}</button>)}
                   </div>
-                  {rep==='monthly'&&<DayPicker selected={setup.days||[]} onToggle={d=>toggleCatDay(catId,d)} title={`Числа: ${(setup.days||[]).length===0?'не выбрано':(setup.days||[]).join(', ')}`}/>}
+                  {rep==='monthly'&&<>
+                    <DayPicker selected={setup.days||[]} onToggle={d=>toggleCatDay(catId,d)} title={`Числа: ${(setup.days||[]).length===0?'не выбрано':(setup.days||[]).join(', ')}`}/>
+                    {(setup.days||[]).length>1&&<div style={{fontSize:11,color:C.green,marginTop:3}}>{(setup.days||[]).length} даты: {(setup.days||[]).join(', ')} числа</div>}
+                  </>}
                   {rep==='once'&&(
                     <div style={{...s.card,background:C.blueL,border:`.5px solid ${C.blueB}`,padding:10,marginBottom:8}}>
                       <div style={{fontSize:11,fontWeight:700,color:C.blue,marginBottom:6}}>📅 Дата платежа</div>
@@ -1673,7 +1678,37 @@ function SettingsScreen({state,onEditCat,onAddCat,onEditIncome}){
           );
         })}
       </div>
-      <SecTitle right="+ Добавить" onRight={onAddCat}>КАТЕГОРИИ РАСХОДОВ</SecTitle>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
+        <SecTitle>КАТЕГОРИИ РАСХОДОВ</SecTitle>
+      </div>
+      {/* Сетка неактивных категорий для быстрого добавления */}
+      {(()=>{
+        const activeCatIds=planned.map(p=>p.catId);
+        const inactive=allCats.filter(c=>!activeCatIds.includes(c.id));
+        return(
+          <div style={{marginBottom:10}}>
+            <div style={{fontSize:12,color:C.muted,marginBottom:8}}>
+              {inactive.length>0?'Нажмите на категорию чтобы добавить:':'Все стандартные категории добавлены'}
+            </div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:6}}>
+              {inactive.map(cat=>(
+                <button key={cat.id}
+                  onClick={()=>onEditCat({id:uid(),catId:cat.id,name:cat.name,amount:0,memberId:members[0]?.id||'m1',repeat:'weekly',days:[],isNew:true,addedAt:new Date().toISOString()})}
+                  style={{display:'flex',alignItems:'center',gap:6,padding:'8px 12px',borderRadius:10,border:`.5px solid ${C.border}`,background:'#fff',cursor:'pointer',fontFamily:'inherit',boxShadow:'0 1px 2px rgba(0,0,0,0.04)'}}>
+                  <span style={{fontSize:18}}>{cat.emoji}</span>
+                  <span style={{fontSize:13,color:C.text}}>{cat.name}</span>
+                  <span style={{fontSize:12,color:C.green,fontWeight:700}}>+</span>
+                </button>
+              ))}
+              <button onClick={()=>onEditCat({id:uid(),catId:'custom_'+uid(),name:'',amount:0,memberId:members[0]?.id||'m1',repeat:'weekly',days:[],isNew:true,addedAt:new Date().toISOString()})}
+                style={{display:'flex',alignItems:'center',gap:6,padding:'8px 12px',borderRadius:10,border:`.5px dashed ${C.orange}`,background:C.orangeL,cursor:'pointer',fontFamily:'inherit'}}>
+                <span style={{fontSize:16}}>✏️</span>
+                <span style={{fontSize:13,color:C.orange}}>Своя категория</span>
+              </button>
+            </div>
+          </div>
+        );
+      })()}
       <div style={{...s.card,padding:0}}>
         {planned.map((p,idx)=>{
           const cat=allCats.find(c=>c.id===p.catId),mem=members.find(m=>m.id===p.memberId);
@@ -1938,7 +1973,13 @@ function EditCatModal({visible,item,members,onClose,onSave,onDelete,customCats=[
         <div style={{display:'flex',gap:4,marginBottom:12}}>
           {REPEAT_OPTS.map(r=><button key={r.id} onClick={()=>setRepeat(r.id)} style={{flex:1,padding:'8px 4px',borderRadius:7,border:'none',background:repeat===r.id?C.orangeL:'#f1f5f9',color:repeat===r.id?'#991B1B':C.muted,fontSize:11,fontWeight:repeat===r.id?600:400,cursor:'pointer',fontFamily:'inherit'}}>{r.label}</button>)}
         </div>
-        {repeat==='monthly'&&<DayPicker selected={days} onToggle={d=>setDays(p=>p.includes(d)?p.filter(x=>x!==d):[...p,d].sort((a,b)=>a-b))} title={`Числа: ${days.length===0?'не выбрано':days.join(', ')}`}/>}
+        {repeat==='monthly'&&<>
+          <div style={{...s.card,background:C.blueL,border:`.5px solid ${C.blueB}`,padding:'8px 12px',marginBottom:6}}>
+            <div style={{fontSize:12,color:C.blue}}>💡 Можно выбрать несколько дат — например 5 и 20 числа</div>
+          </div>
+          <DayPicker selected={days} onToggle={d=>setDays(p=>p.includes(d)?p.filter(x=>x!==d):[...p,d].sort((a,b)=>a-b))} title={`Числа: ${days.length===0?'не выбрано':days.join(', ')}`}/>
+          {days.length>1&&<div style={{fontSize:12,color:C.green,marginTop:4,marginBottom:4}}>✓ Выбрано {days.length} даты: {days.join(', ')} числа каждого месяца</div>}
+        </>}
         {repeat==='once'&&(
           <div style={{...s.card,background:C.blueL,border:`.5px solid ${C.blueB}`,padding:12,marginBottom:12}}>
             <div style={{fontSize:12,fontWeight:700,color:C.blue,marginBottom:8}}>📅 Дата платежа</div>
@@ -2214,7 +2255,7 @@ export default function App(){
   };
   const handleToggle=(week,itemId)=>setAppState(prev=>({...prev,weekItems:{...prev.weekItems,[week]:(prev.weekItems[week]||[]).map(i=>i.id===itemId?{...i,isDone:!i.isDone}:i)}}));
   const handleAddTx=item=>{const week=addWeek||todayKey();const tx={...item,week,date:new Date().toISOString(),isDone:true};setAppState(prev=>({...prev,transactions:[tx,...(prev.transactions||[])],weekItems:item.type==='expense'?{...prev.weekItems,[week]:[tx,...(prev.weekItems[week]||[])]}:prev.weekItems}));setAddWeek(null);};
-  const handleEditPlanned=updated=>{setAppState(prev=>{const np=updated.isNew?[...prev.planned,updated]:prev.planned.map(p=>p.id===updated.id?updated:p);return{...prev,planned:np,weekItems:generateAllWeeks(np)};});};
+  const handleEditPlanned=updated=>{setAppState(prev=>{const itemWithDate=updated.isNew?{...updated,addedAt:updated.addedAt||new Date().toISOString()}:updated;const np=updated.isNew?[...prev.planned,itemWithDate]:prev.planned.map(p=>p.id===updated.id?itemWithDate:p);return{...prev,planned:np,weekItems:generateAllWeeks(np)};});};
   const handleDeletePlanned=id=>setAppState(prev=>{const np=prev.planned.filter(p=>p.id!==id);return{...prev,planned:np,weekItems:generateAllWeeks(np)};});
   const handleAddPlanned=()=>{setEditItem({id:uid(),catId:'other',name:'Новая',amount:0,memberId:appState.members[0]?.id||'m1',repeat:'weekly',days:[],isNew:true});setShowEdit(true);};
   const handleEditPayment=payment=>{setEditPayment(payment);setShowEditPay(true);};
