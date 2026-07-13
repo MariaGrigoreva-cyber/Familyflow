@@ -957,7 +957,8 @@ function PlanScreen({state,onToggle,onAdd,onEditTx}){
   };
   const weeksSummary=allWeekKeys.map(getWData);
   const monthsSummary=()=>{const map={};allWeekKeys.forEach(wk=>{const wS=weekKeyToDate(wk);const mk=monthKey(wS);if(!map[mk])map[mk]={mk,wTot:0,wSp:0,wInc:0};const d=getWData(wk);map[mk].wTot+=d.wTot;map[mk].wSp+=d.wSp;map[mk].wInc+=d.wInc;});return Object.values(map).sort((a,b)=>a.mk.localeCompare(b.mk));};
-  const yearsSummary=()=>{const map={};allWeekKeys.forEach(wk=>{const yr=parseWeekKey(wk).year;if(!map[yr])map[yr]={yr,wTot:0,wSp:0,wInc:0};const d=getWData(wk);map[yr].wTot+=d.wTot;map[yr].wSp+=d.wSp;map[yr].wInc+=d.wInc;});return Object.values(map).sort((a,b)=>a.yr-b.yr);};
+  const yearsSummary=()=>{const map={};allWeekKeys.forEach(wk=>{const yr=weekKeyToDate(wk).getFullYear(); // календарный год по дате начала недели
+    if(!map[yr])map[yr]={yr,wTot:0,wSp:0,wInc:0};const d=getWData(wk);map[yr].wTot+=d.wTot;map[yr].wSp+=d.wSp;map[yr].wInc+=d.wInc;});return Object.values(map).sort((a,b)=>a.yr-b.yr);};
   const TABS=[{id:'detail',label:'📋 Неделя'},{id:'weeks',label:'📊 Недели'},{id:'months',label:'📅 Месяцы'},{id:'year',label:'🗓 Всё время'}];
   const pad={padding:'14px 14px 80px'};
   const navBtn={padding:'8px 12px',borderRadius:8,border:`.5px solid ${C.border}`,background:'#fff',color:C.orange,fontWeight:500,fontSize:12,cursor:'pointer',fontFamily:'inherit'};
@@ -1017,6 +1018,17 @@ function PlanScreen({state,onToggle,onAdd,onEditTx}){
 
       {viewMode==='weeks'&&<>
         <SecTitle>СВОДКА ПО НЕДЕЛЯМ</SecTitle>
+        {(()=>{
+          const annualNet=state.incomes?.reduce((s,i)=>s+calcAvgMonthlyNet(parseInt(i.gross)||0),0)||0;
+          const annualExp=(state.planned||[]).reduce((s,p)=>s+(p.repeat==='weekly'?p.amount*4.3:p.repeat==='biweekly'?p.amount*2.15:p.amount),0);
+          if(annualExp<=annualNet)return null;
+          return(
+            <div style={{...s.card,background:C.redL,border:`.5px solid ${C.redB}`,padding:'10px 12px',marginBottom:8}}>
+              <div style={{fontSize:13,fontWeight:600,color:C.red,marginBottom:3}}>🚨 Плановый дефицит {fmt((annualExp-annualNet)/12)}/мес</div>
+              <div style={{fontSize:12,color:C.red}}>Расходы превышают доходы. Скорректируйте план в Настройках.</div>
+            </div>
+          );
+        })()}
         {weeksSummary.length===0?<div style={{...s.card,textAlign:'center',padding:20,color:C.muted}}>Нет данных</div>
         :(()=>{
           // Накопительный баланс: стартовый + все доходы − все фактические расходы
@@ -1083,9 +1095,13 @@ function PlanScreen({state,onToggle,onAdd,onEditTx}){
             .flat().filter(i=>i.catId==='piggy'&&i.isDone).reduce((s,i)=>s+i.amount,0)
             ;
           let runBal=(state.startBalance||0)-piggySavedTotal;
+          const curMk=todayMonthKey();
           return monthsSummary().map(({mk,wTot,wSp,wInc})=>{
-          const isCur=mk===todayMonthKey(),bal=wInc-wSp,inPlus=bal>=0,pctD=wTot>0?Math.round(wSp/wTot*100):0;
-          runBal=runBal+wInc-wSp;
+          const isCur=mk===curMk;
+          const isFutureMonth=mk>curMk;
+          const deduct=isFutureMonth?wTot:wSp; // план для будущих, факт для прошлых
+          const bal=wInc-deduct,inPlus=bal>=0,pctD=wTot>0?Math.round(wSp/wTot*100):0;
+          runBal=runBal+wInc-deduct;
           const runPlus=runBal>=0;
           return(
             <div key={mk}>
@@ -1113,8 +1129,18 @@ function PlanScreen({state,onToggle,onAdd,onEditTx}){
 
       {viewMode==='year'&&<>
         <SecTitle>ИТОГИ ПО ГОДАМ</SecTitle>
-        {yearsSummary().map(({yr,wTot,wSp,wInc})=>{
-          const isCur=yr===new Date().getFullYear(),bal=wInc-wTot,inPlus=bal>=0,pctD=wTot>0?Math.round(wSp/wTot*100):0;
+        {(()=>{
+          const piggyYearSaved=Object.values(state.weekItems||{})
+            .flat().filter(i=>i.catId==='piggy'&&i.isDone).reduce((s,i)=>s+i.amount,0);
+          let runBalYr=(state.startBalance||0)-piggyYearSaved;
+          return yearsSummary().map(({yr,wTot,wSp,wInc})=>{
+          const curYr=new Date().getFullYear();
+          const isCur=yr===curYr;
+          const isFutureYr=yr>curYr;
+          const deductYr=isFutureYr?wTot:wSp;
+          const bal=wInc-deductYr,inPlus=bal>=0,pctD=wTot>0?Math.round(wSp/wTot*100):0;
+          runBalYr=runBalYr+wInc-deductYr;
+          const runPlusYr=runBalYr>=0;
           return(
             <div key={yr} style={{...s.card,marginBottom:10,borderLeft:`3px solid ${isCur?C.orange:inPlus?C.green:C.red}`}}>
               <div style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
@@ -1129,8 +1155,13 @@ function PlanScreen({state,onToggle,onAdd,onEditTx}){
                 ))}
               </div>
             </div>
+            <div style={{display:'flex',alignItems:'center',gap:10,padding:'7px 14px',marginBottom:6,background:runPlusYr?C.greenL:C.redL,border:`.5px solid ${runPlusYr?C.greenB:C.redB}`,borderRadius:'0 0 10px 10px'}}>
+              <span style={{fontSize:13}}>🏦</span>
+              <span style={{flex:1,fontSize:12,color:runPlusYr?C.green:C.red}}>Накопительный баланс</span>
+              <span style={{fontSize:13,fontWeight:600,color:runPlusYr?C.green:C.red}}>{runPlusYr?'+':'−'}{fmt(runBalYr)}</span>
+            </div>
           );
-        })}
+        });})()}
         {yearsSummary().length>1&&(()=>{
           const all=yearsSummary();
           const totInc=all.reduce((s,y)=>s+y.wInc,0),totExp=all.reduce((s,y)=>s+y.wTot,0),totSp=all.reduce((s,y)=>s+y.wSp,0);
@@ -1389,7 +1420,13 @@ function HealthScreen({state}){
   // transactions piggy попадает в weekItems через handleAddTx, не считаем дважды
   const piggyActual=Object.values(weekItems).reduce((total,items)=>total+items.filter(i=>i.catId==='piggy'&&i.isDone).reduce((s,i)=>s+i.amount,0),0);
   const cushion=piggyActual>0?piggyActual:Math.round(piggyMonthly/4.3*4);
-  const healthScore=Math.max(0,Math.min(100,(savingsRate>=20?30:savingsRate>=10?15:0)+(monthlyExp<=totalNet*.7?30:monthlyExp<=totalNet*.9?15:0)+(cushion>=monthlyExp*3?20:cushion>=monthlyExp?10:0)+(freeCash>0?20:0)));
+  const isDeficit=monthlyExp>totalNet; // годовой дефицит
+  const healthScore=Math.max(0,Math.min(100,
+    (isDeficit?0:savingsRate>=20?30:savingsRate>=10?15:0)+
+    (monthlyExp<=totalNet*.7?30:monthlyExp<=totalNet*.9?15:isDeficit?0:0)+
+    (cushion>=monthlyExp*3?20:cushion>=monthlyExp?10:0)+
+    (freeCash>0&&!isDeficit?20:0)
+  ));
   const healthColor=healthScore>=80?C.green:healthScore>=60?'#CA8A04':healthScore>=40?C.orange:C.red;
   const healthLabel=healthScore>=80?'Отлично 🟢':healthScore>=60?'Хорошо 🟡':healthScore>=40?'Внимание 🟠':'Риск 🔴';
   const catData=allCats.map((cat,i)=>({label:cat.name,emoji:cat.emoji,value:planned.filter(p=>p.catId===cat.id).reduce((s,p)=>s+(p.repeat==='weekly'?p.amount*4.3:p.repeat==='biweekly'?p.amount*2.15:p.amount),0),color:PIE_COLORS[i%PIE_COLORS.length]})).filter(c=>c.value>0).sort((a,b)=>b.value-a.value);
@@ -1559,6 +1596,25 @@ function HealthScreen({state}){
         );
       })()}
       <SecTitle>РИСКИ И ПРЕДУПРЕЖДЕНИЯ</SecTitle>
+      {/* Годовой дефицит */}
+      {(()=>{
+        const annualIncome=totalNet*12;
+        const annualExp=monthlyExp*12;
+        const annualDeficit=annualExp-annualIncome;
+        if(annualDeficit<=0)return null;
+        return(
+          <div style={{...s.card,background:C.redL,border:`.5px solid ${C.redB}`,padding:'10px 12px',marginBottom:6}}>
+            <div style={{fontSize:13,fontWeight:600,color:C.red,marginBottom:4}}>🚨 Годовой дефицит</div>
+            <div style={{fontSize:12,color:C.red,marginBottom:6}}>
+              Расходы превышают доходы на <b>{fmt(annualDeficit/12)}/мес</b> ({fmt(annualDeficit)}/год).
+              При текущем плане деньги закончатся.
+            </div>
+            <div style={{fontSize:11,color:C.red,opacity:.8}}>
+              Уменьшите расходы или увеличьте доход. Проверьте Piggy Bank — возможно сумма накоплений слишком большая.
+            </div>
+          </div>
+        );
+      })()}
       {risks.map((r,i)=>(
         <div key={i} style={{...s.card,display:'flex',alignItems:'flex-start',gap:10,padding:10,marginBottom:6,background:r.level==='red'?C.redL:r.level==='yellow'?C.yellowL:C.greenL,border:`.5px solid ${r.level==='red'?C.redB:r.level==='yellow'?C.yellowB:C.greenB}`}}>
           <span style={{fontSize:18}}>{r.icon}</span>
