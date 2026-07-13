@@ -594,7 +594,7 @@ function Onboarding({onDone}){
 // СЕГОДНЯ
 // ════════════════════════════════════════════════════════════════════════
 function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx}){
-  const{members,incomes,planned,weekItems,startBalance=0,payments={},customCats=[],transactions=[]}=state;
+  const{members,incomes,planned,weekItems,startBalance=0,payments={},customCats=[],transactions=[],budgetStartDate}=state;
   const week=todayKey();
   const wItems=weekItems[week]||[];
   const totalNet=incomes.reduce((s,i)=>s+calcAvgMonthlyNet(parseInt(i.gross)||0),0);
@@ -610,9 +610,11 @@ function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx}){
       parseInt(inc.advancePct)||40,inc.gross||0);
     return sch.map(p=>({...p,...(payments[p.displayLabel]||{})}));
   });
-  // Сумма всех выплат которые отмечены как полученные (isDone)
+  // Дата начала ведения — учитываем только выплаты с этой даты
+  const budgetStart=new Date(budgetStartDate||new Date()); budgetStart.setHours(0,0,0,0);
+  // Сумма выплат которые отмечены как полученные И дата которых >= даты старта
   const actualSalaryReceived=allPaymentsActual
-    .filter(p=>p.isDone)
+    .filter(p=>p.isDone && p.date>=budgetStart)
     .reduce((s,p)=>s+(p.actualAmount||p.amount),0);
   // Только текущая неделя — отмеченные плановые расходы + ручные расходы
   const weekSpent=wItems.filter(i=>i.isDone).reduce((s,i)=>s+i.amount,0)+txExpense;
@@ -694,7 +696,7 @@ function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx}){
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:12}}>
           <div>
             <div style={{fontSize:12,color:'rgba(255,255,255,0.4)',marginBottom:4}}>{new Date().toLocaleString('ru',{month:'long',year:'numeric'})}</div>
-            <div style={{fontSize:30,fontWeight:600,color:balance>=0?'#4ade80':'#f87171',lineHeight:1}}>{balance>=0?'+':''}{fmt(balance)}</div>
+            <div style={{fontSize:30,fontWeight:600,color:balance>=0?'#4ade80':'#f87171',lineHeight:1}}>{balance>=0?'+':'−'}{fmt(balance)}</div>
             <div style={{fontSize:12,color:'rgba(255,255,255,0.35)',marginTop:4}}>остаток на руках</div>
           </div>
           <div style={{textAlign:'right'}}>
@@ -703,10 +705,15 @@ function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx}){
           </div>
         </div>
         <div style={{display:'flex',gap:6}}>
-          {[['получено',actualSalaryReceived+txIncome,'#4ade80'],['потрачено',allSpentTotal,'#f87171'],['старт',startBalance,'rgba(255,255,255,0.5)']].map(([l,v,col])=>(
+          {[
+            ['получено',actualSalaryReceived+txIncome,'#4ade80',`зарплаты + доходы`],
+            ['потрачено',allSpentTotal,'#f87171',`тек. ${fmt(weekSpent)} + прошл. ${fmt(pastSpent)}`],
+            ['старт',startBalance,'rgba(255,255,255,0.5)','начальный остаток'],
+          ].map(([l,v,col,hint])=>(
             <div key={l} style={{flex:1,background:'rgba(255,255,255,0.06)',borderRadius:8,padding:'8px 10px'}}>
               <div style={{fontSize:10,color:'rgba(255,255,255,0.35)',marginBottom:3}}>{l}</div>
               <div style={{fontSize:12,fontWeight:500,color:col}}>{l==='потрачено'?'−':l==='получено'?'+':''}{fmt(v)}</div>
+              <div style={{fontSize:9,color:'rgba(255,255,255,0.2)',marginTop:2,lineHeight:'12px'}}>{hint}</div>
             </div>
           ))}
         </div>
@@ -1025,7 +1032,7 @@ function PlanScreen({state,onToggle,onAdd,onEditTx}){
                 <div style={{display:'flex',alignItems:'center',gap:10,padding:'7px 14px',marginBottom:6,background:runPlus?C.greenL:C.redL,border:`.5px solid ${runPlus?C.greenB:C.redB}`,borderRadius:'0 0 10px 10px'}}>
                   <span style={{fontSize:13}}>🏦</span>
                   <span style={{flex:1,fontSize:12,color:runPlus?C.green:C.red}}>Накопительный баланс</span>
-                  <span style={{fontSize:13,fontWeight:600,color:runPlus?C.green:C.red}}>{runPlus?'+':''}{fmt(runningBalance)}</span>
+                  <span style={{fontSize:13,fontWeight:600,color:runPlus?C.green:C.red}}>{runPlus?'+':'−'}{fmt(runningBalance)}</span>
                 </div>
               </div>
             );
@@ -1052,7 +1059,7 @@ function PlanScreen({state,onToggle,onAdd,onEditTx}){
             <div style={{...s.card,marginBottom:0,borderLeft:`3px solid ${isCur?C.orange:inPlus?C.green:C.red}`,borderBottomLeftRadius:0,borderBottomRightRadius:0}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
                 <div><div style={{fontSize:13,fontWeight:700,color:isCur?C.orange:C.text}}>{isCur?'▶ ':''}{monthLabel(mk)}</div><div style={{fontSize:10,color:C.muted,marginTop:1}}>Выполнено {pctD}%</div></div>
-                <span style={{...s.pill,background:inPlus?C.greenL:C.redL,borderColor:inPlus?C.greenB:C.redB,color:inPlus?C.green:C.red}}>{inPlus?'+':''}{fmt(bal)}</span>
+                <span style={{...s.pill,background:inPlus?C.greenL:C.redL,borderColor:inPlus?C.greenB:C.redB,color:inPlus?C.green:C.red}}>{inPlus?'+':'−'}{fmt(bal)}</span>
               </div>
               <PBar pct={pctD} h={3}/>
               <div style={{display:'flex',gap:6,marginTop:8}}>
@@ -1064,7 +1071,7 @@ function PlanScreen({state,onToggle,onAdd,onEditTx}){
             <div style={{display:'flex',alignItems:'center',gap:10,padding:'7px 14px',marginBottom:6,background:runPlus?C.greenL:C.redL,border:`.5px solid ${runPlus?C.greenB:C.redB}`,borderRadius:'0 0 10px 10px'}}>
               <span style={{fontSize:13}}>🏦</span>
               <span style={{flex:1,fontSize:12,color:runPlus?C.green:C.red}}>Накопительный баланс</span>
-              <span style={{fontSize:13,fontWeight:600,color:runPlus?C.green:C.red}}>{runPlus?'+':''}{fmt(runBal)}</span>
+              <span style={{fontSize:13,fontWeight:600,color:runPlus?C.green:C.red}}>{runPlus?'+':'−'}{fmt(runBal)}</span>
             </div>
             </div>
           );
@@ -1079,7 +1086,7 @@ function PlanScreen({state,onToggle,onAdd,onEditTx}){
             <div key={yr} style={{...s.card,marginBottom:10,borderLeft:`3px solid ${isCur?C.orange:inPlus?C.green:C.red}`}}>
               <div style={{display:'flex',justifyContent:'space-between',marginBottom:8}}>
                 <span style={{fontSize:18,fontWeight:800,color:isCur?C.orange:C.text}}>{isCur?'▶ ':''}{yr}</span>
-                <span style={{...s.pill,background:inPlus?C.greenL:C.redL,borderColor:inPlus?C.greenB:C.redB,color:inPlus?C.green:C.red}}>{inPlus?'+':''}{fmt(bal)}</span>
+                <span style={{...s.pill,background:inPlus?C.greenL:C.redL,borderColor:inPlus?C.greenB:C.redB,color:inPlus?C.green:C.red}}>{inPlus?'+':'−'}{fmt(bal)}</span>
               </div>
               <PBar pct={wInc>0?(wTot/wInc*100):0} color={C.orange} h={5}/>
               <div style={{fontSize:9,color:C.muted,marginTop:3,marginBottom:8}}>Расходы {wInc>0?Math.round(wTot/wInc*100):0}% от дохода · выполнено {pctD}%</div>
