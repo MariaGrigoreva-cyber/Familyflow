@@ -1283,8 +1283,7 @@ function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onAddExtra
                     <div style={{fontSize:12,fontWeight:500,color:totalMonth>=net?C.green:C.yellow}}>{totalMonth>=net?'+':''}{fmt(totalMonth-net)}</div>
                   </div>
                 </div>
-              </div>
-                <button onClick={()=>{
+              <button onClick={()=>{
                   // Добавляем отпускные как доп. выплату
                   const basis2=vacActual12?parseInt(vacActual12):vacBasis12;
                   const sdz2=basis2/12/29.3;
