@@ -621,7 +621,9 @@ function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx}){
   const isPiggy=i=>i.catId==='piggy';
   const txPiggy=(transactions||[]).filter(t=>t.week===week&&t.catId==='piggy').reduce((s,t)=>s+t.amount,0);
   const weekSpent=wItems.filter(i=>i.isDone&&!isPiggy(i)).reduce((s,i)=>s+i.amount,0)+txExpense;
-  const weekSaved=wItems.filter(i=>i.isDone&&isPiggy(i)).reduce((s,i)=>s+i.amount,0)+txPiggy; // накоплено
+  // Если есть ручная запись piggy в transactions — используем её, иначе из weekItems
+  const weekSavedFromPlan=txPiggy>0?0:wItems.filter(i=>i.isDone&&isPiggy(i)).reduce((s,i)=>s+i.amount,0);
+  const weekSaved=weekSavedFromPlan+txPiggy; // накоплено (без дублей)
   // Накопленные расходы по всем прошлым неделям (без Piggy Bank)
   const pastSpent=Object.entries(weekItems)
     .filter(([wk])=>wk<week)
@@ -1019,13 +1021,23 @@ function PlanScreen({state,onToggle,onAdd,onEditTx}){
         :(()=>{
           // Накопительный баланс: стартовый + все доходы − все фактические расходы
           // Стартовый баланс на Saving = startBalance минус уже отложенное в Piggy
-          const totalPiggySaved=Object.values(state.weekItems||{})
-            .flat().filter(i=>i.catId==='piggy'&&i.isDone).reduce((s,i)=>s+i.amount,0)
-            +(state.transactions||[]).filter(t=>t.catId==='piggy').reduce((s,t)=>s+t.amount,0);
+          // Считаем piggy без дублей: если есть ручная запись для недели — берём её, иначе плановую
+          const txPiggyByWeek={};
+          (state.transactions||[]).filter(t=>t.catId==='piggy').forEach(t=>{
+            txPiggyByWeek[t.week]=(txPiggyByWeek[t.week]||0)+t.amount;
+          });
+          const totalPiggySaved=Object.entries(state.weekItems||{}).reduce((total,[wk,items])=>{
+            const txAmt=txPiggyByWeek[wk]||0;
+            if(txAmt>0) return total+txAmt; // есть ручная запись — берём её
+            return total+items.filter(i=>i.catId==='piggy'&&i.isDone).reduce((s,i)=>s+i.amount,0);
+          },0)+Object.entries(txPiggyByWeek).filter(([wk])=>!(state.weekItems||{})[wk]).reduce((s,[,v])=>s+v,0);
           let runningBalance=(state.startBalance||0)-totalPiggySaved;
+          const curWk=todayKey();
           return weeksSummary.map(({wk,wSp,wTot,wInc,bal},idx)=>{
-            // wSp уже без Piggy Bank — остаток только на Saving счёте
-            runningBalance=runningBalance+wInc-wSp;
+            // Для прошлых и текущей недели — факт (wSp), для будущих — план (wTot)
+            const isFuture=wk>curWk;
+            const deduct=isFuture?wTot:wSp;
+            runningBalance=runningBalance+wInc-deduct;
             const isCur=wk===curWeek,inPlus=bal>=0,{week:wNum,year:wYear}=parseWeekKey(wk);
             const runPlus=runningBalance>=0;
             return(
@@ -1069,7 +1081,7 @@ function PlanScreen({state,onToggle,onAdd,onEditTx}){
         :(()=>{
           const piggySavedTotal=Object.values(state.weekItems||{})
             .flat().filter(i=>i.catId==='piggy'&&i.isDone).reduce((s,i)=>s+i.amount,0)
-            +(state.transactions||[]).filter(t=>t.catId==='piggy').reduce((s,t)=>s+t.amount,0);
+            ;
           let runBal=(state.startBalance||0)-piggySavedTotal;
           return monthsSummary().map(({mk,wTot,wSp,wInc})=>{
           const isCur=mk===todayMonthKey(),bal=wInc-wSp,inPlus=bal>=0,pctD=wTot>0?Math.round(wSp/wTot*100):0;
@@ -1374,8 +1386,8 @@ function HealthScreen({state}){
   const totalSavings=piggyMonthly+Math.max(freeCash,0);
   const savingsRate=totalNet>0?Math.round(totalSavings/totalNet*100):0;
   const expenseRatio=totalNet>0?Math.round(expWithoutPiggy/totalNet*100):0;
-  const piggyActual=Object.values(weekItems).reduce((total,items)=>total+items.filter(i=>i.catId==='piggy'&&i.isDone).reduce((s,i)=>s+i.amount,0),0)
-    +(state.transactions||[]).filter(t=>t.catId==='piggy').reduce((s,t)=>s+t.amount,0);
+  // transactions piggy попадает в weekItems через handleAddTx, не считаем дважды
+  const piggyActual=Object.values(weekItems).reduce((total,items)=>total+items.filter(i=>i.catId==='piggy'&&i.isDone).reduce((s,i)=>s+i.amount,0),0);
   const cushion=piggyActual>0?piggyActual:Math.round(piggyMonthly/4.3*4);
   const healthScore=Math.max(0,Math.min(100,(savingsRate>=20?30:savingsRate>=10?15:0)+(monthlyExp<=totalNet*.7?30:monthlyExp<=totalNet*.9?15:0)+(cushion>=monthlyExp*3?20:cushion>=monthlyExp?10:0)+(freeCash>0?20:0)));
   const healthColor=healthScore>=80?C.green:healthScore>=60?'#CA8A04':healthScore>=40?C.orange:C.red;
@@ -1498,7 +1510,7 @@ function HealthScreen({state}){
         const riskyWeeks=[];
         const piggySaved2=Object.values(state.weekItems||{})
           .flat().filter(i=>i.catId==='piggy'&&i.isDone).reduce((s,i)=>s+i.amount,0)
-          +(state.transactions||[]).filter(t=>t.catId==='piggy').reduce((s,t)=>s+t.amount,0);
+          ;
         let runBal=(state.startBalance||0)-piggySaved2;
         // считаем накопительный баланс по неделям
         for(let i=0;i<Math.min(allWeekKeys.length-1,12);i++){
@@ -1972,7 +1984,7 @@ function EditCatModal({visible,item,members,onClose,onSave,onDelete,customCats=[
   const[onceYear,setOnceYear]=useState(now.getFullYear());
   useEffect(()=>{
     if(item){
-      setAmount(String(item.amount));
+      setAmount(String(item.amount||0));
       setRepeat(item.repeat||'weekly');
       setDays(Array.isArray(item.days)?item.days:[]);
       setMemberId(item.memberId||members[0]?.id||'');
@@ -2312,7 +2324,12 @@ export default function App(){
   };
   const handleToggle=(week,itemId)=>setAppState(prev=>({...prev,weekItems:{...prev.weekItems,[week]:(prev.weekItems[week]||[]).map(i=>i.id===itemId?{...i,isDone:!i.isDone}:i)}}));
   const handleAddTx=item=>{const week=addWeek||todayKey();const tx={...item,week,date:new Date().toISOString(),isDone:true};setAppState(prev=>({...prev,transactions:[tx,...(prev.transactions||[])],weekItems:item.type==='expense'?{...prev.weekItems,[week]:[tx,...(prev.weekItems[week]||[])]}:prev.weekItems}));setAddWeek(null);};
-  const handleEditPlanned=updated=>{setAppState(prev=>{const itemWithDate=updated.isNew?{...updated,addedAt:updated.addedAt||new Date().toISOString()}:updated;const np=updated.isNew?[...prev.planned,itemWithDate]:prev.planned.map(p=>p.id===updated.id?itemWithDate:p);return{...prev,planned:np,weekItems:generateAllWeeks(np)};});};
+  const handleEditPlanned=updated=>{setAppState(prev=>{
+    const{isNew,...cleanItem}=updated;
+    const itemWithDate=isNew?{...cleanItem,addedAt:cleanItem.addedAt||new Date().toISOString()}:cleanItem;
+    const np=isNew?[...prev.planned,itemWithDate]:prev.planned.map(p=>p.id===cleanItem.id?itemWithDate:p);
+    return{...prev,planned:np,weekItems:generateAllWeeks(np)};
+  });};
   const handleDeletePlanned=id=>setAppState(prev=>{const np=prev.planned.filter(p=>p.id!==id);return{...prev,planned:np,weekItems:generateAllWeeks(np)};});
   const handleAddPlanned=()=>{setEditItem({id:uid(),catId:'other',name:'Новая',amount:0,memberId:appState.members[0]?.id||'m1',repeat:'weekly',days:[],isNew:true});setShowEdit(true);};
   const handleEditPayment=payment=>{setEditPayment(payment);setShowEditPay(true);};
@@ -2381,7 +2398,7 @@ export default function App(){
         {tab==='plan'&&<PlanScreen state={appState} onToggle={handleToggle} onAdd={(wk)=>{setAddWeek(wk);setShowAdd(true);}} onEditTx={handleEditTx}/>}
         {tab==='budget'&&<BudgetScreen state={appState} onEditPlanned={item=>{setEditItem(item);setShowEdit(true);}} onAddPlanned={handleAddPlanned} onEditPayment={handleEditPayment} onAddExtra={(data)=>{if(data&&data.amount){handleAddExtra(data);}else{setShowAddExtra(true);}}}/>}
         {tab==='health'&&<HealthScreen state={appState}/>}
-        {tab==='settings'&&<SettingsScreen state={appState} onEditCat={item=>{setEditItem(item);setShowEdit(true);}} onAddCat={handleAddPlanned} onEditIncome={handleEditIncome}/>}
+        {tab==='settings'&&<SettingsScreen state={appState} onEditCat={item=>{const{isNew,...rest}=item||{};setEditItem(rest);setShowEdit(true);}} onAddCat={handleAddPlanned} onEditIncome={handleEditIncome}/>}
       </div>
       <TabBar active={tab} onPress={setTab}/>
       <AddTxModal visible={showAdd} onClose={()=>setShowAdd(false)} onSave={handleAddTx} members={appState.members} planned={appState.planned} customCats={appState.customCats}/>
