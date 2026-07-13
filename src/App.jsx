@@ -645,17 +645,42 @@ function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx}){
   const weekRemaining=Math.max(wPlan-weekSpent,0);
   const canSpend=Math.max(balance,0);
   // Фонды по направлениям
+  // Фонды — разделяем на недельные и месячные планы
   const fondGroups=[
-    {e:'🛡️',n:'Защита',col:'#F87171',bg:'rgba(248,113,113,0.1)',bdr:'rgba(248,113,113,0.2)',cats:['mortgage','credit','piggy']},
-    {e:'🍽️',n:'Жизнь',col:'#FBBF24',bg:'rgba(251,191,36,0.1)',bdr:'rgba(251,191,36,0.2)',cats:['food','transport','health','fun']},
-    {e:'🛋️',n:'Комфорт',col:'#60A5FA',bg:'rgba(96,165,250,0.1)',bdr:'rgba(96,165,250,0.2)',cats:['clothes','beauty','home','gifts','edu','sport','pets','other','travel']},
+    {e:'🛡️',n:'Защита',col:'#F87171',catIds:['mortgage','credit','piggy'],type:'monthly'},
+    {e:'🍽️',n:'Жизнь',col:'#FBBF24',catIds:['food','transport','health','fun'],type:'weekly'},
+    {e:'🛋️',n:'Комфорт',col:'#60A5FA',catIds:['clothes','beauty','home','gifts','edu','sport','pets','other','travel'],type:'weekly'},
   ].map(g=>{
-    const total=planned.filter(p=>g.cats.includes(p.catId)).reduce((s,p)=>s+(p.repeat==='weekly'?p.amount*4.3:p.repeat==='biweekly'?p.amount*2.15:p.amount),0);
-    const spent2=Object.values(weekItems).flat().filter(i=>g.cats.includes(i.catId)&&i.isDone).reduce((s,i)=>s+i.amount,0);
-    const pct2=total>0?Math.round(spent2/total*100):0;
-    const left=Math.max(total-spent2,0);
-    return{...g,total,spent:spent2,pct:pct2,left};
-  }).filter(g=>g.total>0);
+    const gPlanned=planned.filter(p=>g.catIds.includes(p.catId));
+    // Недельный план (только еженедельные категории)
+    const weeklyPlan=gPlanned.filter(p=>p.repeat==='weekly'||p.repeat==='biweekly').reduce((s,p)=>s+(p.repeat==='weekly'?p.amount:p.amount/2),0);
+    // Месячный план (все категории × 4.3 или фиксированные)
+    const monthlyPlan=gPlanned.reduce((s,p)=>s+(p.repeat==='weekly'?p.amount*4.3:p.repeat==='biweekly'?p.amount*2.15:p.amount),0);
+    // Потрачено на текущей неделе
+    const weekSpent2=wItems.filter(i=>g.catIds.includes(i.catId)&&i.isDone).reduce((s,i)=>s+i.amount,0);
+    const pct2=weeklyPlan>0?Math.round(weekSpent2/weeklyPlan*100):0;
+    const left=Math.max(weeklyPlan-weekSpent2,0);
+    // Детали по категориям для раскрытия
+    const details=gPlanned.map(p=>{
+      const cat=[...DEFAULT_CATS,...customCats].find(c=>c.id===p.catId);
+      const wSpentCat=wItems.filter(i=>i.catId===p.catId&&i.isDone).reduce((s,i)=>s+i.amount,0);
+      const wPlanCat=p.repeat==='weekly'?p.amount:p.repeat==='biweekly'?p.amount/2:0;
+      return{id:p.id,catId:p.catId,name:cat?.name||p.name,emoji:cat?.emoji||'📦',repeat:p.repeat,amount:p.amount,days:p.days||[],wPlan:wPlanCat,wSpent:wSpentCat};
+    });
+    // Ближайшие месячные платежи этого фонда
+    const now2=new Date(); now2.setHours(0,0,0,0);
+    const monthlyItems=gPlanned.filter(p=>p.repeat==='monthly'||p.repeat==='once').map(p=>{
+      const cat=[...DEFAULT_CATS,...customCats].find(c=>c.id===p.catId);
+      // Следующая дата платежа
+      const today=new Date(); const d=today.getDate();
+      const payDay=p.days?.[0]||1;
+      let payDate=new Date(today.getFullYear(),today.getMonth(),payDay);
+      if(payDate<now2) payDate=new Date(today.getFullYear(),today.getMonth()+1,payDay);
+      return{name:cat?.name||p.name,emoji:cat?.emoji||'📦',amount:p.amount,payDate,payDay};
+    });
+    return{...g,weeklyPlan,monthlyPlan,weekSpent:weekSpent2,pct:pct2,left,details,monthlyItems};
+  }).filter(g=>g.monthlyPlan>0||g.weeklyPlan>0);
+  const[openFond,setOpenFond]=useState(null);
   const pad={padding:'14px 14px 80px'};
   return(
     <div style={{overflowY:'auto',flex:1,WebkitOverflowScrolling:'touch'}}><div style={pad}>
@@ -682,26 +707,95 @@ function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx}){
         </div>
       </div>
       {fondGroups.length>0&&<>
-        <SecTitle>ПЛАН НЕДЕЛИ · {weekLabel(week)}</SecTitle>
-        <div style={{background:'#fff',border:`.5px solid ${C.border}`,borderRadius:12,overflow:'hidden',marginBottom:10}}>
-          {fondGroups.map((g,idx)=>(
-            <div key={g.n} style={{padding:'11px 14px',borderBottom:idx<fondGroups.length-1?`.5px solid ${C.border}`:'none'}}>
-              <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:7}}>
-                <span style={{fontSize:20}}>{g.e}</span>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:14,fontWeight:500,color:C.text}}>{g.n}</div>
-                  <div style={{fontSize:11,color:C.muted,marginTop:1}}>план {fmt(g.total)}/нед</div>
-                </div>
-                <span style={{fontSize:13,fontWeight:600,color:g.pct>=100?C.green:g.pct>=80?C.yellow:C.text2}}>
-                  {g.pct>=100?'✓ выполнен':`осталось ${fmt(g.left)}`}
-                </span>
+        <SecTitle>ФОНДЫ · {weekLabel(week)}</SecTitle>
+        <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:10}}>
+          {fondGroups.map((g)=>{
+            const isOpen=openFond===g.n;
+            const hasWeekly=g.weeklyPlan>0;
+            const hasMonthly=g.monthlyItems.length>0;
+            const colMap={'#F87171':C.redL,'#FBBF24':C.yellowL,'#60A5FA':C.blueL};
+            const bdrMap={'#F87171':C.redB,'#FBBF24':C.yellowB,'#60A5FA':C.blueB};
+            const bg2=colMap[g.col]||C.bg;
+            const bdr2=bdrMap[g.col]||C.border;
+            return(
+              <div key={g.n} style={{background:'#fff',border:`.5px solid ${C.border}`,borderRadius:12,overflow:'hidden'}}>
+                {/* Заголовок — всегда виден */}
+                <button onClick={()=>setOpenFond(isOpen?null:g.n)}
+                  style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'12px 14px',background:'none',border:'none',cursor:'pointer',fontFamily:'inherit',textAlign:'left'}}>
+                  <span style={{fontSize:22,flexShrink:0}}>{g.e}</span>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:15,fontWeight:500,color:C.text}}>{g.n}</div>
+                    <div style={{fontSize:11,color:C.muted,marginTop:1}}>
+                      {hasMonthly&&!hasWeekly
+                        ?`${fmt(g.monthlyPlan)} в месяц`
+                        :hasWeekly?`план ${fmt(g.weeklyPlan)}/нед`:''}
+                    </div>
+                  </div>
+                  {/* Тотал справа */}
+                  <div style={{textAlign:'right',flexShrink:0}}>
+                    {hasWeekly
+                      ?<div style={{fontSize:14,fontWeight:500,color:g.pct>=100?C.green:g.pct>=80?C.yellow:C.text}}>{g.pct>=100?'✓ выполнен':`ост. ${fmt(g.left)}`}</div>
+                      :<div style={{fontSize:14,fontWeight:500,color:C.muted}}>{fmt(g.monthlyPlan)}/мес</div>
+                    }
+                    {hasMonthly&&<div style={{fontSize:10,color:C.muted,marginTop:1}}>+мес. платежи</div>}
+                  </div>
+                  <span style={{fontSize:14,color:C.muted,transform:isOpen?'rotate(180deg)':'rotate(0)',transition:'transform .2s',marginLeft:4}}>▾</span>
+                </button>
+                {/* Прогресс-бар — только для недельных */}
+                {hasWeekly&&<div style={{height:4,background:C.border,margin:'0 14px 10px',borderRadius:2,overflow:'hidden'}}>
+                  <div style={{height:4,width:`${Math.min(g.pct,100)}%`,background:g.pct>=100?C.green:g.pct>=80?C.yellow:g.col,borderRadius:2,transition:'width .3s'}}/>
+                </div>}
+                {/* Раскрытые детали */}
+                {isOpen&&<div style={{borderTop:`.5px solid ${C.border}`,padding:'10px 14px'}}>
+                  {/* Еженедельные категории */}
+                  {g.details.filter(d=>d.repeat==='weekly'||d.repeat==='biweekly').length>0&&<>
+                    <div style={{fontSize:10,color:C.muted,letterSpacing:.5,marginBottom:6}}>ЕЖЕНЕДЕЛЬНО</div>
+                    {g.details.filter(d=>d.repeat==='weekly'||d.repeat==='biweekly').map(d=>(
+                      <div key={d.id} style={{display:'flex',alignItems:'center',gap:8,paddingBottom:6,marginBottom:6,borderBottom:`.5px solid ${C.border}`}}>
+                        <span style={{fontSize:16}}>{d.emoji}</span>
+                        <div style={{flex:1}}>
+                          <div style={{fontSize:13,color:C.text}}>{d.name}</div>
+                          {d.wPlan>0&&<div style={{height:3,background:C.border,borderRadius:2,overflow:'hidden',marginTop:3,width:60}}>
+                            <div style={{height:3,width:`${Math.min(d.wPlan>0?Math.round(d.wSpent/d.wPlan*100):0,100)}%`,background:g.col,borderRadius:2}}/>
+                          </div>}
+                        </div>
+                        <div style={{textAlign:'right'}}>
+                          <div style={{fontSize:12,fontWeight:500,color:C.text}}>{fmt(d.amount)}/нед</div>
+                          {d.wSpent>0&&<div style={{fontSize:10,color:C.muted}}>потрачено {fmt(d.wSpent)}</div>}
+                        </div>
+                      </div>
+                    ))}
+                  </>}
+                  {/* Ежемесячные платежи */}
+                  {g.monthlyItems.length>0&&<>
+                    <div style={{fontSize:10,color:C.muted,letterSpacing:.5,marginBottom:6,marginTop:g.details.filter(d=>d.repeat==='weekly'||d.repeat==='biweekly').length>0?8:0}}>ПЛАТЕЖИ МЕСЯЦА</div>
+                    {g.monthlyItems.map((m,i)=>{
+                      const today=new Date();
+                      const isPast=m.payDate<today;
+                      const daysTo=Math.round((m.payDate-today)/86400000);
+                      return(
+                        <div key={i} style={{display:'flex',alignItems:'center',gap:8,paddingBottom:6,marginBottom:i<g.monthlyItems.length-1?6:0,borderBottom:i<g.monthlyItems.length-1?`.5px solid ${C.border}`:'none'}}>
+                          <span style={{fontSize:16}}>{m.emoji}</span>
+                          <div style={{flex:1}}>
+                            <div style={{fontSize:13,color:C.text}}>{m.name}</div>
+                            <div style={{fontSize:10,color:isPast?C.green:daysTo<=3?C.red:C.muted,marginTop:1}}>
+                              {isPast?`✓ оплачено в этом месяце`:daysTo===0?'сегодня':daysTo===1?'завтра':`через ${daysTo} дн. · ${m.payDay} числа`}
+                            </div>
+                          </div>
+                          <div style={{fontSize:13,fontWeight:500,color:isPast?C.muted:C.text}}>{fmt(m.amount)}</div>
+                        </div>
+                      );
+                    })}
+                  </>}
+                  {/* Итого по направлению */}
+                  <div style={{marginTop:8,padding:'8px 10px',background:bg2,border:`.5px solid ${bdr2}`,borderRadius:8,display:'flex',justifyContent:'space-between'}}>
+                    <span style={{fontSize:12,color:g.col}}>Итого в месяц</span>
+                    <span style={{fontSize:13,fontWeight:600,color:g.col}}>{fmt(g.monthlyPlan)}</span>
+                  </div>
+                </div>}
               </div>
-              <div style={{height:5,background:C.border,borderRadius:3,overflow:'hidden'}}>
-                <div style={{height:5,width:`${Math.min(g.pct,100)}%`,background:g.pct>=100?C.green:g.pct>=80?C.yellow:g.col,borderRadius:3,transition:'width .3s'}}/>
-              </div>
-              <div style={{fontSize:11,color:C.muted,marginTop:4}}>{g.pct}% использовано</div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </>}
 
@@ -895,10 +989,13 @@ function PlanScreen({state,onToggle,onAdd,onEditTx}){
         <SecTitle>СВОДКА ПО НЕДЕЛЯМ</SecTitle>
         {weeksSummary.length===0?<div style={{...s.card,textAlign:'center',padding:20,color:C.muted}}>Нет данных</div>
         :(()=>{
-          // Считаем накопительный остаток нарастающим итогом
-          let runningBalance=0;
+          // Накопительный баланс: стартовый + все доходы − все фактические расходы
+          let runningBalance=state.startBalance||0;
           return weeksSummary.map(({wk,wSp,wTot,wInc,bal},idx)=>{
-            runningBalance+=bal;
+            // Используем фактически потраченное (wSp), а не план (wTot)
+            // Для будущих недель где ничего не потрачено — не вычитаем план
+            const actualSpent=wSp; // только отмеченные расходы
+            runningBalance=runningBalance+wInc-actualSpent;
             const isCur=wk===curWeek,inPlus=bal>=0,{week:wNum,year:wYear}=parseWeekKey(wk);
             const runPlus=runningBalance>=0;
             return(
@@ -939,8 +1036,12 @@ function PlanScreen({state,onToggle,onAdd,onEditTx}){
         </div>
         <SecTitle>ВСЕ МЕСЯЦЫ</SecTitle>
         {monthsSummary().length===0?<div style={{...s.card,textAlign:'center',padding:20,color:C.muted}}>Нет данных</div>
-        :monthsSummary().map(({mk,wTot,wSp,wInc})=>{
-          const isCur=mk===todayMonthKey(),bal=wInc-wTot,inPlus=bal>=0,pctD=wTot>0?Math.round(wSp/wTot*100):0;
+        :(()=>{
+          let runBal=state.startBalance||0;
+          return monthsSummary().map(({mk,wTot,wSp,wInc})=>{
+          const isCur=mk===todayMonthKey(),bal=wInc-wSp,inPlus=bal>=0,pctD=wTot>0?Math.round(wSp/wTot*100):0;
+          runBal=runBal+wInc-wSp;
+          const runPlus=runBal>=0;
           return(
             <div key={mk} style={{...s.card,marginBottom:8,borderLeft:`3px solid ${isCur?C.orange:inPlus?C.green:C.red}`}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:8}}>
@@ -954,8 +1055,13 @@ function PlanScreen({state,onToggle,onAdd,onEditTx}){
                 ))}
               </div>
             </div>
+            <div style={{display:'flex',alignItems:'center',gap:10,padding:'7px 14px',marginBottom:6,background:runPlus?C.greenL:C.redL,border:`.5px solid ${runPlus?C.greenB:C.redB}`,borderRadius:'0 0 10px 10px'}}>
+              <span style={{fontSize:13}}>🏦</span>
+              <span style={{flex:1,fontSize:12,color:runPlus?C.green:C.red}}>Накопительный баланс</span>
+              <span style={{fontSize:13,fontWeight:600,color:runPlus?C.green:C.red}}>{runPlus?'+':''}{fmt(runBal)}</span>
+            </div>
           );
-        })}
+        })})()}
       </>}
 
       {viewMode==='year'&&<>
@@ -1705,7 +1811,10 @@ function AddTxModal({visible,onClose,onSave,members,planned,customCats=[]}){
   const[note,setNote]=useState('');
   const allCats=[...DEFAULT_CATS,...customCats];
   const activeCatIds=[...new Set(planned.map(p=>p.catId))];
-  const cats=type==='income'?[{id:'salary',name:'Зарплата',emoji:'💰'},...allCats]:allCats.filter(c=>activeCatIds.includes(c.id));
+  // Для расходов показываем все категории — сначала запланированные, потом остальные
+  const cats=type==='income'
+    ?[{id:'salary',name:'Зарплата',emoji:'💰'},...allCats]
+    :[...allCats.filter(c=>activeCatIds.includes(c.id)),...allCats.filter(c=>!activeCatIds.includes(c.id))];
   const save=()=>{
     const n=parseInt(amount)||0;if(!n){alert('Введите сумму');return;}
     const cat=[...allCats,{id:'salary',name:'Зарплата',emoji:'💰'}].find(c=>c.id===catId);
