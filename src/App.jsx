@@ -619,8 +619,9 @@ function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx}){
   // Только текущая неделя — отмеченные плановые расходы + ручные расходы
   // Piggy Bank исключаем из потраченного — это накопления, не расходы
   const isPiggy=i=>i.catId==='piggy';
+  const txPiggy=(transactions||[]).filter(t=>t.week===week&&t.catId==='piggy').reduce((s,t)=>s+t.amount,0);
   const weekSpent=wItems.filter(i=>i.isDone&&!isPiggy(i)).reduce((s,i)=>s+i.amount,0)+txExpense;
-  const weekSaved=wItems.filter(i=>i.isDone&&isPiggy(i)).reduce((s,i)=>s+i.amount,0); // накоплено
+  const weekSaved=wItems.filter(i=>i.isDone&&isPiggy(i)).reduce((s,i)=>s+i.amount,0)+txPiggy; // накоплено
   // Накопленные расходы по всем прошлым неделям (без Piggy Bank)
   const pastSpent=Object.entries(weekItems)
     .filter(([wk])=>wk<week)
@@ -870,10 +871,12 @@ function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx}){
         {weekTxs.map(tx=>{
           const cat=getCat(tx.catId,customCats),mem=members.find(m=>m.id===tx.memberId),isInc=tx.type==='income';
           return(
-            <button key={tx.id} onClick={()=>onEditTx&&onEditTx(tx)} style={{...s.card,display:'flex',alignItems:'center',gap:9,background:isInc?C.greenL:C.orangeL,border:`.5px solid ${isInc?C.greenB:C.orangeB}`,marginBottom:6,width:'100%',textAlign:'left',cursor:'pointer',fontFamily:'inherit',boxSizing:'border-box'}}>
+            <button key={tx.id} onClick={()=>onEditTx&&onEditTx(tx)} style={{...s.card,display:'flex',alignItems:'center',gap:9,background:tx.catId==='piggy'?C.greenL:isInc?C.greenL:C.orangeL,border:`.5px solid ${tx.catId==='piggy'?C.greenB:isInc?C.greenB:C.orangeB}`,marginBottom:6,width:'100%',textAlign:'left',cursor:'pointer',fontFamily:'inherit',boxSizing:'border-box'}}>
               <div style={{width:34,height:34,borderRadius:9,background:isInc?C.greenL:'#FEF3C7',display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,flexShrink:0}}>{isInc?'💰':(cat?.emoji||'📦')}</div>
               <div style={{flex:1}}><div style={{fontSize:12,fontWeight:500,color:isInc?C.green:C.text}}>{tx.name||cat?.name||'Запись'}</div><div style={{fontSize:10,color:C.muted}}>{mem?.name||''}</div></div>
-              <div style={{fontSize:13,fontWeight:600,color:isInc?C.green:C.orange}}>{isInc?'+':'-'}{fmt(tx.amount)}</div>
+              <div style={{fontSize:13,fontWeight:600,color:tx.catId==='piggy'?C.green:isInc?C.green:C.orange}}>
+                {tx.catId==='piggy'?'🐷 +':isInc?'+':'-'}{fmt(tx.amount)}
+              </div>
               <div style={{fontSize:9,color:C.muted,marginLeft:4}}>›</div>
             </button>
           );
@@ -1017,10 +1020,8 @@ function PlanScreen({state,onToggle,onAdd,onEditTx}){
           // Накопительный баланс: стартовый + все доходы − все фактические расходы
           let runningBalance=state.startBalance||0;
           return weeksSummary.map(({wk,wSp,wTot,wInc,bal},idx)=>{
-            // Используем фактически потраченное (wSp), а не план (wTot)
-            // Для будущих недель где ничего не потрачено — не вычитаем план
-            const actualSpent=wSp; // только отмеченные расходы
-            runningBalance=runningBalance+wInc-actualSpent;
+            // wSp уже без Piggy Bank — остаток только на Saving счёте
+            runningBalance=runningBalance+wInc-wSp;
             const isCur=wk===curWeek,inPlus=bal>=0,{week:wNum,year:wYear}=parseWeekKey(wk);
             const runPlus=runningBalance>=0;
             return(
@@ -1366,7 +1367,8 @@ function HealthScreen({state}){
   const totalSavings=piggyMonthly+Math.max(freeCash,0);
   const savingsRate=totalNet>0?Math.round(totalSavings/totalNet*100):0;
   const expenseRatio=totalNet>0?Math.round(expWithoutPiggy/totalNet*100):0;
-  const piggyActual=Object.values(weekItems).reduce((total,items)=>total+items.filter(i=>i.catId==='piggy'&&i.isDone).reduce((s,i)=>s+i.amount,0),0);
+  const piggyActual=Object.values(weekItems).reduce((total,items)=>total+items.filter(i=>i.catId==='piggy'&&i.isDone).reduce((s,i)=>s+i.amount,0),0)
+    +(state.transactions||[]).filter(t=>t.catId==='piggy').reduce((s,t)=>s+t.amount,0);
   const cushion=piggyActual>0?piggyActual:Math.round(piggyMonthly/4.3*4);
   const healthScore=Math.max(0,Math.min(100,(savingsRate>=20?30:savingsRate>=10?15:0)+(monthlyExp<=totalNet*.7?30:monthlyExp<=totalNet*.9?15:0)+(cushion>=monthlyExp*3?20:cushion>=monthlyExp?10:0)+(freeCash>0?20:0)));
   const healthColor=healthScore>=80?C.green:healthScore>=60?'#CA8A04':healthScore>=40?C.orange:C.red;
@@ -1439,6 +1441,31 @@ function HealthScreen({state}){
           <div style={{fontSize:9,color:C.muted,marginTop:2}}>{fmt(cushion)}</div>
         </div>
       </div>
+      {/* Накопления Piggy Bank */}
+      {(piggyActual>0||piggyMonthly>0)&&<>
+        <SecTitle>НАКОПЛЕНИЯ</SecTitle>
+        <div style={{...s.card,background:C.greenL,border:`.5px solid ${C.greenB}`,padding:'12px 14px',marginBottom:6}}>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <span style={{fontSize:24}}>🐷</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:14,fontWeight:500,color:C.green}}>Piggy Bank</div>
+              <div style={{fontSize:12,color:C.green,opacity:.7,marginTop:1}}>накопительный счёт №2</div>
+            </div>
+            <div style={{textAlign:'right'}}>
+              <div style={{fontSize:16,fontWeight:600,color:C.green}}>+{fmt(piggyActual)}</div>
+              <div style={{fontSize:11,color:C.green,opacity:.7}}>план {fmt(piggyMonthly)}/мес</div>
+            </div>
+          </div>
+          {piggyMonthly>0&&<>
+            <div style={{height:5,background:'rgba(22,163,74,0.2)',borderRadius:3,overflow:'hidden',marginTop:8}}>
+              <div style={{height:5,width:`${Math.min(Math.round(piggyActual/piggyMonthly*100),100)}%`,background:C.green,borderRadius:3}}/>
+            </div>
+            <div style={{fontSize:11,color:C.green,marginTop:4,opacity:.7}}>
+              {Math.round(piggyActual/piggyMonthly*100)}% от месячного плана · {fmt(Math.max(piggyMonthly-piggyActual,0))} ещё не отложено
+            </div>
+          </>}
+        </div>
+      </>}
       <SecTitle>РАСПРЕДЕЛЕНИЕ РАСХОДОВ</SecTitle>
       <div style={{...s.card,display:'flex',flexDirection:'column',alignItems:'center',padding:16}}>
         {catData.length>0&&<div style={{width:160,height:160,borderRadius:'50%',background:`conic-gradient(${conicStops})`,position:'relative',marginBottom:16,flexShrink:0}}>
