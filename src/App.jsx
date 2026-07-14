@@ -83,6 +83,63 @@ const regenWeeksKeepDone=(planned,prevWeekItems)=>{
   });
   return merged;
 };
+// ═══════════════════════════════════════════════════════════════════════════
+// ЕДИНАЯ ФОРМУЛА БАЛАНСА — все экраны берут цифры отсюда, чтобы не расходиться
+// ═══════════════════════════════════════════════════════════════════════════
+const computeBalances=(state)=>{
+  const{incomes=[],weekItems={},startBalance=0,payments={},transactions=[],budgetStartDate}=state;
+  const week=todayKey();
+  const wItems=weekItems[week]||[];
+  const isPiggy=i=>i.catId==='piggy';
+  const year=new Date().getFullYear();
+
+  // Все выплаты года с наложенными правками пользователя
+  const allPaymentsActual=incomes.flatMap(inc=>{
+    const sch=buildPaymentSchedule(year,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc);
+    return sch.map(p=>({...p,...(payments[p.displayLabel]||{})}));
+  });
+  const budgetStart=new Date(budgetStartDate||new Date()); budgetStart.setHours(0,0,0,0);
+  const now=new Date(); now.setHours(23,59,59,999);
+
+  // Получено: отмеченные выплаты с даты старта
+  const actualSalaryReceived=allPaymentsActual
+    .filter(p=>p.isDone&&p.date>=budgetStart)
+    .reduce((s,p)=>s+(p.actualAmount||p.amount),0);
+
+  // Просроченные неотмеченные выплаты (дата прошла, галочки нет) — для подсказки
+  const unmarkedPayments=allPaymentsActual
+    .filter(p=>!p.isDone&&p.date>=budgetStart&&p.date<=now)
+    .sort((a,b)=>b.date-a.date);
+
+  // Доп. доходы (все недели)
+  const txIncome=(transactions||[]).filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+
+  // Piggy Bank без дублей: ручная запись недели приоритетнее плановой галочки
+  const txPiggyByWeek={};
+  (transactions||[]).filter(t=>t.catId==='piggy').forEach(t=>{txPiggyByWeek[t.week]=(txPiggyByWeek[t.week]||0)+t.amount;});
+  const piggyForWeek=(wk,items)=>txPiggyByWeek[wk]!==undefined?txPiggyByWeek[wk]
+    :(items||[]).filter(i=>isPiggy(i)&&i.isDone).reduce((s,i)=>s+i.amount,0);
+  const totalSaved=Object.entries(weekItems).reduce((t,[wk,items])=>t+piggyForWeek(wk,items),0)
+    +Object.entries(txPiggyByWeek).filter(([wk])=>!weekItems[wk]).reduce((s,[,v])=>s+v,0);
+
+  // Расходы (без piggy): плановые галочки + ручные записи
+  const txExpenseAll=(transactions||[]).filter(t=>t.type==='expense'&&t.catId!=='piggy').reduce((s,t)=>s+t.amount,0);
+  const spentFor=(items)=>(items||[]).filter(i=>i.isDone&&!isPiggy(i)&&!i.week).reduce((s,i)=>s+i.amount,0);
+  const weekSpent=spentFor(wItems)+(transactions||[]).filter(t=>t.week===week&&t.type==='expense'&&t.catId!=='piggy').reduce((s,t)=>s+t.amount,0);
+  const pastSpent=Object.entries(weekItems).filter(([wk])=>wk<week).reduce((s,[,items])=>s+spentFor(items),0)
+    +(transactions||[]).filter(t=>t.week<week&&t.type==='expense'&&t.catId!=='piggy').reduce((s,t)=>s+t.amount,0);
+  const futureSpent=Object.entries(weekItems).filter(([wk])=>wk>week).reduce((s,[,items])=>s+spentFor(items),0);
+  const allSpentTotal=weekSpent+pastSpent+futureSpent;
+
+  // КАНОНИЧЕСКИЙ БАЛАНС: старт + получено + доп.доходы − потрачено − отложено в копилку
+  const balance=startBalance+actualSalaryReceived+txIncome-allSpentTotal-totalSaved;
+  // Стартовый баланс на Saving для накопительных рядов (недели/месяцы/годы)
+  const savingStart=startBalance-totalSaved;
+
+  return{balance,totalSaved,allSpentTotal,actualSalaryReceived,txIncome,weekSpent,pastSpent,
+    savingStart,unmarkedPayments,week,wItems};
+};
+
 const generateAllWeeks=planned=>{
   const items={},start=isoMondayOf(new Date());
   for(let i=0;i<104;i++){
@@ -127,6 +184,57 @@ const DEFAULT_CATS=[{id:'food',name:'Еда',emoji:'🍽️',color:'#FEF3C7'},{i
 const REPEAT_OPTS=[{id:'weekly',label:'Каждую нед.'},{id:'biweekly',label:'Раз в 2 нед.'},{id:'monthly',label:'По числам'},{id:'once',label:'Разовый'}];
 const getCat=(id,custom=[])=>[...DEFAULT_CATS,...custom].find(c=>c.id===id);
 const PIE_COLORS=['#E03A22','#3B82F6','#16A34A','#F59E0B','#8B5CF6','#EC4899','#14B8A6','#F97316','#6366F1','#84CC16'];
+// ═══ ДЕМО-РЕЖИМ: готовое состояние семьи Ивановых ═══════════════════════════
+const buildDemoState=()=>{
+  const members=[{id:'m1',name:'Мария',avatar:'👩',color:'#E03A22'},{id:'m2',name:'Сергей',avatar:'👨',color:'#1a1a2e'}];
+  const incomes=[
+    {id:'i1',memberId:'m1',gross:220000,salaryDays:[10],advanceDays:[25],advancePct:'40',advanceMode:'pct'},
+    {id:'i2',memberId:'m2',gross:214000,salaryDays:[5],advanceDays:[20],advancePct:'40',advanceMode:'pct'},
+  ];
+  const planned=[
+    {id:'dp1',catId:'mortgage',name:'Ипотека',amount:52000,memberId:'m1',repeat:'monthly',days:[15]},
+    {id:'dp2',catId:'piggy',name:'Piggy Bank',amount:10000,memberId:'m1',repeat:'weekly',days:[]},
+    {id:'dp3',catId:'food',name:'Еда',amount:10000,memberId:'m1',repeat:'weekly',days:[]},
+    {id:'dp4',catId:'food',name:'Еда',amount:8000,memberId:'m2',repeat:'weekly',days:[]},
+    {id:'dp5',catId:'transport',name:'Транспорт',amount:5350,memberId:'m2',repeat:'weekly',days:[]},
+    {id:'dp6',catId:'clothes',name:'Одежда',amount:6000,memberId:'m1',repeat:'weekly',days:[]},
+    {id:'dp7',catId:'home',name:'Дом',amount:4000,memberId:'m1',repeat:'weekly',days:[]},
+    {id:'dp8',catId:'fun',name:'Развлечения',amount:2500,memberId:'m2',repeat:'weekly',days:[]},
+  ];
+  const weekItems=generateAllWeeks(planned);
+  const week=todayKey();
+  // Отмечаем часть текущей недели: еда Марии (частично категории)
+  if(weekItems[week]){
+    weekItems[week]=weekItems[week].map(i=>{
+      if(i.catId==='food'&&i.memberId==='m1')return{...i,isDone:true};       // 10 000
+      if(i.catId==='transport')return{...i,isDone:true};                     // 5 350
+      if(i.catId==='piggy')return{...i,isDone:true};                         // копилка 10 000
+      return i;
+    });
+  }
+  // Прошлая неделя: всё еженедельное закрыто (для истории)
+  const prevKeys=Object.keys(weekItems).filter(k=>k<week).sort().slice(-1);
+  prevKeys.forEach(pk=>{
+    weekItems[pk]=weekItems[pk].map(i=>i.repeat!=='monthly'?{...i,isDone:true}:i);
+  });
+  // Отмеченные выплаты: по одной прошедшей на каждого
+  const yr=new Date().getFullYear();
+  const payments={};
+  incomes.forEach(inc=>{
+    const sch=buildPaymentSchedule(yr,inc.salaryDays,inc.advanceDays,parseInt(inc.advancePct),inc.gross,inc);
+    const now=new Date();
+    const past=sch.filter(p=>p.date<=now).slice(-1);
+    past.forEach(p=>{payments[p.displayLabel]={isDone:true};});
+  });
+  // Стартовая дата — неделю назад, чтобы прошлая неделя попала в учёт
+  const start=new Date(); start.setDate(start.getDate()-8);
+  return{
+    familyName:'Ивановы',startBalance:30000,members,incomes,planned,weekItems,
+    streak:3,customCats:[],payments,extraPayments:[],transactions:[],
+    budgetStartDate:start.toISOString(),demoMode:true,
+  };
+};
+
 const DEMO_MEMBERS=[{id:'m1',name:'Мария',avatar:'👩',color:C.orange},{id:'m2',name:'Антон',avatar:'👨',color:C.dark}];
 const DEMO_PLANNED=[{id:'p1',catId:'mortgage',name:'Ипотека',amount:55000,memberId:'m1',repeat:'monthly',days:[20]},{id:'p2',catId:'food',name:'Еда',amount:10000,memberId:'m1',repeat:'weekly',days:[]},{id:'p3',catId:'food',name:'Еда',amount:10000,memberId:'m2',repeat:'weekly',days:[]},{id:'p4',catId:'beauty',name:'Красота',amount:15000,memberId:'m1',repeat:'biweekly',days:[]},{id:'p5',catId:'edu',name:'Образование',amount:20000,memberId:'m2',repeat:'monthly',days:[1]},{id:'p6',catId:'piggy',name:'Piggy Bank',amount:10000,memberId:'m1',repeat:'weekly',days:[]}];
 
@@ -611,7 +719,7 @@ function Onboarding({onDone}){
 // ════════════════════════════════════════════════════════════════════════
 // СЕГОДНЯ
 // ════════════════════════════════════════════════════════════════════════
-function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx}){
+function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx,onQuickMark,tourStep}){
   const{members,incomes,planned,weekItems,startBalance=0,payments={},customCats=[],transactions=[],budgetStartDate}=state;
   const week=todayKey();
   const wItems=weekItems[week]||[];
@@ -621,39 +729,11 @@ function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx}){
   const txIncome=weekTxs.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
   const txExpense=weekTxs.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
 
-  // Фактически полученные выплаты (зарплата/аванс отмеченные как isDone)
+  // ЕДИНАЯ ФОРМУЛА: все цифры из computeBalances — как на всех экранах
   const year=new Date().getFullYear();
-  const allPaymentsActual=incomes.flatMap(inc=>{
-    const sch=buildPaymentSchedule(year,inc.salaryDays||[],inc.advanceDays||[],
-      parseInt(inc.advancePct)||40,inc.gross||0);
-    return sch.map(p=>({...p,...(payments[p.displayLabel]||{})}));
-  });
-  // Дата начала ведения — учитываем только выплаты с этой даты
-  const budgetStart=new Date(budgetStartDate||new Date()); budgetStart.setHours(0,0,0,0);
-  // Сумма выплат которые отмечены как полученные И дата которых >= даты старта
-  const actualSalaryReceived=allPaymentsActual
-    .filter(p=>p.isDone && p.date>=budgetStart)
-    .reduce((s,p)=>s+(p.actualAmount||p.amount),0);
-  // Только текущая неделя — отмеченные плановые расходы + ручные расходы
-  // Piggy Bank исключаем из потраченного — это накопления, не расходы
+  const CB=computeBalances(state);
+  const{balance,totalSaved,allSpentTotal,actualSalaryReceived,weekSpent,pastSpent,unmarkedPayments}=CB;
   const isPiggy=i=>i.catId==='piggy';
-  const txPiggy=(transactions||[]).filter(t=>t.week===week&&t.catId==='piggy').reduce((s,t)=>s+t.amount,0);
-  const weekSpent=wItems.filter(i=>i.isDone&&!isPiggy(i)).reduce((s,i)=>s+i.amount,0)+txExpense;
-  // Если есть ручная запись piggy в transactions — используем её, иначе из weekItems
-  const weekSavedFromPlan=txPiggy>0?0:wItems.filter(i=>i.isDone&&isPiggy(i)).reduce((s,i)=>s+i.amount,0);
-  const weekSaved=weekSavedFromPlan+txPiggy; // накоплено (без дублей)
-  // Накопленные расходы по всем прошлым неделям (без Piggy Bank)
-  const pastSpent=Object.entries(weekItems)
-    .filter(([wk])=>wk<week)
-    .reduce((s,[,items])=>s+items.filter(i=>i.isDone&&!isPiggy(i)).reduce((ss,i)=>ss+i.amount,0),0);
-  const pastSaved=Object.entries(weekItems)
-    .filter(([wk])=>wk<week)
-    .reduce((s,[,items])=>s+items.filter(i=>i.isDone&&isPiggy(i)).reduce((ss,i)=>ss+i.amount,0),0);
-  const allSpentTotal=weekSpent+pastSpent;
-  const totalSaved=weekSaved+pastSaved; // всего накоплено в Piggy Bank
-
-  // Баланс = стартовый + все полученные доходы + все доп.доходы − всё потраченное
-  const balance=startBalance+actualSalaryReceived+txIncome-allSpentTotal;
   const spent=wItems.filter(i=>i.isDone).reduce((s,i)=>s+i.amount,0)+txExpense;
   const wPlan=wItems.reduce((s,i)=>s+i.amount,0);
   const pct=wPlan>0?Math.round(spent/wPlan*100):0;
@@ -717,10 +797,18 @@ function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx}){
   }).filter(g=>g.monthlyPlan>0||g.weeklyPlan>0);
   const[openFond,setOpenFond]=useState(null);
   const pad={padding:'14px 14px 80px'};
+  // Подсветка блока при обучающем туре
+  const glow=step=>tourStep===step?{animation:'ffTourGlow 1.4s ease infinite',position:'relative',zIndex:210}:{};
+  useEffect(()=>{
+    if(tourStep>=0){
+      const el=document.querySelector(`[data-tour="${tourStep}"]`);
+      if(el)el.scrollIntoView({behavior:'smooth',block:'center'});
+    }
+  },[tourStep]);
   return(
     <div style={{overflowY:'auto',flex:1,WebkitOverflowScrolling:'touch'}}><div style={pad}>
       {/* Баланс */}
-      <div style={{background:'#1a1a2e',borderRadius:14,padding:'16px',marginBottom:12}}>
+      <div data-tour="0" style={{background:'#1a1a2e',borderRadius:14,padding:'16px',marginBottom:12,...glow(0)}}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:12}}>
           <div>
             <div style={{fontSize:12,color:'rgba(255,255,255,0.4)',marginBottom:4}}>{new Date().toLocaleString('ru',{month:'long',year:'numeric'})}</div>
@@ -735,7 +823,7 @@ function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx}){
         <div style={{display:'flex',gap:6}}>
           <div style={{display:'flex',gap:6}}>
             {[
-              ['получено',actualSalaryReceived+txIncome,'#4ade80'],
+              ['получено',actualSalaryReceived+CB.txIncome,'#4ade80'],
               ['потрачено',allSpentTotal,'#f87171'],
               ['старт',startBalance,'rgba(255,255,255,0.5)'],
             ].map(([l,v,col])=>(
@@ -745,16 +833,33 @@ function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx}){
               </div>
             ))}
           </div>
-          {totalSaved>0&&<div style={{display:'flex',alignItems:'center',gap:8,marginTop:8,background:'rgba(134,239,172,0.1)',border:'0.5px solid rgba(134,239,172,0.2)',borderRadius:8,padding:'7px 10px'}}>
+          {totalSaved>0&&<div data-tour="1" style={{display:'flex',alignItems:'center',gap:8,marginTop:8,background:'rgba(134,239,172,0.1)',border:'0.5px solid rgba(134,239,172,0.2)',borderRadius:8,padding:'7px 10px',...glow(1)}}>
             <span style={{fontSize:14}}>🐷</span>
             <span style={{fontSize:11,color:'rgba(134,239,172,0.8)'}}>Накоплено в Piggy Bank</span>
             <span style={{fontSize:13,fontWeight:600,color:'#86efac',marginLeft:'auto'}}>+{fmt(totalSaved)}</span>
           </div>}
         </div>
       </div>
+      {/* Подсказка: выплата прошла по дате, но не отмечена */}
+      {unmarkedPayments.length>0&&(()=>{
+        const p=unmarkedPayments[0];
+        return(
+          <div style={{...s.card,background:C.blueL,border:`.5px solid ${C.blueB}`,padding:'11px 13px',marginBottom:10,display:'flex',alignItems:'center',gap:10}}>
+            <span style={{fontSize:18,flexShrink:0}}>💰</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:13,fontWeight:600,color:C.blue}}>{p.type==='salary'?'Зарплата':'Аванс'} {p.date.getDate()} {MONTH_SHORT[p.date.getMonth()]} не отмечена</div>
+              <div style={{fontSize:11,color:C.blue,opacity:.75,marginTop:1}}>{fmt(p.actualAmount||p.amount)} · получили её?</div>
+            </div>
+            <button onClick={()=>onQuickMark&&onQuickMark(p.displayLabel)}
+              style={{background:C.blue,color:'#fff',border:'none',borderRadius:20,padding:'7px 14px',fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',flexShrink:0}}>
+              Да, получена
+            </button>
+          </div>
+        );
+      })()}
       {fondGroups.length>0&&<>
         <SecTitle>ФОНДЫ · {weekLabel(week)}</SecTitle>
-        <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:10}}>
+        <div data-tour="2" style={{display:'flex',flexDirection:'column',gap:6,marginBottom:10,...glow(2)}}>
           {fondGroups.map((g)=>{
             const isOpen=openFond===g.n;
             const hasWeekly=g.weeklyPlan>0;
@@ -867,7 +972,7 @@ function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx}){
           </div>
         );
       })()}
-      {allUpcomingPay.length>0&&<>
+      {allUpcomingPay.length>0&&<div data-tour="3" style={{...glow(3),borderRadius:12}}>
         <SecTitle>БЛИЖАЙШИЕ ВЫПЛАТЫ</SecTitle>
         {allUpcomingPay.map((p,i)=>(
           <button key={i} onClick={()=>onEditPayment(p)} style={{...s.card,display:'flex',alignItems:'center',gap:9,width:'100%',textAlign:'left',cursor:'pointer',background:p.isDone?C.greenL:C.blueL,border:`.5px solid ${p.isDone?C.greenB:C.blueB}`,fontFamily:'inherit',marginBottom:6,boxSizing:'border-box'}}>
@@ -884,7 +989,7 @@ function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx}){
             </div>
           </button>
         ))}
-      </>}
+      </div>}
       <button onClick={onAdd} style={{width:'100%',padding:10,borderRadius:9,border:`.5px solid ${C.orangeB}`,background:C.orangeL,color:C.orange,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit',marginBottom:10}}>+ Добавить запись</button>
       {weekTxs.length>0&&<>
         <SecTitle>ЗАПИСИ НЕДЕЛИ</SecTitle>
@@ -1051,17 +1156,8 @@ function PlanScreen({state,onToggle,onAdd,onEditTx}){
         :(()=>{
           // Накопительный баланс: стартовый + все доходы − все фактические расходы
           // Стартовый баланс на Saving = startBalance минус уже отложенное в Piggy
-          // Считаем piggy без дублей: если есть ручная запись для недели — берём её, иначе плановую
-          const txPiggyByWeek={};
-          (state.transactions||[]).filter(t=>t.catId==='piggy').forEach(t=>{
-            txPiggyByWeek[t.week]=(txPiggyByWeek[t.week]||0)+t.amount;
-          });
-          const totalPiggySaved=Object.entries(state.weekItems||{}).reduce((total,[wk,items])=>{
-            const txAmt=txPiggyByWeek[wk]||0;
-            if(txAmt>0) return total+txAmt; // есть ручная запись — берём её
-            return total+items.filter(i=>i.catId==='piggy'&&i.isDone).reduce((s,i)=>s+i.amount,0);
-          },0)+Object.entries(txPiggyByWeek).filter(([wk])=>!(state.weekItems||{})[wk]).reduce((s,[,v])=>s+v,0);
-          let runningBalance=(state.startBalance||0)-totalPiggySaved;
+          // Единая формула: стартовый Saving из computeBalances
+          let runningBalance=computeBalances(state).savingStart;
           const curWk=todayKey();
           return weeksSummary.map(({wk,wSp,wTot,wInc,bal},idx)=>{
             // Для прошлых и текущей недели — факт (wSp), для будущих — план (wTot)
@@ -1109,10 +1205,7 @@ function PlanScreen({state,onToggle,onAdd,onEditTx}){
         <SecTitle>ВСЕ МЕСЯЦЫ</SecTitle>
         {monthsSummary().length===0?<div style={{...s.card,textAlign:'center',padding:20,color:C.muted}}>Нет данных</div>
         :(()=>{
-          const piggySavedTotal=Object.values(state.weekItems||{})
-            .flat().filter(i=>i.catId==='piggy'&&i.isDone).reduce((s,i)=>s+i.amount,0)
-            ;
-          let runBal=(state.startBalance||0)-piggySavedTotal;
+          let runBal=computeBalances(state).savingStart;
           const curMk=todayMonthKey();
           return monthsSummary().map(({mk,wTot,wSp,wInc})=>{
           const isCur=mk===curMk;
@@ -1148,9 +1241,7 @@ function PlanScreen({state,onToggle,onAdd,onEditTx}){
       {viewMode==='year'&&<>
         <SecTitle>ИТОГИ ПО ГОДАМ</SecTitle>
         {(()=>{
-          const piggyYearSaved=Object.values(state.weekItems||{})
-            .flat().filter(i=>i.catId==='piggy'&&i.isDone).reduce((s,i)=>s+i.amount,0);
-          let runBalYr=(state.startBalance||0)-piggyYearSaved;
+          let runBalYr=computeBalances(state).savingStart;
           return yearsSummary().map(({yr,wTot,wSp,wInc})=>{
           const curYr=new Date().getFullYear();
           const isCur=yr===curYr;
@@ -1574,10 +1665,7 @@ function HealthScreen({state}){
       {(()=>{
         const allWeekKeys=Object.keys(weekItems).sort();
         const riskyWeeks=[];
-        const piggySaved2=Object.values(state.weekItems||{})
-          .flat().filter(i=>i.catId==='piggy'&&i.isDone).reduce((s,i)=>s+i.amount,0)
-          ;
-        let runBal=(state.startBalance||0)-piggySaved2;
+        let runBal=computeBalances(state).savingStart;
         // считаем накопительный баланс по неделям
         for(let i=0;i<Math.min(allWeekKeys.length-1,12);i++){
           const wk=allWeekKeys[i];
@@ -1880,6 +1968,59 @@ function SettingsScreen({state,onEditCat,onAddCat,onEditIncome}){
       </div>
       <div style={{height:20}}/>
       {/* Сброс данных */}
+      {/* ═══ Резервная копия ═══ */}
+      <div style={{...s.card,background:C.yellowL,border:`.5px solid ${C.yellowB}`,padding:'11px 13px',marginBottom:10,display:'flex',gap:10}}>
+        <span style={{fontSize:16,flexShrink:0}}>⚠️</span>
+        <div>
+          <div style={{fontSize:13,fontWeight:600,color:C.yellow,marginBottom:2}}>Данные хранятся только на этом устройстве</div>
+          <div style={{fontSize:12,color:C.yellow,lineHeight:'18px'}}>Очистка браузера удалит всё. Сохраните резервную копию.</div>
+        </div>
+      </div>
+      <SecTitle>РЕЗЕРВНАЯ КОПИЯ</SecTitle>
+      <div style={{...s.card,padding:0,overflow:'hidden',marginBottom:10}}>
+        <button onClick={()=>{
+          try{
+            const data=localStorage.getItem('ff_state')||'{}';
+            const blob=new Blob([data],{type:'application/json'});
+            const url=URL.createObjectURL(blob);
+            const a=document.createElement('a');
+            a.href=url;
+            a.download=`familyflow-backup-${new Date().toISOString().slice(0,10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            localStorage.setItem('ff_last_export',new Date().toISOString());
+          }catch(e){alert('Не удалось создать копию: '+e.message);}
+        }} style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'12px 14px',background:'none',border:'none',borderBottom:`.5px solid ${C.border}`,cursor:'pointer',fontFamily:'inherit',textAlign:'left'}}>
+          <span style={{fontSize:17}}>⬇️</span>
+          <div style={{flex:1}}>
+            <div style={{fontSize:14,color:C.text}}>Экспорт данных</div>
+            <div style={{fontSize:11,color:C.muted,marginTop:1}}>скачать файл JSON с полной копией</div>
+          </div>
+          <span style={{fontSize:13,color:C.muted}}>›</span>
+        </button>
+        <label style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'12px 14px',cursor:'pointer',boxSizing:'border-box'}}>
+          <span style={{fontSize:17}}>⬆️</span>
+          <div style={{flex:1}}>
+            <div style={{fontSize:14,color:C.text}}>Импорт данных</div>
+            <div style={{fontSize:11,color:C.muted,marginTop:1}}>восстановить из файла JSON</div>
+          </div>
+          <span style={{fontSize:13,color:C.muted}}>›</span>
+          <input type="file" accept=".json,application/json" style={{display:'none'}} onChange={e=>{
+            const f=e.target.files?.[0]; if(!f)return;
+            const r=new FileReader();
+            r.onload=ev=>{
+              try{
+                const parsed=JSON.parse(ev.target.result);
+                if(!parsed||typeof parsed!=='object'||!parsed.appState)throw new Error('это не файл FamilyFlow');
+                if(!window.confirm('Заменить текущие данные данными из файла? Отменить будет нельзя.'))return;
+                localStorage.setItem('ff_state',ev.target.result);
+                window.location.reload();
+              }catch(err){alert('Не удалось импортировать: '+err.message);}
+            };
+            r.readAsText(f);
+          }}/>
+        </label>
+      </div>
       <SecTitle>СБРОС</SecTitle>
       <div style={{...s.card,background:C.redL,border:`.5px solid ${C.redB}`,padding:14}}>
         <div style={{fontSize:12,color:C.red,marginBottom:8,lineHeight:'18px'}}>
@@ -2329,6 +2470,8 @@ export default function App(){
   const[consented,setConsentedRaw]=useState(()=>savedState?.consented||false);
   const[onboarded,setOnboardedRaw]=useState(()=>savedState?.onboarded||false);
   const[tab,setTab]=useState('today');
+  const[tourStep,setTourStep]=useState(-1); // -1 = тур выключен
+  const[showStartChoice,setShowStartChoice]=useState(true); // экран выбора демо/настройка
   const[showAdd,setShowAdd]=useState(false);
   const[addWeek,setAddWeek]=useState(null); // неделя для добавления транзакции
   const[showEdit,setShowEdit]=useState(false);
@@ -2408,6 +2551,8 @@ export default function App(){
     setAppState(newState);
     setOnboarded(true);
   };
+  // Быстрая отметка выплаты одним тапом (подсказка «зарплата не отмечена»)
+  const handleQuickMark=label=>setAppState(prev=>({...prev,payments:{...prev.payments,[label]:{...(prev.payments?.[label]||{}),isDone:true}}}));
   const handleToggle=(week,itemId)=>setAppState(prev=>({...prev,weekItems:{...prev.weekItems,[week]:(prev.weekItems[week]||[]).map(i=>i.id===itemId?{...i,isDone:!i.isDone}:i)}}));
   const handleAddTx=item=>{const week=addWeek||todayKey();const tx={...item,week,date:new Date().toISOString(),isDone:true};setAppState(prev=>({...prev,transactions:[tx,...(prev.transactions||[])],weekItems:item.type==='expense'?{...prev.weekItems,[week]:[tx,...(prev.weekItems[week]||[])]}:prev.weekItems}));setAddWeek(null);};
   const handleEditPlanned=updated=>{setAppState(prev=>{
@@ -2473,7 +2618,53 @@ export default function App(){
   const TAB_TITLES={today:'Сегодня',plan:'Денежный поток',budget:'Годовой бюджет',health:'Здоровье',settings:'Настройки'};
   const shell={maxWidth:480,margin:'0 auto',minHeight:'100dvh',background:'#F8FAFC',display:'flex',flexDirection:'column',boxShadow:'0 0 40px rgba(0,0,0,0.12)',fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',position:'relative'};
   if(!consented)return<div style={shell}><ConsentScreen onAccept={()=>setConsented(true)}/></div>;
-  if(!onboarded)return<div style={shell}><Onboarding onDone={handleOnboardingDone}/></div>;
+  const startDemo=()=>{
+    const demo=buildDemoState();
+    setAppState(demo);
+    setOnboarded(true);
+    setTab('today');
+    setTimeout(()=>setTourStep(0),700); // автозапуск тура
+  };
+  const exitDemo=()=>{
+    if(!window.confirm('Выйти из демо и настроить свой бюджет? Демо-данные будут удалены.'))return;
+    try{localStorage.removeItem('ff_state');}catch{}
+    setTourStep(-1);
+    setAppState({familyName:'',startBalance:0,members:[{id:'m1',name:'',avatar:'👩',color:C.orange}],
+      incomes:[{id:'i1',memberId:'m1',gross:'',salaryDays:[],advanceDays:[],advancePct:'40',advanceAbs:'',advanceMode:'pct'}],
+      planned:[],weekItems:{},streak:0,customCats:[],payments:{},extraPayments:[],transactions:[],budgetStartDate:new Date().toISOString()});
+    setOnboardedRaw(false);
+    try{localStorage.setItem('ff_state',JSON.stringify({consented:true,onboarded:false}));}catch{}
+  };
+  if(!onboarded)return(
+    <div style={shell}>
+      {showStartChoice
+        ?<div style={{minHeight:'100dvh',background:C.dark,display:'flex',flexDirection:'column',justifyContent:'center',padding:'32px 24px',boxSizing:'border-box'}}>
+          <div style={{textAlign:'center',marginBottom:28}}>
+            <div style={{width:72,height:72,borderRadius:24,background:C.orange,display:'flex',alignItems:'center',justifyContent:'center',fontSize:36,margin:'0 auto 16px',boxShadow:'0 0 40px rgba(224,58,34,0.35)'}}>💰</div>
+            <div style={{fontSize:24,fontWeight:800,color:'#fff',marginBottom:6}}>FamilyFlow</div>
+            <div style={{fontSize:13,color:'rgba(255,255,255,0.45)'}}>Как хотите начать?</div>
+          </div>
+          <button onClick={()=>{setShowStartChoice(false);startDemo();}}
+            style={{width:'100%',background:'rgba(224,58,34,0.12)',border:'2px solid rgba(224,58,34,0.5)',borderRadius:14,padding:'15px 16px',marginBottom:10,cursor:'pointer',textAlign:'left',display:'flex',gap:13,alignItems:'center',fontFamily:'inherit'}}>
+            <span style={{fontSize:26,flexShrink:0}}>▶️</span>
+            <div>
+              <div style={{fontSize:15,fontWeight:700,color:'#fff'}}>Посмотреть на демо-данных</div>
+              <div style={{fontSize:12,color:'rgba(255,255,255,0.45)',marginTop:2}}>семья Ивановых · 30 секунд</div>
+            </div>
+          </button>
+          <button onClick={()=>setShowStartChoice(false)}
+            style={{width:'100%',background:'rgba(255,255,255,0.05)',border:'.5px solid rgba(255,255,255,0.12)',borderRadius:14,padding:'15px 16px',cursor:'pointer',textAlign:'left',display:'flex',gap:13,alignItems:'center',fontFamily:'inherit'}}>
+            <span style={{fontSize:26,flexShrink:0}}>⚙️</span>
+            <div>
+              <div style={{fontSize:15,fontWeight:700,color:'#fff'}}>Настроить свой бюджет</div>
+              <div style={{fontSize:12,color:'rgba(255,255,255,0.45)',marginTop:2}}>5 минут · доход, платежи, категории</div>
+            </div>
+          </button>
+          <div style={{fontSize:11,color:'rgba(255,255,255,0.25)',textAlign:'center',marginTop:16}}>Данные не покидают ваше устройство</div>
+        </div>
+        :<Onboarding onDone={handleOnboardingDone}/>}
+    </div>
+  );
   return(
     <div style={shell}>
       <div style={{background:'#fff',flexShrink:0,position:'sticky',top:0,zIndex:50}}>
@@ -2482,9 +2673,17 @@ export default function App(){
           <span style={{fontSize:17,fontWeight:700,color:C.text}}>{TAB_TITLES[tab]}</span>
           <span style={{fontSize:11,color:C.muted}}>{appState.familyName}</span>
         </div>
+        {appState.demoMode&&(
+          <div style={{display:'flex',alignItems:'center',gap:8,background:C.blueL,borderTop:`.5px solid ${C.blueB}`,borderBottom:`.5px solid ${C.blueB}`,padding:'7px 14px'}}>
+            <span style={{fontSize:13}}>👁</span>
+            <span style={{flex:1,fontSize:12,color:C.blue}}>Демо · семья Ивановых</span>
+            <button onClick={()=>{setTab('today');setTourStep(0);}} style={{fontSize:11,fontWeight:600,color:C.blue,background:'#fff',border:`.5px solid ${C.blueB}`,padding:'4px 10px',borderRadius:20,cursor:'pointer',fontFamily:'inherit'}}>▶ Тур</button>
+            <button onClick={exitDemo} style={{fontSize:11,fontWeight:600,color:'#fff',background:C.blue,border:'none',padding:'4px 10px',borderRadius:20,cursor:'pointer',fontFamily:'inherit'}}>Начать со своими</button>
+          </div>
+        )}
       </div>
       <div style={{flex:1,display:'flex',flexDirection:'column'}}>
-        {tab==='today'&&<TodayScreen state={appState} onToggle={handleToggle} onAdd={()=>setShowAdd(true)} onEditPayment={handleEditPayment} onEditTx={handleEditTx}/>}
+        {tab==='today'&&<TodayScreen state={appState} onToggle={handleToggle} onAdd={()=>setShowAdd(true)} onEditPayment={handleEditPayment} onEditTx={handleEditTx} onQuickMark={handleQuickMark} tourStep={tourStep}/>}
         {tab==='plan'&&<PlanScreen state={appState} onToggle={handleToggle} onAdd={(wk)=>{setAddWeek(wk);setShowAdd(true);}} onEditTx={handleEditTx}/>}
         {tab==='budget'&&<BudgetScreen state={appState} onEditPlanned={item=>{setEditItem(item);setShowEdit(true);}} onAddPlanned={handleAddPlanned} onEditPayment={handleEditPayment} onAddExtra={(data)=>{if(data&&data.amount){handleAddExtra(data);}else{setShowAddExtra(true);}}}/>}
         {tab==='health'&&<HealthScreen state={appState}/>}
@@ -2499,6 +2698,44 @@ export default function App(){
         onClose={()=>{setShowEditTx(false);setEditTxItem(null);}}
         onSave={handleSaveTx} onDelete={id=>{handleDeleteTx(id);setShowEditTx(false);setEditTxItem(null);}}/>
       <EditIncomeModal visible={showEditIncome} income={editIncomeItem} member={editIncomeMember} onClose={()=>{setShowEditIncome(false);setEditIncomeItem(null);setEditIncomeMember(null);}} onSave={inc=>{handleSaveIncome(inc);setShowEditIncome(false);setEditIncomeItem(null);setEditIncomeMember(null);}}/>
+      {/* ═══ ОБУЧАЮЩИЙ ТУР ═══ */}
+      {tourStep>=0&&(()=>{
+        const TOUR=[
+          {icon:'💰',title:'Остаток на руках',body:'Главная цифра: сколько денег на основном счёте прямо сейчас. Формула: старт + получено − потрачено − копилка. Три мини-карточки под цифрой показывают слагаемые.'},
+          {icon:'🐷',title:'Копилка — отдельно',body:'Деньги в копилке уже переведены на накопительный счёт. Они НЕ входят в «остаток на руках» — тратить их нельзя, это резерв. Поэтому зелёная строка отдельно.'},
+          {icon:'📊',title:'Фонды — план недели',body:'Жизнь и Комфорт показывают недельный прогресс: жёлтая полоска — фонд почти исчерпан. Защита показывает месячную сумму — ипотека платится раз в месяц. Нажмите на фонд — увидите детали.'},
+          {icon:'📅',title:'Выплаты — с переносами',body:'Если день зарплаты выпал на выходной — приложение само сдвигает её на рабочий день по производственному календарю РФ. Один тап — выплата отмечена как полученная.'},
+        ];
+        const st=TOUR[tourStep];
+        if(!st)return null;
+        return(
+          <div style={{position:'fixed',inset:0,zIndex:200,display:'flex',flexDirection:'column',justifyContent:'flex-end',pointerEvents:'none'}}>
+            <div style={{position:'absolute',inset:0,background:'rgba(15,23,42,0.45)',pointerEvents:'auto'}} onClick={()=>setTourStep(-1)}/>
+            <div style={{position:'relative',pointerEvents:'auto',maxWidth:480,margin:'0 auto',width:'100%',boxSizing:'border-box',padding:'0 12px 20px'}}>
+              <div style={{background:C.orange,borderRadius:16,padding:'16px 18px',boxShadow:'0 12px 40px rgba(0,0,0,0.35)',animation:'ffTourPop .3s ease'}}>
+                <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:6}}>
+                  <span style={{fontSize:24}}>{st.icon}</span>
+                  <span style={{fontSize:16,fontWeight:700,color:'#fff'}}>{st.title}</span>
+                </div>
+                <div style={{fontSize:13,color:'rgba(255,255,255,0.9)',lineHeight:'20px',marginBottom:12}}>{st.body}</div>
+                <div style={{display:'flex',alignItems:'center',gap:10}}>
+                  <span style={{fontSize:12,color:'rgba(255,255,255,0.6)'}}>{tourStep+1} из {TOUR.length}</span>
+                  <div style={{display:'flex',gap:4,flex:1}}>
+                    {TOUR.map((_,i)=><div key={i} style={{width:i===tourStep?18:6,height:6,borderRadius:3,background:i===tourStep?'#fff':'rgba(255,255,255,0.3)',transition:'width .2s'}}/>)}
+                  </div>
+                  <button onClick={()=>setTourStep(-1)} style={{background:'none',border:'none',fontSize:12,color:'rgba(255,255,255,0.6)',cursor:'pointer',fontFamily:'inherit',padding:'6px 4px'}}>Пропустить</button>
+                  <button onClick={()=>setTourStep(tourStep+1>=TOUR.length?-1:tourStep+1)}
+                    style={{background:'#fff',border:'none',borderRadius:20,padding:'8px 18px',fontSize:13,fontWeight:700,color:C.orange,cursor:'pointer',fontFamily:'inherit'}}>
+                    {tourStep===TOUR.length-1?'Готово ✓':'Дальше →'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+      <style>{`@keyframes ffTourPop{0%{opacity:0;transform:translateY(16px)}100%{opacity:1;transform:translateY(0)}}
+@keyframes ffTourGlow{0%,100%{box-shadow:0 0 0 3px #E03A22,0 0 20px rgba(224,58,34,.3)}50%{box-shadow:0 0 0 3px #E03A22,0 0 34px rgba(224,58,34,.55)}}`}</style>
     </div>
   );
 }
