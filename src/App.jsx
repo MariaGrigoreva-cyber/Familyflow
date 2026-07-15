@@ -7,7 +7,11 @@ import {BudgetScreen} from './screens/Budget';
 import {HealthScreen} from './screens/Health';
 import {SettingsScreen} from './screens/Settings';
 import {EditPaymentModal,AddExtraModal,AddTxModal,EditCatModal,EditTxModal,EditIncomeModal,TabBar} from './modals';
-
+import {
+  isLoggedIn,
+  loadCloudState,
+  saveCloudState,
+} from './api';
 export default function App(){
   // ── localStorage: загружаем сохранённые данные при старте ──────────────
   const loadFromStorage = () => {
@@ -57,11 +61,73 @@ export default function App(){
       planned:DEMO_PLANNED,weekItems:{},streak:12,customCats:[],payments:{},extraPayments:[],transactions:[],budgetStartDate:new Date().toISOString(),
     };
   });
+  const [cloudReady, setCloudReady] = useState(false);
+const [cloudError, setCloudError] = useState(null);
 
   // Обёртки для сохранения флагов в localStorage
   const setConsented = (v) => { setConsentedRaw(v); try{ localStorage.setItem('ff_state', JSON.stringify({...loadFromStorage(), consented:v})); }catch{} };
   const setOnboarded = (v) => { setOnboardedRaw(v); try{ localStorage.setItem('ff_state', JSON.stringify({...loadFromStorage(), onboarded:v})); }catch{} };
+// Загрузка состояния семьи из облака после входа
+useEffect(() => {
+  let cancelled = false;
 
+  async function loadCloud() {
+    if (!isLoggedIn()) {
+      setCloudReady(true);
+      return;
+    }
+
+    try {
+      const result = await loadCloudState();
+
+      if (cancelled) return;
+
+      const cloudData = result?.data;
+
+      if (
+        cloudData &&
+        typeof cloudData === 'object' &&
+        Object.keys(cloudData).length > 0
+      ) {
+        if (cloudData.appState) {
+          setAppState(cloudData.appState);
+          setConsentedRaw(Boolean(cloudData.consented));
+          setOnboardedRaw(Boolean(cloudData.onboarded));
+
+          localStorage.setItem(
+            'ff_state',
+            JSON.stringify(cloudData)
+          );
+        } else {
+          // Поддержка варианта, когда в облаке сохранен только appState
+          setAppState(cloudData);
+        }
+      }
+
+      if (result?.updatedAt) {
+        localStorage.setItem(
+          'ff_cloud_updated_at',
+          result.updatedAt
+        );
+      }
+
+      setCloudError(null);
+    } catch (error) {
+      console.error('Cloud load failed:', error);
+      setCloudError('Не удалось загрузить данные из облака');
+    } finally {
+      if (!cancelled) {
+        setCloudReady(true);
+      }
+    }
+  }
+
+  loadCloud();
+
+  return () => {
+    cancelled = true;
+  };
+}, []);
   // Автосохранение appState при каждом изменении
   useEffect(()=>{
     if(!onboarded) return;
@@ -110,6 +176,58 @@ export default function App(){
       });
       return{...prev,weekItems:merged};
     });
+    // Автосохранение состояния семьи в облако
+useEffect(() => {
+  if (!cloudReady || !isLoggedIn() || !onboarded) {
+    return;
+  }
+
+  const timer = setTimeout(async () => {
+    try {
+      const baseUpdatedAt =
+        localStorage.getItem('ff_cloud_updated_at');
+
+      const cloudData = {
+        consented,
+        onboarded,
+        appState,
+      };
+
+      const result = await saveCloudState(
+        cloudData,
+        baseUpdatedAt
+      );
+
+      if (result?.updatedAt) {
+        localStorage.setItem(
+          'ff_cloud_updated_at',
+          result.updatedAt
+        );
+      }
+
+      setCloudError(null);
+    } catch (error) {
+      console.error('Cloud save failed:', error);
+
+      if (error.status === 409) {
+        setCloudError(
+          'Данные были изменены на другом устройстве'
+        );
+      } else {
+        setCloudError(
+          'Данные сохранены на устройстве, но облако временно недоступно'
+        );
+      }
+    }
+  }, 1200);
+
+  return () => clearTimeout(timer);
+}, [
+  appState,
+  consented,
+  onboarded,
+  cloudReady,
+]);
   },[onboarded]);
   const handleOnboardingDone=data=>{
     const newState={...data,weekItems:generateAllWeeks(data.planned),streak:1,budgetStartDate:new Date().toISOString()};
