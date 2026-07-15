@@ -91,8 +91,9 @@ export function Onboarding({onDone}){
       return{id:uid(),catId,name:cat?.name||catId,amount:parseInt(setup.amount)||0,
         memberId:setup.memberId||bm[0]?.id||'m1',repeat:rep,days:setup.days||[],onceDate};
     }).filter(p=>p.amount>0);
-    const bi=incomes.filter(i=>(bm.length?bm:DEMO_MEMBERS).find(m=>m.id===i.memberId)).map(i=>({...i,gross:parseInt(i.gross)||0,net:calcNetFor(i)}));
-    onDone({familyName:familyName||'Моя семья',startBalance:parseInt(startBalance)||0,members:bm.length?bm:DEMO_MEMBERS,incomes:bi,planned:bp.length?bp:DEMO_PLANNED,customCats:[],payments:{},extraPayments:[],transactions:[]});
+    const finalMembers=bm.length?bm:[{id:'m1',name:'Я',avatar:'👤',color:C.orange}];
+    const bi=incomes.filter(i=>finalMembers.find(m=>m.id===i.memberId)).map(i=>({...i,gross:parseInt(i.gross)||0,net:calcNetFor(i)}));
+    onDone({familyName:familyName||'Моя семья',startBalance:parseInt(startBalance)||0,members:finalMembers,incomes:bi,planned:bp,customCats:[],payments:{},extraPayments:[],transactions:[]});
   };
   const OSteps=({current})=>(
     <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'8px 16px',background:'#fff',borderBottom:'.5px solid #E2E8F0'}}>

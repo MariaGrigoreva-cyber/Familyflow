@@ -18,7 +18,7 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx}){
   const weekStart=weekKeyToDate(week),weekEnd=new Date(weekStart.getTime()+6*86400000);
   const weekIncome=incomes.reduce((s,inc)=>{
     const yr=weekStart.getFullYear();
-    const sch=buildPaymentSchedule(yr,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0)
+    const sch=buildPaymentSchedule(yr,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc)
       .map(p=>({...p,...(payments[p.displayLabel]||{})})); // учитываем скорректированные суммы
     return s+sch.filter(p=>p.date>=weekStart&&p.date<=weekEnd).reduce((ss,p)=>ss+(p.actualAmount||p.amount),0);
   },0);
@@ -31,7 +31,7 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx}){
     const wSp=items.filter(x=>x.isDone&&x.catId!=='piggy').reduce((s,x)=>s+x.amount,0); // без Piggy Bank
     const wTot=items.filter(x=>x.catId!=='piggy').reduce((s,x)=>s+x.amount,0);
     const wS=weekKeyToDate(wk),wE=new Date(wS.getTime()+6*86400000);
-    const wInc=incomes.reduce((s,inc)=>{const yr=wS.getFullYear();const sch=buildPaymentSchedule(yr,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0).map(p=>({...p,...(payments[p.displayLabel]||{})}));return s+sch.filter(p=>p.date>=wS&&p.date<=wE).reduce((ss,p)=>ss+(p.actualAmount||p.amount),0);},0);
+    const wInc=incomes.reduce((s,inc)=>{const yr=wS.getFullYear();const sch=buildPaymentSchedule(yr,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc).map(p=>({...p,...(payments[p.displayLabel]||{})}));return s+sch.filter(p=>p.date>=wS&&p.date<=wE).reduce((ss,p)=>ss+(p.actualAmount||p.amount),0);},0);
     const txInc=(transactions||[]).filter(t=>t.week===wk&&t.type==='income').reduce((s,t)=>s+t.amount,0);
     return{wk,wSp,wTot,wInc:wInc+txInc,bal:(wInc+txInc)-wTot};
   };

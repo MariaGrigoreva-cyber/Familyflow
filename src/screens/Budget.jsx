@@ -33,7 +33,7 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
   const budgetStart=new Date(); budgetStart.setHours(0,0,0,0); // начало сегодняшнего дня
   const budgetEnd=new Date(budgetStart.getTime()+365*86400000);
   const yearsInRange=[...new Set([budgetStart.getFullYear(),budgetEnd.getFullYear()])];
-  const allPayments=incomes.flatMap(inc=>{const m=members.find(x=>x.id===inc.memberId);return yearsInRange.flatMap(yr=>buildPaymentSchedule(yr,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0)).filter(p=>p.date>=budgetStart&&p.date<=budgetEnd).map(p=>({...p,memberName:m?.name||'',memberAvatar:m?.avatar||'',...(payments[p.displayLabel]||{})}));}).sort((a,b)=>a.date-b.date);
+  const allPayments=incomes.flatMap(inc=>{const m=members.find(x=>x.id===inc.memberId);return yearsInRange.flatMap(yr=>buildPaymentSchedule(yr,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc)).filter(p=>p.date>=budgetStart&&p.date<=budgetEnd).map(p=>({...p,memberName:m?.name||'',memberAvatar:m?.avatar||'',...(payments[p.displayLabel]||{})}));}).sort((a,b)=>a.date-b.date);
   const upcoming=allPayments.filter(p=>p.date>=budgetStart).slice(0,6);
   const shiftedCnt=allPayments.filter(p=>p.date>=budgetStart&&p.shifted).length;
   const extraUpcoming=(extraPayments||[]).filter(p=>new Date(p.date)>=now);

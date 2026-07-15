@@ -25,7 +25,7 @@ export function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx,onQuick
   const now=new Date(); now.setHours(0,0,0,0); // начало дня чтобы сегодняшние выплаты не пропадали
   const allUpcomingPay=incomes.flatMap(inc=>{
     const m=members.find(x=>x.id===inc.memberId);
-    return buildPaymentSchedule(year,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0)
+    return buildPaymentSchedule(year,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc)
       .map(p=>({...p,memberName:m?.name||'',...(payments[p.displayLabel]||{})}));
   }).filter(p=>p.date>=now).sort((a,b)=>a.date-b.date).slice(0,3);
   // Здоровье для главного экрана
@@ -129,6 +129,16 @@ export function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx,onQuick
           </div>}
         </div>}
       </div>
+      {/* План пуст — направляем в настройки */}
+      {planned.length===0&&(
+        <div style={{...s.card,background:C.orangeL,border:`.5px solid ${C.orangeB}`,padding:'12px 14px',marginBottom:10,display:'flex',gap:10,alignItems:'center'}}>
+          <span style={{fontSize:18}}>📋</span>
+          <div style={{flex:1}}>
+            <div style={{fontSize:13,fontWeight:600,color:C.orange}}>Категории расходов не настроены</div>
+            <div style={{fontSize:12,color:C.orange,opacity:.8,marginTop:1}}>Добавьте их во вкладке Настройки — появится план недели</div>
+          </div>
+        </div>
+      )}
       {/* Подсказка: выплата прошла по дате, но не отмечена */}
       {unmarkedPayments.length>0&&(()=>{
         const p=unmarkedPayments[0];

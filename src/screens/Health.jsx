@@ -157,7 +157,7 @@ export function HealthScreen({state}){
           const wk=allWeekKeys[i];
           const items=weekItems[wk]||[];
           const wkStart=weekKeyToDate(wk),wkEnd=new Date(wkStart.getTime()+6*86400000);
-          const wkInc=incomes.reduce((s,inc)=>{const yr=wkStart.getFullYear();const sch=buildPaymentSchedule(yr,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0);return s+sch.filter(p=>p.date>=wkStart&&p.date<=wkEnd).reduce((ss,p)=>ss+(p.actualAmount||p.amount),0);},0);
+          const wkInc=incomes.reduce((s,inc)=>{const yr=wkStart.getFullYear();const sch=buildPaymentSchedule(yr,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc);return s+sch.filter(p=>p.date>=wkStart&&p.date<=wkEnd).reduce((ss,p)=>ss+(p.actualAmount||p.amount),0);},0);
           const wkSpent=items.filter(i=>i.isDone).reduce((s,i)=>s+i.amount,0);
           const wkPlan=items.reduce((s,i)=>s+i.amount,0);
           runBal=runBal+wkInc-wkSpent;
