@@ -1,6 +1,6 @@
 // FamilyFlow — экран Бюджет
 import React, { useState, useEffect } from 'react';
-import {C,fmt,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
+import {C,monthlyOf,yearlyOf,fmt,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Modal,DayPicker,Numpad} from '../lib/ui';
 
 export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onAddExtra}){
@@ -22,7 +22,11 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
   const monthlyGross=incomes[0]?.gross||0;
   const vacBasis12=monthlyGross*12; // оклад × 12 (пока нет реальных данных за год)
 
-  const catTotals=allCats.map(cat=>{const items=planned.filter(p=>p.catId===cat.id);const monthly=items.reduce((s,p)=>s+(p.repeat==='weekly'?p.amount*4.3:p.repeat==='biweekly'?p.amount*2.15:p.amount),0);return{cat,monthly,yearly:monthly*12};}).filter(c=>c.yearly>0).sort((a,b)=>b.yearly-a.yearly);
+  const catTotals=allCats.map(cat=>{const items=planned.filter(p=>p.catId===cat.id);
+    const monthly=items.reduce((s,p)=>s+monthlyOf(p),0);
+    const yearly=items.reduce((s,p)=>s+yearlyOf(p),0);
+    const hasOnce=items.some(p=>p.repeat==='once');
+    return{cat,monthly,yearly,hasOnce};}).filter(c=>c.yearly>0).sort((a,b)=>b.yearly-a.yearly);
   const totalYearlyExp=catTotals.reduce((s,c)=>s+c.yearly,0);
   const profit=totalYearlyIncome-totalYearlyExp,maxVal=catTotals[0]?.yearly||1;
   const now=new Date();
@@ -207,10 +211,10 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
       )}
       <SecTitle right="+ Добавить" onRight={onAddPlanned}>ПО КАТЕГОРИЯМ · ГОД</SecTitle>
       <div style={{...s.card,padding:0}}>
-        {catTotals.map(({cat,monthly,yearly},idx)=>(
+        {catTotals.map(({cat,monthly,yearly,hasOnce},idx)=>(
           <button key={cat.id} onClick={()=>onEditPlanned(planned.find(p=>p.catId===cat.id))} style={{display:'flex',alignItems:'center',padding:9,borderBottom:idx<catTotals.length-1?`.5px solid ${C.border}`:'none',width:'100%',textAlign:'left',cursor:'pointer',background:'#fff',border:'none',fontFamily:'inherit',gap:8,boxSizing:'border-box'}}>
             <span style={{fontSize:16}}>{cat.emoji}</span>
-            <div style={{flex:1}}><div style={{fontSize:12,color:C.text,fontWeight:500}}>{cat.name}</div><div style={{fontSize:10,color:C.muted}}>{fmt(monthly)}/мес</div></div>
+            <div style={{flex:1}}><div style={{fontSize:12,color:C.text,fontWeight:500}}>{cat.name}</div><div style={{fontSize:10,color:C.muted}}>{hasOnce&&monthly*12===yearly?'разовый платёж':`${fmt(monthly)}/мес`}</div></div>
             <div style={{textAlign:'right'}}>
               <div style={{fontSize:12,fontWeight:600,color:C.text2}}>{fmt(yearly)}</div>
               <div style={{height:3,width:60,background:C.border,borderRadius:2,marginTop:3}}><div style={{height:3,width:`${(yearly/maxVal)*100}%`,background:C.orange,borderRadius:2}}/></div>

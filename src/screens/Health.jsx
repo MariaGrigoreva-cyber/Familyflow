@@ -1,14 +1,14 @@
 // FamilyFlow — экран Здоровье бюджета
 import React, { useState, useEffect } from 'react';
-import {C,fmt,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
+import {C,monthlyOf,yearlyOf,fmt,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Modal,DayPicker,Numpad} from '../lib/ui';
 
 export function HealthScreen({state}){
   const{incomes,planned,weekItems={},customCats=[],startBalance=0}=state;
   const allCats=[...DEFAULT_CATS,...customCats];
   const totalNet=incomes.reduce((s,i)=>s+calcNetFor(i),0);
-  const monthlyExp=planned.reduce((s,p)=>s+(p.repeat==='weekly'?p.amount*4.3:p.repeat==='biweekly'?p.amount*2.15:p.amount),0);
-  const piggyMonthly=planned.filter(p=>p.catId==='piggy').reduce((s,p)=>s+(p.repeat==='weekly'?p.amount*4.3:p.repeat==='biweekly'?p.amount*2.15:p.amount),0);
+  const monthlyExp=planned.reduce((s,p)=>s+monthlyOf(p),0);
+  const piggyMonthly=planned.filter(p=>p.catId==='piggy').reduce((s,p)=>s+monthlyOf(p),0);
   const expWithoutPiggy=monthlyExp-piggyMonthly;
   const freeCash=totalNet-expWithoutPiggy;
   const totalSavings=piggyMonthly+Math.max(freeCash,0);
@@ -35,14 +35,14 @@ export function HealthScreen({state}){
   ));
   const healthColor=healthScore>=80?C.green:healthScore>=60?'#CA8A04':healthScore>=40?C.orange:C.red;
   const healthLabel=healthScore>=80?'Отлично 🟢':healthScore>=60?'Хорошо 🟡':healthScore>=40?'Внимание 🟠':'Риск 🔴';
-  const catData=allCats.map((cat,i)=>({label:cat.name,emoji:cat.emoji,value:planned.filter(p=>p.catId===cat.id).reduce((s,p)=>s+(p.repeat==='weekly'?p.amount*4.3:p.repeat==='biweekly'?p.amount*2.15:p.amount),0),color:PIE_COLORS[i%PIE_COLORS.length]})).filter(c=>c.value>0).sort((a,b)=>b.value-a.value);
+  const catData=allCats.map((cat,i)=>({label:cat.name,emoji:cat.emoji,value:planned.filter(p=>p.catId===cat.id).reduce((s,p)=>s+monthlyOf(p),0),color:PIE_COLORS[i%PIE_COLORS.length]})).filter(c=>c.value>0).sort((a,b)=>b.value-a.value);
   const totalExp=catData.reduce((s,c)=>s+c.value,0);
   const conicStops=catData.reduce((acc,d)=>{const pct=totalExp>0?d.value/totalExp*100:0;acc.stops.push(`${d.color} ${acc.prev}% ${acc.prev+pct}%`);acc.prev+=pct;return acc;},{stops:[],prev:0}).stops.join(', ');
   const risks=[];
   if(freeCash<0)risks.push({icon:'🚨',text:`Расходы превышают доходы на ${fmt(Math.abs(freeCash))}/мес`,level:'red'});
   if(savingsRate<10&&freeCash>=0)risks.push({icon:'⚠️',text:`Норма сбережений низкая — всего ${savingsRate}%`,level:'yellow'});
   if(cushion<monthlyExp)risks.push({icon:'⚠️',text:`Копилка ${cushion>0?fmt(cushion):'пуста'} — меньше 1 мес. расходов`,level:'yellow'});
-  const obligations=planned.filter(p=>['mortgage','credit'].includes(p.catId)).reduce((s,p)=>s+(p.repeat==='weekly'?p.amount*4.3:p.repeat==='biweekly'?p.amount*2.15:p.amount),0);
+  const obligations=planned.filter(p=>['mortgage','credit'].includes(p.catId)).reduce((s,p)=>s+monthlyOf(p),0);
   if(obligations/totalNet>.4)risks.push({icon:'🔴',text:`Кредитная нагрузка высокая — ${Math.round(obligations/totalNet*100)}% дохода`,level:'red'});
   if(risks.length===0)risks.push({icon:'✅',text:'Видимых рисков кассового разрыва нет',level:'green'});
   const pad={padding:'14px 14px 80px'};

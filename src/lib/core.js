@@ -71,11 +71,24 @@ const calcAdvanceAmount=(monthlyNet,inc)=>{
 };
 const buildPaymentSchedule=(year,salaryDays=[],advanceDays=[],advancePct=40,monthlyGross=0,inc=null)=>{
   const result=[];
-  const iType=inc?.incomeType||'employed';
+  // Если у дохода задана дата вступления изменений — до неё считаем по прежним параметрам
+  const effFrom=inc?.effFromDate?new Date(inc.effFromDate):null;
+  if(effFrom)effFrom.setHours(0,0,0,0);
+  const paramsFor=date=>{
+    const usePrev=effFrom&&inc?.prevGross&&date<effFrom;
+    return{
+      g:usePrev?inc.prevGross:monthlyGross,
+      t:usePrev?(inc.prevIncomeType||'employed'):(inc?.incomeType||'employed'),
+      rate:usePrev?(inc.prevTaxRate||'6'):(inc?.taxRate||'6'),
+    };
+  };
   for(let m=1;m<=12;m++){
+    // Параметры месяца определяем по 1-му числу (упрощение при смене в середине месяца)
+    const probe=new Date(year,m-1,15);
+    const{g,t:iType,rate}=paramsFor(probe);
     let monthlyNet,monthlyNDFL,bracket;
-    if(iType==='employed'){({monthlyNet,monthlyNDFL,bracket}=calcMonthlyNDFL(monthlyGross,m));}
-    else{monthlyNet=calcNetFor(inc||{gross:monthlyGross,incomeType:iType});monthlyNDFL=Math.max((monthlyGross||0)-monthlyNet,0);bracket=iType==='self'?`${parseFloat(inc?.taxRate)||6}%`:'—';}
+    if(iType==='employed'){({monthlyNet,monthlyNDFL,bracket}=calcMonthlyNDFL(g,m));}
+    else{monthlyNet=calcNetFor({gross:g,incomeType:iType,taxRate:rate});monthlyNDFL=Math.max((g||0)-monthlyNet,0);bracket=iType==='self'?`${parseFloat(rate)||6}%`:'—';}
     const advAmt=inc?calcAdvanceAmount(monthlyNet,inc):Math.round(monthlyNet*advancePct/100),salAmt=monthlyNet-advAmt;
     for(const d of advanceDays){const info=fmtPayDate(year,m,d);result.push({type:'advance',amount:advAmt,month:m,bracket,...info,displayLabel:`Аванс·${info.label}`,actualAmount:advAmt,isDone:false,note2:''});}
     for(const d of salaryDays){const info=fmtPayDate(year,m,d);result.push({type:'salary',amount:salAmt,month:m,bracket,...info,displayLabel:`Зарплата·${info.label}`,actualAmount:salAmt,isDone:false,note2:'',ndfl:monthlyNDFL});}}
@@ -164,7 +177,7 @@ const generateAllWeeks=planned=>{
     const key=weekKey(wDate);
     items[key]=planned.map(p=>{
       // Если категория добавлена позже начала этой недели — не показываем в прошлых неделях
-      if(p.addedAt){const added=new Date(p.addedAt);added.setHours(0,0,0,0);if(wDate<added)return null;}
+      if(p.addedAt){const added=new Date(p.addedAt);added.setHours(0,0,0,0);if(wEnd<added)return null;}
       if(p.repeat==='weekly') return{id:`${p.id}-${key}`,catId:p.catId,name:p.name,amount:p.amount,memberId:p.memberId,isDone:false,plannedId:p.id};
       if(p.repeat==='biweekly'&&i%2===0) return{id:`${p.id}-${key}`,catId:p.catId,name:p.name,amount:p.amount,memberId:p.memberId,isDone:false,plannedId:p.id};
       if(p.repeat==='once'){
@@ -198,6 +211,9 @@ const generateAllWeeks=planned=>{
 
 const DEFAULT_CATS=[{id:'food',name:'Еда',emoji:'🍽️',color:'#FEF3C7'},{id:'beauty',name:'Красота',emoji:'💄',color:'#FCE7F3'},{id:'clothes',name:'Одежда',emoji:'👗',color:'#E0E7FF'},{id:'home',name:'Дом',emoji:'🏠',color:'#DBEAFE'},{id:'edu',name:'Образование',emoji:'🎓',color:'#EDE9FE'},{id:'mortgage',name:'Ипотека',emoji:'🏦',color:'#FEE2E2'},{id:'credit',name:'Кредит',emoji:'💳',color:'#FEF3C7'},{id:'transport',name:'Транспорт',emoji:'🚌',color:'#D1FAE5'},{id:'fun',name:'Развлечения',emoji:'🎬',color:'#FEE2E2'},{id:'gifts',name:'Подарки',emoji:'🎁',color:'#FEF9C3'},{id:'health',name:'Здоровье',emoji:'💊',color:'#D1FAE5'},{id:'sport',name:'Спорт',emoji:'🏋️',color:'#DCFCE7'},{id:'pets',name:'Питомцы',emoji:'🐾',color:'#FEF9C3'},{id:'piggy',name:'Копилка',emoji:'🐷',color:'#F5F3FF'},{id:'travel',name:'Путешествия',emoji:'✈️',color:'#E0F2FE'},{id:'other',name:'Прочее',emoji:'📦',color:'#F3F4F6'}];
 const REPEAT_OPTS=[{id:'weekly',label:'Каждую нед.'},{id:'biweekly',label:'Раз в 2 нед.'},{id:'monthly',label:'По числам'},{id:'once',label:'Разовый'}];
+// Месячный и годовой эквиваленты плановой категории (once не размазывается по году)
+const monthlyOf=p=>p.repeat==='weekly'?p.amount*4.3:p.repeat==='biweekly'?p.amount*2.15:p.repeat==='once'?p.amount/12:p.amount;
+const yearlyOf=p=>p.repeat==='weekly'?Math.round(p.amount*52.14):p.repeat==='biweekly'?Math.round(p.amount*26.07):p.repeat==='once'?p.amount:p.amount*12;
 const getCat=(id,custom=[])=>[...DEFAULT_CATS,...custom].find(c=>c.id===id);
 const PIE_COLORS=['#E03A22','#3B82F6','#16A34A','#F59E0B','#8B5CF6','#EC4899','#14B8A6','#F97316','#6366F1','#84CC16'];
 // ═══ ДЕМО-РЕЖИМ: готовое состояние семьи Ивановых ═══════════════════════════
@@ -255,4 +271,4 @@ const DEMO_MEMBERS=[{id:'m1',name:'Мария',avatar:'👩',color:C.orange},{id
 const DEMO_PLANNED=[{id:'p1',catId:'mortgage',name:'Ипотека',amount:55000,memberId:'m1',repeat:'monthly',days:[20]},{id:'p2',catId:'food',name:'Еда',amount:10000,memberId:'m1',repeat:'weekly',days:[]},{id:'p3',catId:'food',name:'Еда',amount:10000,memberId:'m2',repeat:'weekly',days:[]},{id:'p4',catId:'beauty',name:'Красота',amount:15000,memberId:'m1',repeat:'biweekly',days:[]},{id:'p5',catId:'edu',name:'Образование',amount:20000,memberId:'m2',repeat:'monthly',days:[1]},{id:'p6',catId:'piggy',name:'Копилка',amount:10000,memberId:'m1',repeat:'weekly',days:[]}];
 
 
-export {C,fmt,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED};
+export {C,monthlyOf,yearlyOf,fmt,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED};

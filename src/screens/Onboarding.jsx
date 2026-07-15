@@ -69,7 +69,7 @@ export function Onboarding({onDone}){
   const[familyName,setFamilyName]=useState('');
   const[members,setMembers]=useState([{id:'m1',name:'',avatar:'👩',color:C.orange}]);
   const[incomes,setIncomes]=useState([{id:'i1',memberId:'m1',gross:'',salaryDays:[],advanceDays:[],advancePct:'40',advanceAbs:'',advanceMode:'pct'}]);
-  const[selectedCats,setSelectedCats]=useState(new Set(['food','beauty','mortgage','edu','piggy']));
+  const[selectedCats,setSelectedCats]=useState(new Set());
   const[catSetup,setCatSetup]=useState({});
   const[openCat,setOpenCat]=useState(null);
   const goNext=()=>setStep(p=>p+1);
@@ -213,7 +213,6 @@ export function Onboarding({onDone}){
       <OSteps current={1}/>
       <div style={{overflowY:'auto',flex:1}}><div style={pad}>
         <h2 style={{fontSize:22,fontWeight:700,color:C.text,margin:'8px 0 4px'}}>Доходы семьи</h2>
-        <div style={{fontSize:12,color:C.muted,marginBottom:16,lineHeight:'18px'}}>НДФЛ накопительно: 13% до 2,4 млн → 15% до 5 млн → 20% выше</div>
         {memberIncomes.map((inc,idx)=>{
           const m=activeMembers.find(x=>x.id===inc.memberId)||activeMembers[idx];
           const gross=parseInt(inc.gross)||0;

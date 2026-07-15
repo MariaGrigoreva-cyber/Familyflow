@@ -172,7 +172,23 @@ export default function App(){
   const handleEditIncome=(inc,member)=>{setEditIncomeItem(inc);setEditIncomeMember(member);setShowEditIncome(true);};
   const handleSaveIncome=updatedInc=>{
     setAppState(prev=>{
-      const r={...updatedInc,gross:parseInt(updatedInc.gross)||0,net:calcAvgMonthlyNet(parseInt(updatedInc.gross)||0)};
+      const old=prev.incomes.find(i=>i.id===updatedInc.id)||{};
+      const r={...updatedInc,gross:parseInt(updatedInc.gross)||0};
+      r.net=calcNetFor(r);
+      // Дата вступления изменений: до неё выплаты считаются по прежним параметрам
+      const ef=r.effectiveFrom;
+      const effDate=ef?new Date(ef.year,ef.month-1,ef.day):null;
+      const today=new Date();today.setHours(0,0,0,0);
+      const changed=(parseInt(old.gross)||0)!==r.gross||old.incomeType!==r.incomeType||String(old.taxRate||'')!==String(r.taxRate||'');
+      if(effDate&&effDate>today&&changed){
+        r.effFromDate=effDate.toISOString();
+        r.prevGross=old.prevGross&&old.effFromDate&&new Date(old.effFromDate)>today?old.prevGross:(parseInt(old.gross)||0);
+        r.prevIncomeType=old.prevIncomeType||old.incomeType||'employed';
+        r.prevTaxRate=old.prevTaxRate||old.taxRate||'6';
+      }else{
+        // Изменение с сегодняшнего дня или прошлого — история не нужна
+        delete r.effFromDate;delete r.prevGross;delete r.prevIncomeType;delete r.prevTaxRate;
+      }
       const newIncomes=prev.incomes.map(i=>i.id===r.id?r:i);
       const effWeek=r.effectiveFrom?.weekKey||'1970-W01';
       const fresh=generateAllWeeks(prev.planned);
