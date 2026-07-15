@@ -1,0 +1,258 @@
+// FamilyFlow — ядро: константы, утилиты дат, НДФЛ, расчёты, демо-данные
+const C = {
+  orange:'#E03A22', orangeL:'#FEF2F2', orangeB:'#FCA5A5',
+  dark:'#1a1a2e', white:'#FFFFFF', bg:'#F8FAFC',
+  border:'#E2E8F0', borderS:'#CBD5E1',
+  text:'#1E293B', text2:'#475569', muted:'#94A3B8',
+  green:'#16A34A', greenL:'#F0FDF4', greenB:'#BBF7D0',
+  red:'#DC2626', redL:'#FEF2F2', redB:'#FECACA',
+  yellow:'#92400E', yellowL:'#FEF9C3', yellowB:'#FDE68A',
+  blue:'#1D4ED8', blueL:'#EFF6FF', blueB:'#BFDBFE',
+  purple:'#7C3AED',
+};
+
+const fmt = n => new Intl.NumberFormat('ru-RU').format(Math.round(Math.abs(n))) + ' ₽';
+const uid = () => Math.random().toString(36).slice(2);
+
+const isoMondayOf = d => {
+  const date = new Date(d); const day = date.getDay();
+  date.setDate(date.getDate() + (day===0?-6:1-day)); date.setHours(0,0,0,0); return date;
+};
+const getISOWeek = date => {
+  const d=new Date(date); d.setHours(0,0,0,0); d.setDate(d.getDate()+3-(d.getDay()+6)%7);
+  const w1=new Date(d.getFullYear(),0,4);
+  return{week:1+Math.round(((d-w1)/86400000-3+(w1.getDay()+6)%7)/7),year:d.getFullYear()};
+};
+const weekKey=date=>{const{week,year}=getISOWeek(date||new Date());return `${year}-W${String(week).padStart(2,'0')}`;};
+const todayKey=()=>weekKey(new Date());
+const parseWeekKey=k=>{const[yr,ww]=k.split('-W');return{year:parseInt(yr),week:parseInt(ww)};};
+const weekKeyToDate=k=>{
+  const{year,week}=parseWeekKey(k); const jan4=new Date(year,0,4); const dow=(jan4.getDay()+6)%7;
+  const mon=new Date(jan4.getTime()-dow*86400000+(week-1)*7*86400000); mon.setHours(0,0,0,0); return mon;
+};
+const weekRange=k=>{const s=weekKeyToDate(k),e=new Date(s.getTime()+6*86400000);const f=d=>`${String(d.getDate()).padStart(2,'0')}.${String(d.getMonth()+1).padStart(2,'0')}`;return `${f(s)}–${f(e)}`;};
+const weekLabel=k=>{const{week,year}=parseWeekKey(k);return `Нед. ${week} · ${year}`;};
+const prevWeekKey=k=>{const d=weekKeyToDate(k);d.setDate(d.getDate()-7);return weekKey(d);};
+const nextWeekKey=k=>{const d=weekKeyToDate(k);d.setDate(d.getDate()+7);return weekKey(d);};
+const monthKey=d=>{const dt=d||new Date();return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}`;};
+const todayMonthKey=()=>monthKey(new Date());
+const MONTH_FULL=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+const MONTH_SHORT=['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
+const DAYS_RU=['вс','пн','вт','ср','чт','пт','сб'];
+const monthLabel=k=>{const[yr,mn]=k.split('-');return `${MONTH_FULL[parseInt(mn)-1]} ${yr}`;};
+const prevMonthKey=k=>{const[yr,mn]=k.split('-');const d=new Date(parseInt(yr),parseInt(mn)-2,1);return monthKey(d);};
+const nextMonthKey=k=>{const[yr,mn]=k.split('-');const d=new Date(parseInt(yr),parseInt(mn),1);return monthKey(d);};
+
+const NDFL_BRACKETS=[{limit:2_400_000,rate:.13},{limit:5_000_000,rate:.15},{limit:Infinity,rate:.20}];
+const calcAnnualNDFL=g=>{let t=0,p=0;for(const b of NDFL_BRACKETS){if(g<=p)break;t+=(Math.min(g,b.limit)-p)*b.rate;p=b.limit;}return Math.round(t);};
+const calcMonthlyNDFL=(g,m)=>{const ndfl=calcAnnualNDFL(g*m)-calcAnnualNDFL(g*(m-1));const ann=g*m;return{monthlyNDFL:ndfl,bracket:ann>5_000_000?'20%':ann>2_400_000?'15%':'13%',monthlyNet:g-ndfl};};
+const calcAvgMonthlyNet=g=>g?Math.round(g-calcAnnualNDFL(g*12)/12):0;
+const getNDFLDesc=g=>{const a=g*12;if(a<=2_400_000)return '13% весь год';if(a<=5_000_000)return '13% → 15% с превышения 2,4 млн';return '13% → 15% → 20% по шкале';};
+
+const RU_HOLIDAYS=new Set(['2026-01-01','2026-01-02','2026-01-03','2026-01-04','2026-01-05','2026-01-06','2026-01-07','2026-01-08','2026-02-23','2026-03-09','2026-05-01','2026-05-04','2026-05-05','2026-05-09','2026-06-12','2026-11-04','2027-01-01','2027-01-02','2027-01-03','2027-01-04','2027-01-05','2027-01-06','2027-01-07','2027-01-08','2027-02-22','2027-03-08','2027-05-01','2027-05-10','2027-06-12','2027-11-04']);
+const getActualPayDate=(year,month,day)=>{let d=new Date(year,month-1,day);for(let i=0;i<10;i++){const dow=d.getDay(),ds=d.toISOString().slice(0,10);if(dow!==0&&dow!==6&&!RU_HOLIDAYS.has(ds))break;d=new Date(d.getTime()-86400000);}return d;};
+const fmtPayDate=(year,month,day)=>{const actual=getActualPayDate(year,month,day),planned=new Date(year,month-1,day);const fD=d=>`${d.getDate()} ${MONTH_SHORT[d.getMonth()]} (${DAYS_RU[d.getDay()]})`;const shifted=actual.getDate()!==planned.getDate()||actual.getMonth()!==planned.getMonth();return{date:actual,label:fD(actual),shifted,note:shifted?`перенос с ${fD(planned)}`:''};};
+// ═══ Типы дохода: employed (НДФЛ), self (самозанятый/ИП 4-6%), manual (сумма на руки) ═══
+const INCOME_TYPES=[
+  {id:'employed',emoji:'💼',name:'Наёмный сотрудник',desc:'НДФЛ, аванс и зарплата — считаем сами'},
+  {id:'self',emoji:'🧑‍💻',name:'Самозанятый / ИП',desc:'налог 4–6%, доход вводите сами'},
+  {id:'manual',emoji:'✍️',name:'Просто сумма на руки',desc:'без налогов — что получаете и когда'},
+];
+const calcNetFor=inc=>{
+  const g=parseInt(inc.gross)||0;
+  const t=inc.incomeType||'employed';
+  if(t==='manual')return g;
+  if(t==='self')return Math.round(g*(1-(parseFloat(inc.taxRate)||6)/100));
+  return calcAvgMonthlyNet(g);
+};
+const calcAdvanceAmount=(monthlyNet,inc)=>{
+  if(inc.advanceMode==='abs'&&inc.advanceAbs) return Math.min(parseInt(inc.advanceAbs)||0,monthlyNet);
+  return Math.round(monthlyNet*((parseInt(inc.advancePct)||40)/100));
+};
+const buildPaymentSchedule=(year,salaryDays=[],advanceDays=[],advancePct=40,monthlyGross=0,inc=null)=>{
+  const result=[];
+  const iType=inc?.incomeType||'employed';
+  for(let m=1;m<=12;m++){
+    let monthlyNet,monthlyNDFL,bracket;
+    if(iType==='employed'){({monthlyNet,monthlyNDFL,bracket}=calcMonthlyNDFL(monthlyGross,m));}
+    else{monthlyNet=calcNetFor(inc||{gross:monthlyGross,incomeType:iType});monthlyNDFL=Math.max((monthlyGross||0)-monthlyNet,0);bracket=iType==='self'?`${parseFloat(inc?.taxRate)||6}%`:'—';}
+    const advAmt=inc?calcAdvanceAmount(monthlyNet,inc):Math.round(monthlyNet*advancePct/100),salAmt=monthlyNet-advAmt;
+    for(const d of advanceDays){const info=fmtPayDate(year,m,d);result.push({type:'advance',amount:advAmt,month:m,bracket,...info,displayLabel:`Аванс·${info.label}`,actualAmount:advAmt,isDone:false,note2:''});}
+    for(const d of salaryDays){const info=fmtPayDate(year,m,d);result.push({type:'salary',amount:salAmt,month:m,bracket,...info,displayLabel:`Зарплата·${info.label}`,actualAmount:salAmt,isDone:false,note2:'',ndfl:monthlyNDFL});}}
+  return result.sort((a,b)=>a.date-b.date);
+};
+// Мёрж: регенерирует недели по новому плану, сохраняя отметки isDone и ручные записи
+const regenWeeksKeepDone=(planned,prevWeekItems)=>{
+  const fresh=generateAllWeeks(planned);
+  const merged={...fresh};
+  Object.keys(prevWeekItems||{}).forEach(wk=>{
+    if(prevWeekItems[wk]&&merged[wk]){
+      const savedMap={};
+      prevWeekItems[wk].forEach(i=>{savedMap[i.plannedId||i.id]=i.isDone;});
+      merged[wk]=merged[wk].map(i=>({...i,isDone:savedMap[i.plannedId||i.id]??i.isDone}));
+      // Ручные записи (транзакции в weekItems) — переносим как есть
+      const manualItems=prevWeekItems[wk].filter(i=>i.week); // транзакции имеют поле week
+      manualItems.forEach(m=>{if(!merged[wk].some(x=>x.id===m.id))merged[wk].push(m);});
+    } else if(prevWeekItems[wk]&&!merged[wk]){
+      merged[wk]=prevWeekItems[wk];
+    }
+  });
+  return merged;
+};
+// ═══════════════════════════════════════════════════════════════════════════
+// ЕДИНАЯ ФОРМУЛА БАЛАНСА — все экраны берут цифры отсюда, чтобы не расходиться
+// ═══════════════════════════════════════════════════════════════════════════
+const computeBalances=(state)=>{
+  const{incomes=[],weekItems={},startBalance=0,payments={},transactions=[],budgetStartDate}=state;
+  const week=todayKey();
+  const wItems=weekItems[week]||[];
+  const isPiggy=i=>i.catId==='piggy';
+  const year=new Date().getFullYear();
+
+  // Все выплаты года с наложенными правками пользователя
+  const allPaymentsActual=incomes.flatMap(inc=>{
+    const sch=buildPaymentSchedule(year,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc);
+    return sch.map(p=>({...p,...(payments[p.displayLabel]||{})}));
+  });
+  const budgetStart=new Date(budgetStartDate||new Date()); budgetStart.setHours(0,0,0,0);
+  const now=new Date(); now.setHours(23,59,59,999);
+
+  // Получено: отмеченные выплаты с даты старта
+  const actualSalaryReceived=allPaymentsActual
+    .filter(p=>p.isDone&&p.date>=budgetStart)
+    .reduce((s,p)=>s+(p.actualAmount||p.amount),0);
+
+  // Просроченные неотмеченные выплаты (дата прошла, галочки нет) — для подсказки
+  const unmarkedPayments=allPaymentsActual
+    .filter(p=>!p.isDone&&p.date>=budgetStart&&p.date<=now)
+    .sort((a,b)=>b.date-a.date);
+
+  // Доп. доходы (все недели)
+  const txIncome=(transactions||[]).filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+
+  // Piggy Bank без дублей: ручная запись недели приоритетнее плановой галочки
+  const txPiggyByWeek={};
+  (transactions||[]).filter(t=>t.catId==='piggy').forEach(t=>{txPiggyByWeek[t.week]=(txPiggyByWeek[t.week]||0)+t.amount;});
+  const piggyForWeek=(wk,items)=>txPiggyByWeek[wk]!==undefined?txPiggyByWeek[wk]
+    :(items||[]).filter(i=>isPiggy(i)&&i.isDone).reduce((s,i)=>s+i.amount,0);
+  const totalSaved=Object.entries(weekItems).reduce((t,[wk,items])=>t+piggyForWeek(wk,items),0)
+    +Object.entries(txPiggyByWeek).filter(([wk])=>!weekItems[wk]).reduce((s,[,v])=>s+v,0);
+
+  // Расходы (без piggy): плановые галочки + ручные записи
+  const txExpenseAll=(transactions||[]).filter(t=>t.type==='expense'&&t.catId!=='piggy').reduce((s,t)=>s+t.amount,0);
+  const spentFor=(items)=>(items||[]).filter(i=>i.isDone&&!isPiggy(i)&&!i.week).reduce((s,i)=>s+i.amount,0);
+  const weekSpent=spentFor(wItems)+(transactions||[]).filter(t=>t.week===week&&t.type==='expense'&&t.catId!=='piggy').reduce((s,t)=>s+t.amount,0);
+  const pastSpent=Object.entries(weekItems).filter(([wk])=>wk<week).reduce((s,[,items])=>s+spentFor(items),0)
+    +(transactions||[]).filter(t=>t.week<week&&t.type==='expense'&&t.catId!=='piggy').reduce((s,t)=>s+t.amount,0);
+  const futureSpent=Object.entries(weekItems).filter(([wk])=>wk>week).reduce((s,[,items])=>s+spentFor(items),0);
+  const allSpentTotal=weekSpent+pastSpent+futureSpent;
+
+  // КАНОНИЧЕСКИЙ БАЛАНС: старт + получено + доп.доходы − потрачено − отложено в копилку
+  const balance=startBalance+actualSalaryReceived+txIncome-allSpentTotal-totalSaved;
+  // Стартовый баланс на Saving для накопительных рядов (недели/месяцы/годы)
+  const savingStart=startBalance-totalSaved;
+
+  return{balance,totalSaved,allSpentTotal,actualSalaryReceived,txIncome,weekSpent,pastSpent,
+    savingStart,unmarkedPayments,week,wItems};
+};
+
+const generateAllWeeks=planned=>{
+  const items={},start=isoMondayOf(new Date());
+  for(let i=0;i<104;i++){
+    const wDate=new Date(start.getTime()+i*7*86400000);
+    const wEnd=new Date(wDate.getTime()+6*86400000);
+    const key=weekKey(wDate);
+    items[key]=planned.map(p=>{
+      // Если категория добавлена позже начала этой недели — не показываем в прошлых неделях
+      if(p.addedAt){const added=new Date(p.addedAt);added.setHours(0,0,0,0);if(wDate<added)return null;}
+      if(p.repeat==='weekly') return{id:`${p.id}-${key}`,catId:p.catId,name:p.name,amount:p.amount,memberId:p.memberId,isDone:false,plannedId:p.id};
+      if(p.repeat==='biweekly'&&i%2===0) return{id:`${p.id}-${key}`,catId:p.catId,name:p.name,amount:p.amount,memberId:p.memberId,isDone:false,plannedId:p.id};
+      if(p.repeat==='once'){
+        // Разовый платёж — показываем только в неделю конкретной даты
+        if(p.onceDate){
+          const od=new Date(p.onceDate); od.setHours(0,0,0,0);
+          if(od>=wDate&&od<=wEnd) return{id:`${p.id}-${key}`,catId:p.catId,name:p.name,amount:p.amount,memberId:p.memberId,isDone:false,plannedId:p.id};
+        }
+      }
+      if(p.repeat==='monthly'){
+        // Проверяем попадает ли хотя бы одно из указанных чисел в диапазон этой недели
+        const days=Array.isArray(p.days)&&p.days.length>0?p.days:[1];
+        const hit=days.some(day=>{
+          // Проверяем это число в месяце начала недели и в месяце конца недели
+          for(const refDate of [wDate,wEnd]){
+            const yr=refDate.getFullYear(),mn=refDate.getMonth();
+            const daysInMon=new Date(yr,mn+1,0).getDate();
+            const actualDay=Math.min(day,daysInMon);
+            const payDate=new Date(yr,mn,actualDay);
+            if(payDate>=wDate&&payDate<=wEnd) return true;
+          }
+          return false;
+        });
+        if(hit) return{id:`${p.id}-${key}`,catId:p.catId,name:p.name,amount:p.amount,memberId:p.memberId,isDone:false,plannedId:p.id};
+      }
+      return null;
+    }).filter(Boolean);
+  }
+  return items;
+};
+
+const DEFAULT_CATS=[{id:'food',name:'Еда',emoji:'🍽️',color:'#FEF3C7'},{id:'beauty',name:'Красота',emoji:'💄',color:'#FCE7F3'},{id:'clothes',name:'Одежда',emoji:'👗',color:'#E0E7FF'},{id:'home',name:'Дом',emoji:'🏠',color:'#DBEAFE'},{id:'edu',name:'Образование',emoji:'🎓',color:'#EDE9FE'},{id:'mortgage',name:'Ипотека',emoji:'🏦',color:'#FEE2E2'},{id:'credit',name:'Кредит',emoji:'💳',color:'#FEF3C7'},{id:'transport',name:'Транспорт',emoji:'🚌',color:'#D1FAE5'},{id:'fun',name:'Развлечения',emoji:'🎬',color:'#FEE2E2'},{id:'gifts',name:'Подарки',emoji:'🎁',color:'#FEF9C3'},{id:'health',name:'Здоровье',emoji:'💊',color:'#D1FAE5'},{id:'sport',name:'Спорт',emoji:'🏋️',color:'#DCFCE7'},{id:'pets',name:'Питомцы',emoji:'🐾',color:'#FEF9C3'},{id:'piggy',name:'Копилка',emoji:'🐷',color:'#F5F3FF'},{id:'travel',name:'Путешествия',emoji:'✈️',color:'#E0F2FE'},{id:'other',name:'Прочее',emoji:'📦',color:'#F3F4F6'}];
+const REPEAT_OPTS=[{id:'weekly',label:'Каждую нед.'},{id:'biweekly',label:'Раз в 2 нед.'},{id:'monthly',label:'По числам'},{id:'once',label:'Разовый'}];
+const getCat=(id,custom=[])=>[...DEFAULT_CATS,...custom].find(c=>c.id===id);
+const PIE_COLORS=['#E03A22','#3B82F6','#16A34A','#F59E0B','#8B5CF6','#EC4899','#14B8A6','#F97316','#6366F1','#84CC16'];
+// ═══ ДЕМО-РЕЖИМ: готовое состояние семьи Ивановых ═══════════════════════════
+const buildDemoState=()=>{
+  const members=[{id:'m1',name:'Мария',avatar:'👩',color:'#E03A22'},{id:'m2',name:'Сергей',avatar:'👨',color:'#1a1a2e'}];
+  const incomes=[
+    {id:'i1',memberId:'m1',gross:220000,salaryDays:[10],advanceDays:[25],advancePct:'40',advanceMode:'pct'},
+    {id:'i2',memberId:'m2',gross:214000,salaryDays:[5],advanceDays:[20],advancePct:'40',advanceMode:'pct'},
+  ];
+  const planned=[
+    {id:'dp1',catId:'mortgage',name:'Ипотека',amount:52000,memberId:'m1',repeat:'monthly',days:[15]},
+    {id:'dp2',catId:'piggy',name:'Копилка',amount:10000,memberId:'m1',repeat:'weekly',days:[]},
+    {id:'dp3',catId:'food',name:'Еда',amount:10000,memberId:'m1',repeat:'weekly',days:[]},
+    {id:'dp4',catId:'food',name:'Еда',amount:8000,memberId:'m2',repeat:'weekly',days:[]},
+    {id:'dp5',catId:'transport',name:'Транспорт',amount:5350,memberId:'m2',repeat:'weekly',days:[]},
+    {id:'dp6',catId:'clothes',name:'Одежда',amount:6000,memberId:'m1',repeat:'weekly',days:[]},
+    {id:'dp7',catId:'home',name:'Дом',amount:4000,memberId:'m1',repeat:'weekly',days:[]},
+    {id:'dp8',catId:'fun',name:'Развлечения',amount:2500,memberId:'m2',repeat:'weekly',days:[]},
+  ];
+  const weekItems=generateAllWeeks(planned);
+  const week=todayKey();
+  // Отмечаем часть текущей недели: еда Марии (частично категории)
+  if(weekItems[week]){
+    weekItems[week]=weekItems[week].map(i=>{
+      if(i.catId==='food'&&i.memberId==='m1')return{...i,isDone:true};       // 10 000
+      if(i.catId==='transport')return{...i,isDone:true};                     // 5 350
+      if(i.catId==='piggy')return{...i,isDone:true};                         // копилка 10 000
+      return i;
+    });
+  }
+  // Прошлая неделя: всё еженедельное закрыто (для истории)
+  const prevKeys=Object.keys(weekItems).filter(k=>k<week).sort().slice(-1);
+  prevKeys.forEach(pk=>{
+    weekItems[pk]=weekItems[pk].map(i=>i.repeat!=='monthly'?{...i,isDone:true}:i);
+  });
+  // Отмеченные выплаты: по одной прошедшей на каждого
+  const yr=new Date().getFullYear();
+  const payments={};
+  incomes.forEach(inc=>{
+    const sch=buildPaymentSchedule(yr,inc.salaryDays,inc.advanceDays,parseInt(inc.advancePct),inc.gross,inc);
+    const now=new Date();
+    const past=sch.filter(p=>p.date<=now).slice(-1);
+    past.forEach(p=>{payments[p.displayLabel]={isDone:true};});
+  });
+  // Стартовая дата — неделю назад, чтобы прошлая неделя попала в учёт
+  const start=new Date(); start.setDate(start.getDate()-8);
+  return{
+    familyName:'Ивановы',startBalance:30000,members,incomes,planned,weekItems,
+    streak:3,customCats:[],payments,extraPayments:[],transactions:[],
+    budgetStartDate:start.toISOString(),demoMode:true,
+  };
+};
+
+const DEMO_MEMBERS=[{id:'m1',name:'Мария',avatar:'👩',color:C.orange},{id:'m2',name:'Антон',avatar:'👨',color:C.dark}];
+const DEMO_PLANNED=[{id:'p1',catId:'mortgage',name:'Ипотека',amount:55000,memberId:'m1',repeat:'monthly',days:[20]},{id:'p2',catId:'food',name:'Еда',amount:10000,memberId:'m1',repeat:'weekly',days:[]},{id:'p3',catId:'food',name:'Еда',amount:10000,memberId:'m2',repeat:'weekly',days:[]},{id:'p4',catId:'beauty',name:'Красота',amount:15000,memberId:'m1',repeat:'biweekly',days:[]},{id:'p5',catId:'edu',name:'Образование',amount:20000,memberId:'m2',repeat:'monthly',days:[1]},{id:'p6',catId:'piggy',name:'Копилка',amount:10000,memberId:'m1',repeat:'weekly',days:[]}];
+
+
+export {C,fmt,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED};
