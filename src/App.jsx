@@ -180,7 +180,7 @@ useEffect(() => {
     appState,
   };
 
-  const timer = setTimeout(async () => {
+  const doSave = async () => {
     // Не запускаем второй PUT, пока выполняется первый
     if (cloudSaveBusyRef.current) {
       cloudSaveAgainRef.current = true;
@@ -209,26 +209,50 @@ useEffect(() => {
 
       setCloudError(null);
     } catch (error) {
-      console.error('Cloud save failed:', error);
+  console.error('Cloud save failed:', error);
 
-      if (error.status === 409 && error.data?.updatedAt) {
-        localStorage.setItem(
-          'ff_cloud_updated_at',
-          error.data.updatedAt
-        );
+  if (
+    error.status === 409 &&
+    error.body?.updatedAt &&
+    error.body?.data
+  ) {
+    const serverData = error.body.data;
 
-        setCloudError(
-          'Облачная версия обновилась. Следующее изменение будет сохранено.'
-        );
-      } else {
-        setCloudError(
-          'Данные сохранены на устройстве, но облако временно недоступно'
-        );
-      }
+    // Запоминаем актуальную версию сервера
+    localStorage.setItem(
+      'ff_cloud_updated_at',
+      error.body.updatedAt
+    );
+
+    // Принимаем серверную версию как актуальную
+    if (serverData.appState) {
+      setAppState(serverData.appState);
+      setConsentedRaw(Boolean(serverData.consented));
+      setOnboardedRaw(Boolean(serverData.onboarded));
+
+      localStorage.setItem(
+        'ff_state',
+        JSON.stringify(serverData)
+      );
+    }
+
+    setCloudError(null);
+    return;
+  }
+
+  setCloudError(
+    'Данные сохранены на устройстве, но облако временно недоступно'
+  );
     } finally {
       cloudSaveBusyRef.current = false;
+      // Пока шёл PUT пришли новые изменения — сохраняем их следом
+      if (cloudSaveAgainRef.current) {
+        cloudSaveAgainRef.current = false;
+        doSave();
+      }
     }
-  }, 1200);
+  };
+  const timer = setTimeout(doSave, 1200);
 
   return () => clearTimeout(timer);
 }, [
