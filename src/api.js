@@ -51,6 +51,16 @@ export const familyMe = () => req('/family/me');
 export const familyInvite = () => req('/family/invite', { method: 'POST' });
 export const familyJoin = code => req('/family/join', { method: 'POST', body: { code } });
 
+export const changePassword = (oldPassword, newPassword) =>
+  req('/auth/change-password', { method: 'POST', body: { oldPassword, newPassword } });
+export const resetRequest = email =>
+  req('/auth/reset-request', { method: 'POST', auth: false, body: { email } });
+export async function resetConfirm(email, code, newPassword) {
+  const r = await req('/auth/reset-confirm', { method: 'POST', auth: false, body: { email, code, newPassword } });
+  localStorage.setItem(TOKEN_KEY, r.token);
+  return r;
+}
+
 // Человекочитаемые тексты ошибок API
 export const errText = e => ({
   email_taken: 'Такой email уже зарегистрирован',
@@ -60,4 +70,6 @@ export const errText = e => ({
   code_not_found: 'Код приглашения не найден',
   owner_only: 'Код может создать только владелец семьи',
   no_family: 'Семья не найдена',
+  mail_unavailable: 'Восстановление временно недоступно — напишите в поддержку',
+  code_invalid: 'Код неверный или истёк — запросите новый',
 }[e?.message] || 'Ошибка сети — попробуйте ещё раз');

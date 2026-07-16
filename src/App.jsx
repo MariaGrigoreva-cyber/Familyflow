@@ -11,6 +11,8 @@ import {
   isLoggedIn,
   loadCloudState,
   saveCloudState,
+  login,
+  errText,
 } from './api';
 export default function App(){
   // ── localStorage: загружаем сохранённые данные при старте ──────────────
@@ -41,6 +43,7 @@ export default function App(){
   const[tab,setTab]=useState('today');
   const[tourStep,setTourStep]=useState(-1); // -1 = тур выключен
   const[showStartChoice,setShowStartChoice]=useState(true); // экран выбора демо/настройка
+  const[startLogin,setStartLogin]=useState(false); // форма входа на стартовом экране
   const[showAdd,setShowAdd]=useState(false);
   const[addWeek,setAddWeek]=useState(null); // неделя для добавления транзакции
   const[showEdit,setShowEdit]=useState(false);
@@ -446,6 +449,15 @@ useEffect(() => {
               <div style={{fontSize:12,color:'rgba(255,255,255,0.45)',marginTop:2}}>5 минут · доход, платежи, категории</div>
             </div>
           </button>
+          <button onClick={()=>setStartLogin(true)}
+            style={{width:'100%',background:'transparent',border:'.5px solid rgba(255,255,255,0.12)',borderRadius:14,padding:'13px 16px',marginTop:8,cursor:'pointer',textAlign:'left',display:'flex',gap:13,alignItems:'center',fontFamily:'inherit'}}>
+            <span style={{fontSize:24,flexShrink:0}}>🔑</span>
+            <div>
+              <div style={{fontSize:15,fontWeight:700,color:'#fff'}}>У меня уже есть аккаунт</div>
+              <div style={{fontSize:12,color:'rgba(255,255,255,0.45)',marginTop:2}}>войти — бюджет подтянется из облака</div>
+            </div>
+          </button>
+          {startLogin&&<StartLoginForm onClose={()=>setStartLogin(false)}/>}
           <div style={{fontSize:11,color:'rgba(255,255,255,0.25)',textAlign:'center',marginTop:16}}>Данные не покидают ваше устройство</div>
         </div>
         :<Onboarding onDone={handleOnboardingDone}/>}
@@ -522,6 +534,41 @@ useEffect(() => {
       })()}
       <style>{`@keyframes ffTourPop{0%{opacity:0;transform:translateY(16px)}100%{opacity:1;transform:translateY(0)}}
 @keyframes ffTourGlow{0%,100%{box-shadow:0 0 0 3px #E03A22,0 0 20px rgba(224,58,34,.3)}50%{box-shadow:0 0 0 3px #E03A22,0 0 34px rgba(224,58,34,.55)}}`}</style>
+    </div>
+  );
+}
+
+
+// ── Вход с стартового экрана: после успеха облако подтянет бюджет и флаги ──
+function StartLoginForm({onClose}){
+  const[email,setEmail]=useState('');
+  const[pass,setPass]=useState('');
+  const[busy,setBusy]=useState(false);
+  const[err,setErr]=useState('');
+  const submit=async()=>{
+    setErr('');setBusy(true);
+    try{
+      await login(email.trim(),pass);
+      window.location.reload(); // loadCloud восстановит бюджет и пропустит онбординг
+    }catch(e){setErr(errText(e));setBusy(false);}
+  };
+  return(
+    <div style={{position:'fixed',inset:0,zIndex:300,background:'rgba(10,14,26,0.7)',display:'flex',alignItems:'center',justifyContent:'center',padding:20}} onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:360,background:'#1a1a2e',border:'.5px solid rgba(255,255,255,0.12)',borderRadius:16,padding:20,boxSizing:'border-box'}}>
+        <div style={{fontSize:17,fontWeight:700,color:'#fff',marginBottom:12}}>Вход в аккаунт</div>
+        <input type="email" placeholder="email" value={email} onChange={e=>setEmail(e.target.value)} autoFocus
+          style={{width:'100%',boxSizing:'border-box',background:'rgba(255,255,255,0.06)',border:'.5px solid rgba(255,255,255,0.15)',borderRadius:10,padding:'11px 13px',fontSize:16,color:'#fff',outline:'none',fontFamily:'inherit',marginBottom:8}}/>
+        <input type="password" placeholder="пароль" value={pass} onChange={e=>setPass(e.target.value)}
+          onKeyDown={e=>e.key==='Enter'&&submit()}
+          style={{width:'100%',boxSizing:'border-box',background:'rgba(255,255,255,0.06)',border:'.5px solid rgba(255,255,255,0.15)',borderRadius:10,padding:'11px 13px',fontSize:16,color:'#fff',outline:'none',fontFamily:'inherit',marginBottom:10}}/>
+        {err&&<div style={{fontSize:12,color:'#f87171',marginBottom:10}}>{err}</div>}
+        <button onClick={submit} disabled={busy}
+          style={{width:'100%',padding:13,borderRadius:12,border:'none',background:busy?'rgba(255,255,255,0.2)':'#E03A22',color:'#fff',fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>
+          {busy?'Секунду…':'Войти'}
+        </button>
+        <button onClick={onClose}
+          style={{width:'100%',padding:10,marginTop:6,background:'none',border:'none',fontSize:13,color:'rgba(255,255,255,0.4)',cursor:'pointer',fontFamily:'inherit'}}>Отмена</button>
+      </div>
     </div>
   );
 }

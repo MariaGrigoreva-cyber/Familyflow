@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import {C,fmt,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Modal,DayPicker,Numpad} from '../lib/ui';
-import {isLoggedIn,logout,register,login,familyMe,familyInvite,familyJoin,errText} from '../api';
+import {isLoggedIn,logout,register,login,familyMe,familyInvite,familyJoin,errText,changePassword,resetRequest,resetConfirm} from '../api';
 
 export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome}){
   const{members,incomes,planned,familyName,customCats=[]}=state;
@@ -305,6 +305,7 @@ function AccountSection(){
   const[fam,setFam]=useState(null);
   const[inviteCode,setInviteCode]=useState('');
   const[joinCode,setJoinCode]=useState('');
+  const[resetStep,setResetStep]=useState(0);
   const lastSync=(()=>{try{const t=localStorage.getItem('ff_cloud_updated_at');return t?new Date(t).toLocaleString('ru'):null;}catch{return null;}})();
 
   useEffect(()=>{if(logged)familyMe().then(setFam).catch(()=>{});},[logged]);
@@ -341,6 +342,9 @@ function AccountSection(){
           ?'Текущий бюджет с этого устройства будет сохранён в облако.'
           :'После входа подтянется бюджет вашей семьи из облака.'}
       </div>
+      {mode==='login'&&<button onClick={()=>setResetStep(1)}
+        style={{background:'none',border:'none',padding:'8px 0 0',fontSize:12,color:C.blue,cursor:'pointer',fontFamily:'inherit'}}>Забыли пароль?</button>}
+      {resetStep>0&&<ResetFlow email={email} onDone={()=>window.location.reload()} onClose={()=>setResetStep(0)}/>}
     </div>
   );
 
@@ -386,6 +390,64 @@ function AccountSection(){
           style={{background:C.green,color:'#fff',border:'none',borderRadius:9,padding:'9px 16px',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Войти в семью</button>
       </div>
       {err&&<div style={{fontSize:12,color:C.red,marginTop:8}}>{err}</div>}
+      <ChangePasswordRow/>
+    </div>
+  );
+}
+
+// ── Смена пароля (свёрнутая строка) ────────────────────────────────────────
+function ChangePasswordRow(){
+  const[open,setOpen]=useState(false);
+  const[oldP,setOldP]=useState('');
+  const[newP,setNewP]=useState('');
+  const[msg,setMsg]=useState('');
+  const inp={width:'100%',boxSizing:'border-box',border:`.5px solid ${C.border}`,borderRadius:9,padding:'9px 12px',fontSize:16,outline:'none',fontFamily:'inherit',marginBottom:6};
+  if(!open)return(
+    <button onClick={()=>setOpen(true)} style={{background:'none',border:'none',padding:'10px 0 0',fontSize:12,color:C.muted,cursor:'pointer',fontFamily:'inherit'}}>Сменить пароль ›</button>
+  );
+  return(
+    <div style={{marginTop:10,paddingTop:10,borderTop:`.5px solid ${C.border}`}}>
+      <input type="password" placeholder="текущий пароль" value={oldP} onChange={e=>setOldP(e.target.value)} style={inp}/>
+      <input type="password" placeholder="новый пароль (мин. 6)" value={newP} onChange={e=>setNewP(e.target.value)} style={inp}/>
+      {msg&&<div style={{fontSize:12,color:msg==='✓ Пароль изменён'?C.green:C.red,marginBottom:6}}>{msg}</div>}
+      <div style={{display:'flex',gap:6}}>
+        <button onClick={async()=>{try{await changePassword(oldP,newP);setMsg('✓ Пароль изменён');setOldP('');setNewP('');}catch(e){setMsg(errText(e));}}}
+          style={{flex:1,padding:10,borderRadius:9,border:'none',background:C.orange,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Сохранить</button>
+        <button onClick={()=>setOpen(false)} style={{padding:'10px 14px',borderRadius:9,border:`.5px solid ${C.border}`,background:'#fff',fontSize:13,color:C.muted,cursor:'pointer',fontFamily:'inherit'}}>Отмена</button>
+      </div>
+    </div>
+  );
+}
+
+// ── Восстановление пароля: email → код из письма → новый пароль ────────────
+function ResetFlow({email:initialEmail,onDone,onClose}){
+  const[step,setStep]=useState(1);
+  const[email,setEmail]=useState(initialEmail||'');
+  const[code,setCode]=useState('');
+  const[newP,setNewP]=useState('');
+  const[busy,setBusy]=useState(false);
+  const[msg,setMsg]=useState('');
+  const inp={width:'100%',boxSizing:'border-box',border:`.5px solid ${C.border}`,borderRadius:9,padding:'10px 12px',fontSize:16,outline:'none',fontFamily:'inherit',marginBottom:8};
+  return(
+    <div style={{marginTop:10,padding:'12px',background:C.blueL,border:`.5px solid ${C.blueB}`,borderRadius:10}}>
+      <div style={{fontSize:13,fontWeight:600,color:C.blue,marginBottom:8}}>Восстановление пароля</div>
+      {step===1&&<>
+        <input type="email" placeholder="email аккаунта" value={email} onChange={e=>setEmail(e.target.value)} style={inp}/>
+        {msg&&<div style={{fontSize:12,color:C.red,marginBottom:6}}>{msg}</div>}
+        <button disabled={busy} onClick={async()=>{setBusy(true);setMsg('');try{await resetRequest(email.trim());setStep(2);}catch(e){setMsg(errText(e));}setBusy(false);}}
+          style={{width:'100%',padding:11,borderRadius:9,border:'none',background:C.blue,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>
+          {busy?'Отправляем…':'Прислать код на почту'}</button>
+      </>}
+      {step===2&&<>
+        <div style={{fontSize:12,color:C.blue,marginBottom:8}}>Если аккаунт существует — на {email} пришло письмо с кодом. Код действует 15 минут.</div>
+        <input inputMode="numeric" placeholder="код из письма (6 цифр)" value={code} onChange={e=>setCode(e.target.value)} style={{...inp,letterSpacing:4}}/>
+        <input type="password" placeholder="новый пароль (мин. 6)" value={newP} onChange={e=>setNewP(e.target.value)} style={inp}/>
+        {msg&&<div style={{fontSize:12,color:C.red,marginBottom:6}}>{msg}</div>}
+        <button disabled={busy} onClick={async()=>{setBusy(true);setMsg('');try{await resetConfirm(email.trim(),code.trim(),newP);onDone();}catch(e){setMsg(errText(e));setBusy(false);}}}
+          style={{width:'100%',padding:11,borderRadius:9,border:'none',background:C.green,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>
+          {busy?'Проверяем…':'Сменить пароль и войти'}</button>
+      </>}
+      <button onClick={onClose} style={{width:'100%',padding:8,marginTop:4,background:'none',border:'none',fontSize:12,color:C.muted,cursor:'pointer',fontFamily:'inherit'}}>Отмена</button>
     </div>
   );
 }
