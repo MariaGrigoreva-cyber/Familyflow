@@ -64,6 +64,8 @@ export default function App(){
   const [cloudReady, setCloudReady] = useState(false);
 const [cloudError, setCloudError] = useState(null);
 const cloudSaveBusyRef = useRef(false);
+const skipNextCloudSaveRef = useRef(false);
+const appStateRef = useRef(null); // после принятия серверной версии не шлём её эхом обратно
 const cloudSaveAgainRef = useRef(false);
 const latestCloudDataRef = useRef(null);
 
@@ -93,6 +95,7 @@ useEffect(() => {
         Object.keys(cloudData).length > 0
       ) {
         if (cloudData.appState) {
+          skipNextCloudSaveRef.current = true;
           setAppState(cloudData.appState);
           setConsentedRaw(Boolean(cloudData.consented));
           setOnboardedRaw(Boolean(cloudData.onboarded));
@@ -163,6 +166,39 @@ useEffect(() => {
     setAppState(prev=>({...prev,weekItems:regenWeeksKeepDone(prev.planned,prev.weekItems)}));
   }, [onboarded]);
 
+  // Возврат на вкладку: если в облаке версия свежее — принимаем её.
+  // Так два открытых окна видят изменения друг друга без F5.
+  useEffect(() => {
+    const pull = async () => {
+      if (document.visibilityState !== 'visible') return;
+      if (!isLoggedIn() || appStateRef.current?.demoMode) return;
+      try {
+        const r = await loadCloudState();
+        const localAt = localStorage.getItem('ff_cloud_updated_at');
+        if (r?.updatedAt && (!localAt || new Date(r.updatedAt) > new Date(localAt))) {
+          const cloudData = r.data || {};
+          const nextApp = cloudData.appState || cloudData;
+          if (nextApp && Object.keys(nextApp).length > 0) {
+            skipNextCloudSaveRef.current = true;
+            setAppState(nextApp);
+            if (cloudData.appState) {
+              setConsentedRaw(Boolean(cloudData.consented));
+              setOnboardedRaw(Boolean(cloudData.onboarded));
+              localStorage.setItem('ff_state', JSON.stringify(cloudData));
+            }
+            localStorage.setItem('ff_cloud_updated_at', r.updatedAt);
+          }
+        }
+      } catch {}
+    };
+    document.addEventListener('visibilitychange', pull);
+    window.addEventListener('focus', pull);
+    return () => {
+      document.removeEventListener('visibilitychange', pull);
+      window.removeEventListener('focus', pull);
+    };
+  }, []);
+
   // Автосохранение состояния семьи в облако
 useEffect(() => {
   if (
@@ -174,6 +210,7 @@ useEffect(() => {
     return;
   }
 
+  appStateRef.current = appState;
   latestCloudDataRef.current = {
     consented,
     onboarded,
@@ -181,6 +218,11 @@ useEffect(() => {
   };
 
   const doSave = async () => {
+    // Это состояние только что пришло с сервера — эхо не отправляем
+    if (skipNextCloudSaveRef.current) {
+      skipNextCloudSaveRef.current = false;
+      return;
+    }
     // Не запускаем второй PUT, пока выполняется первый
     if (cloudSaveBusyRef.current) {
       cloudSaveAgainRef.current = true;
@@ -226,6 +268,7 @@ useEffect(() => {
 
     // Принимаем серверную версию как актуальную
     if (serverData.appState) {
+      skipNextCloudSaveRef.current = true;
       setAppState(serverData.appState);
       setConsentedRaw(Boolean(serverData.consented));
       setOnboardedRaw(Boolean(serverData.onboarded));
