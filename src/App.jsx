@@ -163,10 +163,14 @@ useEffect(() => {
     setAppState(prev=>({...prev,weekItems:regenWeeksKeepDone(prev.planned,prev.weekItems)}));
   }, [onboarded]);
 
-  // Автосохранение состояния семьи в облако.
-// Одновременно выполняется только один PUT.
+  // Автосохранение состояния семьи в облако
 useEffect(() => {
-  if (!cloudReady || !isLoggedIn() || !onboarded || appState.demoMode) {
+  if (
+    !cloudReady ||
+    !isLoggedIn() ||
+    !onboarded ||
+    appState.demoMode
+  ) {
     return;
   }
 
@@ -177,60 +181,50 @@ useEffect(() => {
   };
 
   const timer = setTimeout(async () => {
-    // Если сохранение уже выполняется, запоминаем,
-    // что после него нужно сохранить ещё раз.
+    // Не запускаем второй PUT, пока выполняется первый
     if (cloudSaveBusyRef.current) {
       cloudSaveAgainRef.current = true;
       return;
     }
 
     cloudSaveBusyRef.current = true;
+    cloudSaveAgainRef.current = false;
 
     try {
-      do {
-        cloudSaveAgainRef.current = false;
+      const cloudData = latestCloudDataRef.current;
+      const baseUpdatedAt =
+        localStorage.getItem('ff_cloud_updated_at');
 
-        const cloudData = latestCloudDataRef.current;
-        let baseUpdatedAt =
-          localStorage.getItem('ff_cloud_updated_at');
+      const result = await saveCloudState(
+        cloudData,
+        baseUpdatedAt
+      );
 
-        try {
-          const result = await saveCloudState(
-            cloudData,
-            baseUpdatedAt
-          );
+      if (result?.updatedAt) {
+        localStorage.setItem(
+          'ff_cloud_updated_at',
+          result.updatedAt
+        );
+      }
 
-          if (result?.updatedAt) {
-            localStorage.setItem(
-              'ff_cloud_updated_at',
-              result.updatedAt
-            );
-          }
+      setCloudError(null);
+    } catch (error) {
+      console.error('Cloud save failed:', error);
 
-          setCloudError(null);
-        } catch (error) {
-          console.error('Cloud save failed:', error);
+      if (error.status === 409 && error.data?.updatedAt) {
+        localStorage.setItem(
+          'ff_cloud_updated_at',
+          error.data.updatedAt
+        );
 
-          if (error.status === 409 && error.data?.updatedAt) {
-  localStorage.setItem(
-    'ff_cloud_updated_at',
-    error.data.updatedAt
-  );
-
-  setCloudError(
-    'Облачная версия обновилась. Следующее изменение будет сохранено.'
-  );
-
-  return;
-}
-            }
-          } else {
-            setCloudError(
-              'Данные сохранены на устройстве, но облако временно недоступно'
-            );
-          }
-        }
-      } while (cloudSaveAgainRef.current);
+        setCloudError(
+          'Облачная версия обновилась. Следующее изменение будет сохранено.'
+        );
+      } else {
+        setCloudError(
+          'Данные сохранены на устройстве, но облако временно недоступно'
+        );
+      }
     } finally {
       cloudSaveBusyRef.current = false;
     }
