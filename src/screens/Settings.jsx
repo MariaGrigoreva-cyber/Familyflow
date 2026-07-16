@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import {C,fmt,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Modal,DayPicker,Numpad} from '../lib/ui';
-import {isLoggedIn,logout,register,login,familyMe,familyInvite,familyJoin,errText,changePassword,resetRequest,resetConfirm} from '../api';
+import {isLoggedIn,logout,register,login,familyMe,familyInvite,familyJoin,errText,changePassword,resetRequest,resetConfirm,saveCloudState} from '../api';
 
 export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome}){
   const{members,incomes,planned,familyName,customCats=[]}=state;
@@ -277,11 +277,22 @@ export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome}){
         <div style={{fontSize:12,color:C.red,marginBottom:8,lineHeight:'18px'}}>
           Удалит все данные бюджета, категории и историю. Вернёт на первый экран.
         </div>
-        <button onClick={()=>{
-          if(window.confirm('Удалить все данные и начать заново?\nЭто действие нельзя отменить.')){
-            localStorage.removeItem('ff_state');
-            window.location.reload();
+        <button onClick={async()=>{
+          const logged=isLoggedIn();
+          const msg=logged
+            ?'Удалить все данные и начать заново?\n\nВНИМАНИЕ: бюджет будет стёрт и в облаке — у всех участников семьи. Это действие нельзя отменить.'
+            :'Удалить все данные и начать заново?\nЭто действие нельзя отменить.';
+          if(!window.confirm(msg))return;
+          if(logged){
+            try{
+              // Осознанная перезапись облака пустым состоянием (без baseUpdatedAt)
+              await saveCloudState({consented:true,onboarded:false,appState:{}});
+            }catch(e){
+              if(!window.confirm('Не удалось очистить облако (нет сети?). Сбросить только на этом устройстве? Облачная копия вернётся при следующем входе.'))return;
+            }
           }
+          try{localStorage.removeItem('ff_state');localStorage.removeItem('ff_cloud_updated_at');}catch{}
+          window.location.reload();
         }} style={{width:'100%',padding:'11px',borderRadius:9,border:`1px solid ${C.red}`,background:C.red,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>
           🗑 Сбросить все данные и начать заново
         </button>
