@@ -10,7 +10,9 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx}){
   const[week,setWeek]=useState(curWeek);
   const[filter,setFilter]=useState('all');
   const[curMonth,setCurMonth]=useState(todayMonthKey());
-  const wItems=weekItems[week]||[];
+  const planItems=weekItems[week]||[];
+  const txWeekItems=(transactions||[]).filter(t=>t.week===week&&t.type!=='income').map(t=>({...t,isTx:true,isDone:true}));
+  const wItems=[...planItems,...txWeekItems];
   const spent=wItems.filter(i=>i.isDone).reduce((s,i)=>s+i.amount,0);
   const wPlan=wItems.reduce((s,i)=>s+i.amount,0);
   const pct=wPlan>0?Math.round(spent/wPlan*100):0;
@@ -28,12 +30,15 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx}){
   const allWeekKeys=Object.keys(weekItems).sort();
   const getWData=wk=>{
     const items=weekItems[wk]||[];
-    const wSp=items.filter(x=>x.isDone&&x.catId!=='piggy').reduce((s,x)=>s+x.amount,0); // без Piggy Bank
+    const txExp=(transactions||[]).filter(t=>t.week===wk&&t.type==='expense'&&t.catId!=='piggy').reduce((s,t)=>s+t.amount,0);
+    const wSp=items.filter(x=>x.isDone&&x.catId!=='piggy').reduce((s,x)=>s+x.amount,0)+txExp; // план(факт) + ручные
     const wTot=items.filter(x=>x.catId!=='piggy').reduce((s,x)=>s+x.amount,0);
+    const wPiggy=items.filter(x=>x.catId==='piggy').reduce((s,x)=>s+x.amount,0)
+      +(transactions||[]).filter(t=>t.week===wk&&t.catId==='piggy').reduce((s,t)=>s+t.amount,0);
     const wS=weekKeyToDate(wk),wE=new Date(wS.getTime()+6*86400000);
     const wInc=incomes.reduce((s,inc)=>{const yr=wS.getFullYear();const sch=buildPaymentSchedule(yr,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc).map(p=>({...p,...(payments[p.displayLabel]||{})}));return s+sch.filter(p=>p.date>=wS&&p.date<=wE).reduce((ss,p)=>ss+(p.actualAmount||p.amount),0);},0);
     const txInc=(transactions||[]).filter(t=>t.week===wk&&t.type==='income').reduce((s,t)=>s+t.amount,0);
-    return{wk,wSp,wTot,wInc:wInc+txInc,bal:(wInc+txInc)-wTot};
+    return{wk,wSp,wTot,wInc:wInc+txInc,bal:(wInc+txInc)-wTot,wPiggy};
   };
   const weeksSummary=allWeekKeys.map(getWData);
   const monthsSummary=()=>{const map={};allWeekKeys.forEach(wk=>{const wS=weekKeyToDate(wk);const mk=monthKey(wS);if(!map[mk])map[mk]={mk,wTot:0,wSp:0,wInc:0};const d=getWData(wk);map[mk].wTot+=d.wTot;map[mk].wSp+=d.wSp;map[mk].wInc+=d.wInc;});return Object.values(map).sort((a,b)=>a.mk.localeCompare(b.mk));};
@@ -78,7 +83,7 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx}){
           :filtered.map(item=>{
             const cat=getCat(item.catId,customCats),mem=members.find(m=>m.id===item.memberId);
             return(
-              <button key={item.id} onClick={()=>onToggle(week,item.id)} style={{...s.card,display:'flex',alignItems:'center',gap:9,width:'100%',textAlign:'left',cursor:'pointer',opacity:item.isDone?.55:1,fontFamily:'inherit',marginBottom:6,boxSizing:'border-box'}}>
+              <button key={item.id} onClick={()=>item.isTx?(onEditTx&&onEditTx(item)):onToggle(week,item.id)} style={{...s.card,display:'flex',alignItems:'center',gap:9,width:'100%',textAlign:'left',cursor:'pointer',opacity:item.isDone?.55:1,fontFamily:'inherit',marginBottom:6,boxSizing:'border-box'}}>
                 <div style={{width:22,height:22,borderRadius:11,border:`1.5px solid ${item.isDone?C.green:C.borderS}`,background:item.isDone?C.green:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>{item.isDone&&<span style={{color:'#fff',fontSize:11}}>✓</span>}</div>
                 <span style={{fontSize:16}}>{cat?.emoji||'📦'}</span>
                 <div style={{flex:1}}><div style={{fontSize:13,color:C.text,textDecoration:item.isDone?'line-through':'none'}}>{item.name}</div><div style={{fontSize:10,color:C.muted}}>{mem?.name||''}</div></div>
@@ -116,7 +121,7 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx}){
           // Единая формула: стартовый Saving из computeBalances
           let runningBalance=computeBalances(state).savingStart;
           const curWk=todayKey();
-          return weeksSummary.map(({wk,wSp,wTot,wInc,bal},idx)=>{
+          return weeksSummary.map(({wk,wSp,wTot,wInc,bal,wPiggy},idx)=>{
             // Для прошлых и текущей недели — факт (wSp), для будущих — план (wTot)
             const isFuture=wk>curWk;
             const deduct=isFuture?wTot:wSp;
@@ -140,6 +145,10 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx}){
                       </div>
                     ))}
                   </div>
+                  {wPiggy>0&&<div style={{display:'flex',alignItems:'center',gap:6,marginTop:6,fontSize:11,color:C.green}}>
+                    <span>🐷</span><span>Копилка на этой неделе: +{fmt(wPiggy)}</span>
+                    <span style={{color:C.muted}}>· не входит в план расходов</span>
+                  </div>}
                 </button>
                 {/* Накопительный баланс между неделями */}
                 <div style={{display:'flex',alignItems:'center',gap:10,padding:'7px 14px',marginBottom:6,background:runPlus?C.greenL:C.redL,border:`.5px solid ${runPlus?C.greenB:C.redB}`,borderRadius:'0 0 10px 10px'}}>

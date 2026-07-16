@@ -103,9 +103,7 @@ const regenWeeksKeepDone=(planned,prevWeekItems)=>{
       const savedMap={};
       prevWeekItems[wk].forEach(i=>{savedMap[i.plannedId||i.id]=i.isDone;});
       merged[wk]=merged[wk].map(i=>({...i,isDone:savedMap[i.plannedId||i.id]??i.isDone}));
-      // Ручные записи (транзакции в weekItems) — переносим как есть
-      const manualItems=prevWeekItems[wk].filter(i=>i.week); // транзакции имеют поле week
-      manualItems.forEach(m=>{if(!merged[wk].some(x=>x.id===m.id))merged[wk].push(m);});
+      // Ручные записи живут в transactions — в weekItems их больше не дублируем
     } else if(prevWeekItems[wk]&&!merged[wk]){
       merged[wk]=prevWeekItems[wk];
     }
@@ -179,7 +177,7 @@ const generateAllWeeks=planned=>{
       // Если категория добавлена позже начала этой недели — не показываем в прошлых неделях
       if(p.addedAt){const added=new Date(p.addedAt);added.setHours(0,0,0,0);if(wEnd<added)return null;}
       if(p.repeat==='weekly') return{id:`${p.id}-${key}`,catId:p.catId,name:p.name,amount:p.amount,memberId:p.memberId,isDone:false,plannedId:p.id};
-      if(p.repeat==='biweekly'&&i%2===0) return{id:`${p.id}-${key}`,catId:p.catId,name:p.name,amount:p.amount,memberId:p.memberId,isDone:false,plannedId:p.id};
+      if(p.repeat==='biweekly'&&parseWeekKey(key).week%2===0) return{id:`${p.id}-${key}`,catId:p.catId,name:p.name,amount:p.amount,memberId:p.memberId,isDone:false,plannedId:p.id}; // чётность прибита к календарю
       if(p.repeat==='once'){
         // Разовый платёж — показываем только в неделю конкретной даты
         if(p.onceDate){
