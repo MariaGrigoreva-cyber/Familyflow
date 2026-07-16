@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import {C,fmt,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Modal,DayPicker,Numpad} from '../lib/ui';
+import {isLoggedIn,logout,register,login,familyMe,familyInvite,familyJoin,errText} from '../api';
 
 export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome}){
   const{members,incomes,planned,familyName,customCats=[]}=state;
@@ -215,6 +216,9 @@ export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome}){
       </div>
       <div style={{height:20}}/>
       {/* Сброс данных */}
+      {/* ═══ Аккаунт и синхронизация ═══ */}
+      <SecTitle>АККАУНТ И СИНХРОНИЗАЦИЯ</SecTitle>
+      <AccountSection/>
       {/* ═══ Резервная копия ═══ */}
       <div style={{...s.card,background:C.yellowL,border:`.5px solid ${C.yellowB}`,padding:'11px 13px',marginBottom:10,display:'flex',gap:10}}>
         <span style={{fontSize:16,flexShrink:0}}>⚠️</span>
@@ -288,3 +292,95 @@ export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome}){
 
 // ════════════════════════════════════════════════════════════════════════
 // МОДАЛКИ
+
+
+// ── Аккаунт: вход/регистрация, статус синхронизации, приглашения ──────────
+function AccountSection(){
+  const[logged,setLogged]=useState(isLoggedIn());
+  const[mode,setMode]=useState('login'); // login | register
+  const[email,setEmail]=useState('');
+  const[pass,setPass]=useState('');
+  const[busy,setBusy]=useState(false);
+  const[err,setErr]=useState('');
+  const[fam,setFam]=useState(null);
+  const[inviteCode,setInviteCode]=useState('');
+  const[joinCode,setJoinCode]=useState('');
+  const lastSync=(()=>{try{const t=localStorage.getItem('ff_cloud_updated_at');return t?new Date(t).toLocaleString('ru'):null;}catch{return null;}})();
+
+  useEffect(()=>{if(logged)familyMe().then(setFam).catch(()=>{});},[logged]);
+
+  const submit=async()=>{
+    setErr('');setBusy(true);
+    try{
+      if(mode==='register')await register(email.trim(),pass,undefined);
+      else await login(email.trim(),pass);
+      // Перезагрузка подтянет облако через loadCloud в App
+      window.location.reload();
+    }catch(e){setErr(errText(e));setBusy(false);}
+  };
+
+  if(!logged)return(
+    <div style={{...s.card,padding:14,marginBottom:10}}>
+      <div style={{display:'flex',gap:6,marginBottom:10}}>
+        {[['login','Вход'],['register','Регистрация']].map(([id,l])=>(
+          <button key={id} onClick={()=>{setMode(id);setErr('');}}
+            style={{flex:1,padding:'8px 0',borderRadius:9,border:`.5px solid ${mode===id?C.orangeB:C.border}`,background:mode===id?C.orangeL:'#fff',color:mode===id?'#991B1B':C.muted,fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>{l}</button>
+        ))}
+      </div>
+      <input type="email" placeholder="email" value={email} onChange={e=>setEmail(e.target.value)}
+        style={{width:'100%',boxSizing:'border-box',border:`.5px solid ${C.border}`,borderRadius:9,padding:'10px 12px',fontSize:16,outline:'none',fontFamily:'inherit',marginBottom:6}}/>
+      <input type="password" placeholder="пароль (мин. 6 символов)" value={pass} onChange={e=>setPass(e.target.value)}
+        style={{width:'100%',boxSizing:'border-box',border:`.5px solid ${C.border}`,borderRadius:9,padding:'10px 12px',fontSize:16,outline:'none',fontFamily:'inherit',marginBottom:8}}/>
+      {err&&<div style={{fontSize:12,color:C.red,marginBottom:8}}>{err}</div>}
+      <button onClick={submit} disabled={busy}
+        style={{width:'100%',padding:12,borderRadius:10,border:'none',background:busy?C.border:C.orange,color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>
+        {busy?'Секунду…':mode==='register'?'Создать аккаунт':'Войти'}
+      </button>
+      <div style={{fontSize:11,color:C.muted,marginTop:8,lineHeight:'16px'}}>
+        {mode==='register'
+          ?'Текущий бюджет с этого устройства будет сохранён в облако.'
+          :'После входа подтянется бюджет вашей семьи из облака.'}
+      </div>
+    </div>
+  );
+
+  return(
+    <div style={{...s.card,padding:14,marginBottom:10}}>
+      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
+        <span style={{fontSize:18}}>☁️</span>
+        <div style={{flex:1}}>
+          <div style={{fontSize:13,fontWeight:600,color:C.green}}>Синхронизация включена</div>
+          <div style={{fontSize:11,color:C.muted,marginTop:1}}>{lastSync?`Последнее сохранение: ${lastSync}`:'Ещё не синхронизировалось'}</div>
+        </div>
+        <button onClick={()=>{if(window.confirm('Выйти из аккаунта? Данные останутся на устройстве.')){logout();window.location.reload();}}}
+          style={{background:'none',border:`.5px solid ${C.border}`,borderRadius:20,padding:'5px 12px',fontSize:12,color:C.muted,cursor:'pointer',fontFamily:'inherit'}}>Выйти</button>
+      </div>
+      {fam&&<div style={{fontSize:12,color:C.muted,marginBottom:10}}>Семья «{fam.name}» · участников: {fam.members} · ваша роль: {fam.role==='owner'?'владелец':'участник'}</div>}
+      {/* Пригласить супруга */}
+      {fam?.role==='owner'&&<div style={{background:C.blueL,border:`.5px solid ${C.blueB}`,borderRadius:10,padding:'10px 12px',marginBottom:8}}>
+        <div style={{fontSize:12,fontWeight:600,color:C.blue,marginBottom:6}}>Пригласить в семью</div>
+        {inviteCode
+          ?<div style={{display:'flex',alignItems:'center',gap:8}}>
+             <span style={{fontSize:20,fontWeight:800,letterSpacing:3,color:C.blue,fontFamily:'monospace'}}>{inviteCode}</span>
+             <span style={{fontSize:11,color:C.blue,opacity:.7}}>— назовите этот код супругу</span>
+           </div>
+          :<button onClick={async()=>{try{const r=await familyInvite();setInviteCode(r.code);}catch(e){setErr(errText(e));}}}
+             style={{background:C.blue,color:'#fff',border:'none',borderRadius:9,padding:'8px 14px',fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Получить код</button>}
+      </div>}
+      {/* Присоединиться по коду */}
+      <div style={{display:'flex',gap:6}}>
+        <input value={joinCode} onChange={e=>setJoinCode(e.target.value.toUpperCase())} placeholder="Код приглашения"
+          maxLength={6}
+          style={{flex:1,border:`.5px solid ${C.border}`,borderRadius:9,padding:'9px 12px',fontSize:16,outline:'none',fontFamily:'inherit',letterSpacing:2}}/>
+        <button onClick={async()=>{
+            if(joinCode.length!==6)return;
+            if(!window.confirm('Присоединиться к другой семье? Ваш текущий облачный бюджет будет заменён общим.'))return;
+            try{await familyJoin(joinCode);localStorage.removeItem('ff_cloud_updated_at');window.location.reload();}
+            catch(e){setErr(errText(e));}
+          }}
+          style={{background:C.green,color:'#fff',border:'none',borderRadius:9,padding:'9px 16px',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Войти в семью</button>
+      </div>
+      {err&&<div style={{fontSize:12,color:C.red,marginTop:8}}>{err}</div>}
+    </div>
+  );
+}
