@@ -172,8 +172,12 @@ const computeBalances=(state)=>{
 
   // КАНОНИЧЕСКИЙ БАЛАНС: старт + получено + доп.доходы − потрачено − отложено в копилку
   const balance=startBalance+actualSalaryReceived+txIncome-allSpentTotal-totalSaved;
-  // Стартовый баланс на Saving для накопительных рядов (недели/месяцы/годы)
-  const savingStart=startBalance-totalSaved;
+  // Стартовая точка накопительных рядов (недели/месяцы/годы):
+  // копилка теперь входит в недельный план/факт, поэтому на старте вычитаем
+  // только то, что отложено ДО первой отображаемой недели (иначе двойной счёт)
+  const firstWk=Object.keys(weekItems).sort()[0]||week;
+  const savedBeforeFirst=Object.entries(txPiggyByWeek).filter(([wk])=>wk<firstWk).reduce((s,[,v])=>s+v,0);
+  const savingStart=startBalance-savedBeforeFirst;
 
   return{balance,totalSaved,allSpentTotal,actualSalaryReceived,txIncome,weekSpent,pastSpent,
     savingStart,unmarkedPayments,week,wItems};

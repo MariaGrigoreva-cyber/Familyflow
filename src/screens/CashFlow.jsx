@@ -30,9 +30,10 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx}){
   const allWeekKeys=Object.keys(weekItems).sort();
   const getWData=wk=>{
     const items=weekItems[wk]||[];
-    const txExp=(transactions||[]).filter(t=>t.week===wk&&t.type==='expense'&&t.catId!=='piggy').reduce((s,t)=>s+t.amount,0);
-    const wSp=items.filter(x=>x.isDone&&x.catId!=='piggy').reduce((s,x)=>s+x.amount,0)+txExp; // план(факт) + ручные
-    const wTot=items.filter(x=>x.catId!=='piggy').reduce((s,x)=>s+x.amount,0);
+    // Копилка входит в план и факт: это распределённые деньги бюджета
+    const txExp=(transactions||[]).filter(t=>t.week===wk&&(t.type==='expense'||t.catId==='piggy')).reduce((s,t)=>s+t.amount,0);
+    const wSp=items.filter(x=>x.isDone).reduce((s,x)=>s+x.amount,0)+txExp;
+    const wTot=items.reduce((s,x)=>s+x.amount,0);
     const wPiggy=items.filter(x=>x.catId==='piggy').reduce((s,x)=>s+x.amount,0)
       +(transactions||[]).filter(t=>t.week===wk&&t.catId==='piggy').reduce((s,t)=>s+t.amount,0);
     const wS=weekKeyToDate(wk),wE=new Date(wS.getTime()+6*86400000);
@@ -146,8 +147,8 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx}){
                     ))}
                   </div>
                   {wPiggy>0&&<div style={{display:'flex',alignItems:'center',gap:6,marginTop:6,fontSize:11,color:C.green}}>
-                    <span>🐷</span><span>Копилка на этой неделе: +{fmt(wPiggy)}</span>
-                    <span style={{color:C.muted}}>· не входит в план расходов</span>
+                    <span>🐷</span><span>в том числе копилка: {fmt(wPiggy)}</span>
+                    <span style={{color:C.muted}}>· это накопления, не траты</span>
                   </div>}
                 </button>
                 {/* Накопительный баланс между неделями */}

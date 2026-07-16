@@ -283,12 +283,13 @@ export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome}){
             ?'Удалить все данные и начать заново?\n\nВНИМАНИЕ: бюджет будет стёрт и в облаке — у всех участников семьи. Это действие нельзя отменить.'
             :'Удалить все данные и начать заново?\nЭто действие нельзя отменить.';
           if(!window.confirm(msg))return;
+          window.__ffResetting=true; // блокируем автосейв и flush-on-hide до перезагрузки
           if(logged){
             try{
               // Осознанная перезапись облака пустым состоянием (без baseUpdatedAt)
               await saveCloudState({consented:true,onboarded:false,appState:{}});
             }catch(e){
-              if(!window.confirm('Не удалось очистить облако (нет сети?). Сбросить только на этом устройстве? Облачная копия вернётся при следующем входе.'))return;
+              if(!window.confirm('Не удалось очистить облако (нет сети?). Сбросить только на этом устройстве? Облачная копия вернётся при следующем входе.')){window.__ffResetting=false;return;}
             }
           }
           try{localStorage.removeItem('ff_state');localStorage.removeItem('ff_cloud_updated_at');}catch{}

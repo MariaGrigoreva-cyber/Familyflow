@@ -223,6 +223,8 @@ useEffect(() => {
   };
 
   const doSave = async () => {
+    // Идёт сброс данных — прощальный автосейв не должен вернуть их в облако
+    if (window.__ffResetting) return;
     // Это состояние только что пришло с сервера — эхо не отправляем
     if (skipNextCloudSaveRef.current) {
       skipNextCloudSaveRef.current = false;
