@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {C,uid,weekKey,todayKey,calcAvgMonthlyNet,calcNetFor,generateAllWeeks,regenWeeksKeepDone,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED,computeBalances} from './lib/core';
 import {ConsentScreen,Onboarding} from './screens/Onboarding';
 import {TodayScreen} from './screens/Today';
@@ -63,6 +63,9 @@ export default function App(){
   });
   const [cloudReady, setCloudReady] = useState(false);
 const [cloudError, setCloudError] = useState(null);
+const cloudSaveBusyRef = useRef(false);
+const cloudSaveAgainRef = useRef(false);
+const latestCloudDataRef = useRef(null);
 
   // Обёртки для сохранения флагов в localStorage
   const setConsented = (v) => { setConsentedRaw(v); try{ localStorage.setItem('ff_state', JSON.stringify({...loadFromStorage(), consented:v})); }catch{} };
@@ -160,76 +163,94 @@ useEffect(() => {
     setAppState(prev=>({...prev,weekItems:regenWeeksKeepDone(prev.planned,prev.weekItems)}));
   }, [onboarded]);
 
-  // Автосохранение состояния семьи в облако
-  useEffect(() => {
+  // Автосохранение состояния семьи в облако.
+// Одновременно выполняется только один PUT.
+useEffect(() => {
   if (!cloudReady || !isLoggedIn() || !onboarded || appState.demoMode) {
     return;
   }
 
+  latestCloudDataRef.current = {
+    consented,
+    onboarded,
+    appState,
+  };
+
   const timer = setTimeout(async () => {
-    try {
-      const baseUpdatedAt =
-        localStorage.getItem('ff_cloud_updated_at');
-
-      const cloudData = {
-        consented,
-        onboarded,
-        appState,
-      };
-
-      const result = await saveCloudState(
-        cloudData,
-        baseUpdatedAt
-      );
-
-      if (result?.updatedAt) {
-        localStorage.setItem(
-          'ff_cloud_updated_at',
-          result.updatedAt
-        );
-      }
-
-      setCloudError(null);
-    } catch (error) {
-  console.error('Cloud save failed:', error);
-
-  if (error.status === 409 && error.data?.updatedAt) {
-    try {
-      // Сервер сообщает актуальную версию.
-      // Сохраняем её и один раз повторяем запрос.
-      const freshUpdatedAt = error.data.updatedAt;
-
-      localStorage.setItem(
-        'ff_cloud_updated_at',
-        freshUpdatedAt
-      );
-
-      const retryResult = await saveCloudState(
-        cloudData,
-        freshUpdatedAt
-      );
-
-      if (retryResult?.updatedAt) {
-        localStorage.setItem(
-          'ff_cloud_updated_at',
-          retryResult.updatedAt
-        );
-      }
-
-      setCloudError(null);
-    } catch (retryError) {
-      console.error('Cloud retry failed:', retryError);
-
-      setCloudError(
-        'Не удалось синхронизировать данные с облаком'
-      );
+    // Если сохранение уже выполняется, запоминаем,
+    // что после него нужно сохранить ещё раз.
+    if (cloudSaveBusyRef.current) {
+      cloudSaveAgainRef.current = true;
+      return;
     }
-  } else {
-    setCloudError(
-      'Данные сохранены на устройстве, но облако временно недоступно'
-    );
-  }
-}
+
+    cloudSaveBusyRef.current = true;
+
+    try {
+      do {
+        cloudSaveAgainRef.current = false;
+
+        const cloudData = latestCloudDataRef.current;
+        let baseUpdatedAt =
+          localStorage.getItem('ff_cloud_updated_at');
+
+        try {
+          const result = await saveCloudState(
+            cloudData,
+            baseUpdatedAt
+          );
+
+          if (result?.updatedAt) {
+            localStorage.setItem(
+              'ff_cloud_updated_at',
+              result.updatedAt
+            );
+          }
+
+          setCloudError(null);
+        } catch (error) {
+          console.error('Cloud save failed:', error);
+
+          if (error.status === 409 && error.data?.updatedAt) {
+            const serverUpdatedAt = error.data.updatedAt;
+
+            localStorage.setItem(
+              'ff_cloud_updated_at',
+              serverUpdatedAt
+            );
+
+            // Один повтор с актуальной серверной версией.
+            try {
+              const retryResult = await saveCloudState(
+                latestCloudDataRef.current,
+                serverUpdatedAt
+              );
+
+              if (retryResult?.updatedAt) {
+                localStorage.setItem(
+                  'ff_cloud_updated_at',
+                  retryResult.updatedAt
+                );
+              }
+
+              setCloudError(null);
+            } catch (retryError) {
+              console.error('Cloud retry failed:', retryError);
+
+              setCloudError(
+                'Не удалось синхронизировать данные с облаком'
+              );
+            }
+          } else {
+            setCloudError(
+              'Данные сохранены на устройстве, но облако временно недоступно'
+            );
+          }
+        }
+      } while (cloudSaveAgainRef.current);
+    } finally {
+      cloudSaveBusyRef.current = false;
+    }
   }, 1200);
 
   return () => clearTimeout(timer);
