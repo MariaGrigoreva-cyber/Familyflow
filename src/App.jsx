@@ -212,34 +212,17 @@ useEffect(() => {
           console.error('Cloud save failed:', error);
 
           if (error.status === 409 && error.data?.updatedAt) {
-            const serverUpdatedAt = error.data.updatedAt;
+  localStorage.setItem(
+    'ff_cloud_updated_at',
+    error.data.updatedAt
+  );
 
-            localStorage.setItem(
-              'ff_cloud_updated_at',
-              serverUpdatedAt
-            );
+  setCloudError(
+    'Облачная версия обновилась. Следующее изменение будет сохранено.'
+  );
 
-            // Один повтор с актуальной серверной версией.
-            try {
-              const retryResult = await saveCloudState(
-                latestCloudDataRef.current,
-                serverUpdatedAt
-              );
-
-              if (retryResult?.updatedAt) {
-                localStorage.setItem(
-                  'ff_cloud_updated_at',
-                  retryResult.updatedAt
-                );
-              }
-
-              setCloudError(null);
-            } catch (retryError) {
-              console.error('Cloud retry failed:', retryError);
-
-              setCloudError(
-                'Не удалось синхронизировать данные с облаком'
-              );
+  return;
+}
             }
           } else {
             setCloudError(
