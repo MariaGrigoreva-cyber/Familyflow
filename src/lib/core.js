@@ -82,16 +82,28 @@ const buildPaymentSchedule=(year,salaryDays=[],advanceDays=[],advancePct=40,mont
       rate:usePrev?(inc.prevTaxRate||'6'):(inc?.taxRate||'6'),
     };
   };
-  for(let m=1;m<=12;m++){
-    // Параметры месяца определяем по 1-му числу (упрощение при смене в середине месяца)
-    const probe=new Date(year,m-1,15);
+  // Модель «месяц заработка» (ТК РФ):
+  //   аванс месяца M — оплата первой половины M → параметры оклада месяца M;
+  //   зарплата месяца M — окончательный расчёт за M−1 → параметры оклада месяца M−1.
+  // Поэтому при смене оклада «с 1 сентября» зарплата 10 сентября остаётся по старому окладу,
+  // а новый впервые появляется в авансе 25 сентября.
+  const monthCalc={}; // k: 0 = декабрь прошлого года, 1..12 = месяцы текущего
+  const calcFor=k=>{
+    if(monthCalc[k])return monthCalc[k];
+    const probe=new Date(year,k-1,1); // 1-е число месяца заработка (k=0 → 1 декабря прошлого года)
     const{g,t:iType,rate}=paramsFor(probe);
     let monthlyNet,monthlyNDFL,bracket;
-    if(iType==='employed'){({monthlyNet,monthlyNDFL,bracket}=calcMonthlyNDFL(g,m));}
+    const ndflMonth=k===0?12:k; // для декабря прошлого года — 12-й месяц прогрессии
+    if(iType==='employed'){({monthlyNet,monthlyNDFL,bracket}=calcMonthlyNDFL(g,ndflMonth));}
     else{monthlyNet=calcNetFor({gross:g,incomeType:iType,taxRate:rate});monthlyNDFL=Math.max((g||0)-monthlyNet,0);bracket=iType==='self'?`${parseFloat(rate)||6}%`:'—';}
-    const advAmt=inc?calcAdvanceAmount(monthlyNet,inc):Math.round(monthlyNet*advancePct/100),salAmt=monthlyNet-advAmt;
-    for(const d of advanceDays){const info=fmtPayDate(year,m,d);result.push({type:'advance',amount:advAmt,month:m,bracket,...info,displayLabel:`Аванс·${info.label}`,actualAmount:advAmt,isDone:false,note2:''});}
-    for(const d of salaryDays){const info=fmtPayDate(year,m,d);result.push({type:'salary',amount:salAmt,month:m,bracket,...info,displayLabel:`Зарплата·${info.label}`,actualAmount:salAmt,isDone:false,note2:'',ndfl:monthlyNDFL});}}
+    const advAmt=inc?calcAdvanceAmount(monthlyNet,inc):Math.round(monthlyNet*advancePct/100);
+    return monthCalc[k]={monthlyNet,monthlyNDFL,bracket,advAmt,salAmt:monthlyNet-advAmt};
+  };
+  for(let m=1;m<=12;m++){
+    const cur=calcFor(m);      // заработок текущего месяца → аванс
+    const prev=calcFor(m-1);   // заработок прошлого месяца → зарплата-расчёт
+    for(const d of advanceDays){const info=fmtPayDate(year,m,d);result.push({type:'advance',amount:cur.advAmt,month:m,bracket:cur.bracket,...info,displayLabel:`Аванс·${info.label}`,actualAmount:cur.advAmt,isDone:false,note2:''});}
+    for(const d of salaryDays){const info=fmtPayDate(year,m,d);result.push({type:'salary',amount:prev.salAmt,month:m,bracket:prev.bracket,...info,displayLabel:`Зарплата·${info.label}`,actualAmount:prev.salAmt,isDone:false,note2:'',ndfl:prev.monthlyNDFL});}}
   return result.sort((a,b)=>a.date-b.date);
 };
 // Мёрж: регенерирует недели по новому плану, сохраняя отметки isDone и ручные записи
