@@ -1,105 +1,63 @@
-const API_URL = process.env.REACT_APP_API_URL;
+// FamilyFlow · клиент API (фаза 0)
+// Базовый URL можно переопределить переменной сборки REACT_APP_API_URL.
+const API_URL = process.env.REACT_APP_API_URL
+  || 'https://mariagrigoreva-cyber-familyflow-api-bccc.twc1.net';
 
-function getToken() {
-  return localStorage.getItem('ff_token');
-}
+const TOKEN_KEY = 'ff_token';
+export const getToken = () => { try { return localStorage.getItem(TOKEN_KEY); } catch { return null; } };
+export const isLoggedIn = () => !!getToken();
+export const logout = () => { try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem('ff_cloud_updated_at'); } catch {} };
 
-async function request(path, options = {}) {
-  if (!API_URL) {
-    throw new Error('Не задан REACT_APP_API_URL');
-  }
-
-  const token = getToken();
-
-  const response = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options.headers || {}),
-    },
+// Единая обёртка: ошибки несут status и body — это нужно для авторазрешения 409.
+async function req(path, { method = 'GET', body, auth = true } = {}) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (auth && getToken()) headers.Authorization = 'Bearer ' + getToken();
+  const payload = body ? JSON.stringify(body) : undefined;
+  const res = await fetch(API_URL + path, {
+    method, headers, body: payload,
+    // keepalive даёт запросу дожить при сворачивании вкладки (лимит тела ~64КБ)
+    keepalive: method === 'PUT' && payload && payload.length < 60000 ? true : undefined,
   });
-
-  const text = await response.text();
-
   let data = null;
-
-  try {
-    data = text ? JSON.parse(text) : null;
-  } catch {
-    data = text;
+  try { data = await res.json(); } catch {}
+  if (!res.ok) {
+    const err = new Error(data?.error || ('http_' + res.status));
+    err.status = res.status;
+    err.body = data;
+    throw err;
   }
-
-  if (!response.ok) {
-    const error = new Error(
-      data?.error ||
-      data?.message ||
-      `Ошибка запроса: ${response.status}`
-    );
-
-    error.status = response.status;
-    error.data = data;
-
-    throw error;
-  }
-
   return data;
 }
 
+// ── Аккаунт ────────────────────────────────────────────────────────────────
 export async function register(email, password, familyName) {
-  const result = await request('/auth/register', {
-    method: 'POST',
-    body: JSON.stringify({
-      email,
-      password,
-      familyName,
-    }),
-  });
-
-  if (result?.token) {
-    localStorage.setItem('ff_token', result.token);
-  }
-
-  return result;
+  const r = await req('/auth/register', { method: 'POST', auth: false, body: { email, password, familyName } });
+  localStorage.setItem(TOKEN_KEY, r.token);
+  return r;
 }
-
 export async function login(email, password) {
-  const result = await request('/auth/login', {
-    method: 'POST',
-    body: JSON.stringify({
-      email,
-      password,
-    }),
-  });
-
-  if (result?.token) {
-    localStorage.setItem('ff_token', result.token);
-  }
-
-  return result;
+  const r = await req('/auth/login', { method: 'POST', auth: false, body: { email, password } });
+  localStorage.setItem(TOKEN_KEY, r.token);
+  return r;
 }
 
-export function logout() {
-  localStorage.removeItem('ff_token');
-  localStorage.removeItem('ff_cloud_updated_at');
-}
+// ── Состояние семьи ────────────────────────────────────────────────────────
+export const loadCloudState = () => req('/state');
+export const saveCloudState = (data, baseUpdatedAt) =>
+  req('/state', { method: 'PUT', body: { data, baseUpdatedAt: baseUpdatedAt || undefined } });
 
-export function isLoggedIn() {
-  return Boolean(getToken());
-}
+// ── Семья и приглашения ───────────────────────────────────────────────────
+export const familyMe = () => req('/family/me');
+export const familyInvite = () => req('/family/invite', { method: 'POST' });
+export const familyJoin = code => req('/family/join', { method: 'POST', body: { code } });
 
-export async function loadCloudState() {
-  return request('/state', {
-    method: 'GET',
-  });
-}
-
-export async function saveCloudState(data, baseUpdatedAt = null) {
-  return request('/state', {
-    method: 'PUT',
-    body: JSON.stringify({
-      data,
-      baseUpdatedAt,
-    }),
-  });
-}
+// Человекочитаемые тексты ошибок API
+export const errText = e => ({
+  email_taken: 'Такой email уже зарегистрирован',
+  bad_credentials: 'Неверный email или пароль',
+  short_password: 'Пароль — минимум 6 символов',
+  bad_email: 'Проверьте email',
+  code_not_found: 'Код приглашения не найден',
+  owner_only: 'Код может создать только владелец семьи',
+  no_family: 'Семья не найдена',
+}[e?.message] || 'Ошибка сети — попробуйте ещё раз');

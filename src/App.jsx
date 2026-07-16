@@ -297,7 +297,19 @@ useEffect(() => {
   };
   const timer = setTimeout(doSave, 1200);
 
-  return () => clearTimeout(timer);
+  // Телефон сворачивают сразу после действия — не ждём дебаунс, шлём немедленно
+  const flushOnHide = () => {
+    if (document.visibilityState === 'hidden') {
+      clearTimeout(timer);
+      doSave();
+    }
+  };
+  document.addEventListener('visibilitychange', flushOnHide);
+
+  return () => {
+    clearTimeout(timer);
+    document.removeEventListener('visibilitychange', flushOnHide);
+  };
 }, [
   appState,
   consented,
