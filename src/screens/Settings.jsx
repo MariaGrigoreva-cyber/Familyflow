@@ -352,7 +352,12 @@ function AccountSection(){
           <div style={{fontSize:13,fontWeight:600,color:C.green}}>Синхронизация включена</div>
           <div style={{fontSize:11,color:C.muted,marginTop:1}}>{lastSync?`Последнее сохранение: ${lastSync}`:'Ещё не синхронизировалось'}</div>
         </div>
-        <button onClick={()=>{if(window.confirm('Выйти из аккаунта? Данные останутся на устройстве.')){logout();window.location.reload();}}}
+        <button onClick={()=>{
+          if(!window.confirm('Выйти из аккаунта? Локальная копия будет удалена с этого устройства. Данные сохранены в облаке и вернутся при следующем входе.'))return;
+          logout();
+          try{localStorage.removeItem('ff_state');}catch{}
+          window.location.reload();
+        }}
           style={{background:'none',border:`.5px solid ${C.border}`,borderRadius:20,padding:'5px 12px',fontSize:12,color:C.muted,cursor:'pointer',fontFamily:'inherit'}}>Выйти</button>
       </div>
       {fam&&<div style={{fontSize:12,color:C.muted,marginBottom:10}}>Семья «{fam.name}» · участников: {fam.members} · ваша роль: {fam.role==='owner'?'владелец':'участник'}</div>}
