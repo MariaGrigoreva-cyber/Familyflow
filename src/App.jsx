@@ -154,31 +154,15 @@ useEffect(() => {
     }
   }, [appState, onboarded]);
 
+  // Регенерация недель при старте/смене плана — с сохранением отметок и ручных записей
   useEffect(()=>{
     if(!onboarded)return;
-    setAppState(prev=>{
-      // Генерируем полный план на 104 недели
-      const fresh=generateAllWeeks(prev.planned);
-      // Мёржим с сохранёнными: для недель с отметками берём сохранённые данные
-      const merged={...fresh};
-      Object.keys(prev.weekItems||{}).forEach(wk=>{
-        if(prev.weekItems[wk]&&merged[wk]){
-          // Переносим статус isDone из сохранённых в свежесгенерированные
-          const savedMap={};
-          prev.weekItems[wk].forEach(i=>{ savedMap[i.plannedId||i.id]=i.isDone; });
-          merged[wk]=merged[wk].map(i=>({
-            ...i,
-            isDone:savedMap[i.plannedId||i.id]||false
-          }));
-        } else if(prev.weekItems[wk]) {
-          merged[wk]=prev.weekItems[wk];
-        }
-      });
-      return{...prev,weekItems:merged};
-    });
-    // Автосохранение состояния семьи в облако
-useEffect(() => {
-  if (!cloudReady || !isLoggedIn() || !onboarded) {
+    setAppState(prev=>({...prev,weekItems:regenWeeksKeepDone(prev.planned,prev.weekItems)}));
+  }, [onboarded]);
+
+  // Автосохранение состояния семьи в облако
+  useEffect(() => {
+  if (!cloudReady || !isLoggedIn() || !onboarded || appState.demoMode) {
     return;
   }
 
@@ -210,9 +194,15 @@ useEffect(() => {
       console.error('Cloud save failed:', error);
 
       if (error.status === 409) {
-        setCloudError(
-          'Данные были изменены на другом устройстве'
-        );
+        // На другом устройстве сохранили позже — принимаем серверную версию
+        const server = error.body || {};
+        if (server.data?.appState) {
+          setAppState(server.data.appState);
+          if (server.updatedAt) localStorage.setItem('ff_cloud_updated_at', server.updatedAt);
+          setCloudError('Подтянули изменения с другого устройства');
+        } else {
+          setCloudError('Данные были изменены на другом устройстве — обновите страницу');
+        }
       } else {
         setCloudError(
           'Данные сохранены на устройстве, но облако временно недоступно'
@@ -228,7 +218,6 @@ useEffect(() => {
   onboarded,
   cloudReady,
 ]);
-  },[onboarded]);
   const handleOnboardingDone=data=>{
     const newState={...data,weekItems:generateAllWeeks(data.planned),streak:1,budgetStartDate:new Date().toISOString()};
     setAppState(newState);
@@ -237,7 +226,7 @@ useEffect(() => {
   // Быстрая отметка выплаты одним тапом (подсказка «зарплата не отмечена»)
   const handleQuickMark=label=>setAppState(prev=>({...prev,payments:{...prev.payments,[label]:{...(prev.payments?.[label]||{}),isDone:true}}}));
   const handleToggle=(week,itemId)=>setAppState(prev=>({...prev,weekItems:{...prev.weekItems,[week]:(prev.weekItems[week]||[]).map(i=>i.id===itemId?{...i,isDone:!i.isDone}:i)}}));
-  const handleAddTx=item=>{const week=addWeek||todayKey();const tx={...item,week,date:new Date().toISOString(),isDone:true};setAppState(prev=>({...prev,transactions:[tx,...(prev.transactions||[])],weekItems:item.type==='expense'?{...prev.weekItems,[week]:[tx,...(prev.weekItems[week]||[])]}:prev.weekItems}));setAddWeek(null);};
+  const handleAddTx=item=>{const week=addWeek||todayKey();const tx={...item,week,date:new Date().toISOString(),isDone:true};setAppState(prev=>({...prev,transactions:[tx,...(prev.transactions||[])]}));setAddWeek(null);};
   const handleEditPlanned=updated=>{setAppState(prev=>{
     const{isNew,...cleanItem}=updated;
     // Определяем новая ли категория по наличию id в текущем списке
