@@ -191,24 +191,45 @@ useEffect(() => {
 
       setCloudError(null);
     } catch (error) {
-      console.error('Cloud save failed:', error);
+  console.error('Cloud save failed:', error);
 
-      if (error.status === 409) {
-        // На другом устройстве сохранили позже — принимаем серверную версию
-        const server = error.body || {};
-        if (server.data?.appState) {
-          setAppState(server.data.appState);
-          if (server.updatedAt) localStorage.setItem('ff_cloud_updated_at', server.updatedAt);
-          setCloudError('Подтянули изменения с другого устройства');
-        } else {
-          setCloudError('Данные были изменены на другом устройстве — обновите страницу');
-        }
-      } else {
-        setCloudError(
-          'Данные сохранены на устройстве, но облако временно недоступно'
+  if (error.status === 409 && error.data?.updatedAt) {
+    try {
+      // Сервер сообщает актуальную версию.
+      // Сохраняем её и один раз повторяем запрос.
+      const freshUpdatedAt = error.data.updatedAt;
+
+      localStorage.setItem(
+        'ff_cloud_updated_at',
+        freshUpdatedAt
+      );
+
+      const retryResult = await saveCloudState(
+        cloudData,
+        freshUpdatedAt
+      );
+
+      if (retryResult?.updatedAt) {
+        localStorage.setItem(
+          'ff_cloud_updated_at',
+          retryResult.updatedAt
         );
       }
+
+      setCloudError(null);
+    } catch (retryError) {
+      console.error('Cloud retry failed:', retryError);
+
+      setCloudError(
+        'Не удалось синхронизировать данные с облаком'
+      );
     }
+  } else {
+    setCloudError(
+      'Данные сохранены на устройстве, но облако временно недоступно'
+    );
+  }
+}
   }, 1200);
 
   return () => clearTimeout(timer);
