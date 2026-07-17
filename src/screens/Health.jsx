@@ -4,7 +4,8 @@ import {C,monthlyOf,yearlyOf,fmt,uid,isoMondayOf,getISOWeek,weekKey,todayKey,par
 import {s,merge,Btn,Card,PBar,SecTitle,Modal,DayPicker,Numpad} from '../lib/ui';
 
 export function HealthScreen({state}){
-  const{incomes,planned,weekItems={},customCats=[],startBalance=0}=state;
+  const{incomes,planned,weekItems={},customCats=[],startBalance=0,extraPayments=[]}=state;
+  const extraIncomeInRange=(start,end)=>(extraPayments||[]).filter(p=>{const d=new Date(p.date);return d>=start&&d<=end;}).reduce((s,p)=>s+(p.actualAmount||p.amount),0);
   const allCats=[...DEFAULT_CATS,...customCats];
   const totalNet=incomes.reduce((s,i)=>s+calcNetFor(i),0);
   const monthlyExp=planned.reduce((s,p)=>s+monthlyOf(p),0);
@@ -157,7 +158,7 @@ export function HealthScreen({state}){
           const wk=allWeekKeys[i];
           const items=weekItems[wk]||[];
           const wkStart=weekKeyToDate(wk),wkEnd=new Date(wkStart.getTime()+6*86400000);
-          const wkInc=incomes.reduce((s,inc)=>{const yr=wkStart.getFullYear();const sch=buildPaymentSchedule(yr,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc);return s+sch.filter(p=>p.date>=wkStart&&p.date<=wkEnd).reduce((ss,p)=>ss+(p.actualAmount||p.amount),0);},0);
+          const wkInc=incomes.reduce((s,inc)=>{const yr=wkStart.getFullYear();const sch=buildPaymentSchedule(yr,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc);return s+sch.filter(p=>p.date>=wkStart&&p.date<=wkEnd).reduce((ss,p)=>ss+(p.actualAmount||p.amount),0);},0)+extraIncomeInRange(wkStart,wkEnd);
           const wkSpent=items.filter(i=>i.isDone).reduce((s,i)=>s+i.amount,0);
           const wkPlan=items.reduce((s,i)=>s+i.amount,0);
           runBal=runBal+wkInc-wkSpent;

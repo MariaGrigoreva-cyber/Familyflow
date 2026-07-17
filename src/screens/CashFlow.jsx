@@ -4,7 +4,9 @@ import {C,monthlyOf,yearlyOf,fmt,uid,isoMondayOf,getISOWeek,weekKey,todayKey,par
 import {s,merge,Btn,Card,PBar,SecTitle,Modal,DayPicker,Numpad} from '../lib/ui';
 
 export function PlanScreen({state,onToggle,onAdd,onEditTx}){
-  const{members,planned,weekItems,incomes,customCats=[],transactions=[],payments={}}=state;
+  const{members,planned,weekItems,incomes,customCats=[],transactions=[],payments={},extraPayments=[]}=state;
+  // Доп. разовые выплаты (премии, ручной доход), попавшие в диапазон дат — планово учитываются наравне с зарплатой/авансом
+  const extraIncomeInRange=(start,end)=>(extraPayments||[]).filter(p=>{const d=new Date(p.date);return d>=start&&d<=end;}).reduce((s,p)=>s+(p.actualAmount||p.amount),0);
   const curWeek=todayKey();
   const[viewMode,setViewMode]=useState('detail');
   const[week,setWeek]=useState(curWeek);
@@ -25,7 +27,8 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx}){
     return s+sch.filter(p=>p.date>=weekStart&&p.date<=weekEnd).reduce((ss,p)=>ss+(p.actualAmount||p.amount),0);
   },0);
   const weekTxIncome=(transactions||[]).filter(t=>t.week===week&&t.type==='income').reduce((s,t)=>s+t.amount,0);
-  const totalWeekIncome=weekIncome+weekTxIncome;
+  const weekExtraIncome=extraIncomeInRange(weekStart,weekEnd);
+  const totalWeekIncome=weekIncome+weekTxIncome+weekExtraIncome;
   const filtered=wItems.filter(i=>filter==='pending'?!i.isDone:filter==='done'?i.isDone:true);
   const allWeekKeys=Object.keys(weekItems).sort();
   const getWData=wk=>{
@@ -39,7 +42,8 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx}){
     const wS=weekKeyToDate(wk),wE=new Date(wS.getTime()+6*86400000);
     const wInc=incomes.reduce((s,inc)=>{const yr=wS.getFullYear();const sch=buildPaymentSchedule(yr,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc).map(p=>({...p,...(payments[p.displayLabel]||{})}));return s+sch.filter(p=>p.date>=wS&&p.date<=wE).reduce((ss,p)=>ss+(p.actualAmount||p.amount),0);},0);
     const txInc=(transactions||[]).filter(t=>t.week===wk&&t.type==='income').reduce((s,t)=>s+t.amount,0);
-    return{wk,wSp,wTot,wInc:wInc+txInc,bal:(wInc+txInc)-wTot,wPiggy};
+    const exInc=extraIncomeInRange(wS,wE);
+    return{wk,wSp,wTot,wInc:wInc+txInc+exInc,bal:(wInc+txInc+exInc)-wTot,wPiggy};
   };
   const weeksSummary=allWeekKeys.map(getWData);
   const monthsSummary=()=>{const map={};allWeekKeys.forEach(wk=>{const wS=weekKeyToDate(wk);const mk=monthKey(wS);if(!map[mk])map[mk]={mk,wTot:0,wSp:0,wInc:0};const d=getWData(wk);map[mk].wTot+=d.wTot;map[mk].wSp+=d.wSp;map[mk].wInc+=d.wInc;});return Object.values(map).sort((a,b)=>a.mk.localeCompare(b.mk));};

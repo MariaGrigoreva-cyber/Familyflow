@@ -367,6 +367,9 @@ useEffect(() => {
     };
     setAppState(prev=>({...prev,extraPayments:[...prev.extraPayments,ep]}));
   };
+  const handleDeleteExtra=(id)=>{
+    setAppState(prev=>({...prev,extraPayments:prev.extraPayments.filter(ep=>ep.id!==id)}));
+  };
   const handleAddIncomeSource=(memberId)=>{
     const ni={id:uid(),memberId,name:'',gross:'',salaryDays:[],advanceDays:[],advancePct:'40',advanceMode:'pct'};
     setAppState(prev=>({...prev,incomes:[...prev.incomes,ni]}));
@@ -511,7 +514,7 @@ useEffect(() => {
       <TabBar active={tab} onPress={setTab}/>
       <AddTxModal visible={showAdd} onClose={()=>setShowAdd(false)} onSave={handleAddTx} members={appState.members} planned={appState.planned} customCats={appState.customCats}/>
       <EditCatModal visible={showEdit} item={editItem} members={appState.members} customCats={appState.customCats} onClose={()=>{setShowEdit(false);setEditItem(null);}} onSave={item=>{const{isNew,...rest}=item||{};handleEditPlanned(isNew?{...rest,isNew:true}:rest);}} onDelete={handleDeletePlanned}/>
-      <EditPaymentModal visible={showEditPay} payment={editPayment} onClose={()=>{setShowEditPay(false);setEditPayment(null);}} onSave={handleSavePayment}/>
+      <EditPaymentModal visible={showEditPay} payment={editPayment} onClose={()=>{setShowEditPay(false);setEditPayment(null);}} onSave={handleSavePayment} onDelete={handleDeleteExtra}/>
       <AddExtraModal visible={showAddExtra} onClose={()=>setShowAddExtra(false)} onSave={handleAddExtra} members={appState.members} incomes={appState.incomes}/>
       <EditTxModal visible={showEditTx} item={editTxItem} members={appState.members} customCats={appState.customCats}
         onClose={()=>{setShowEditTx(false);setEditTxItem(null);}}

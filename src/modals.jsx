@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import {C,fmt,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from './lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Modal,DayPicker,Numpad} from './lib/ui';
 
-export function EditPaymentModal({visible,payment,onClose,onSave}){
+export function EditPaymentModal({visible,payment,onClose,onSave,onDelete}){
   const[actual,setActual]=useState('');
   const[done,setDone]=useState(false);
   const[note,setNote]=useState('');
@@ -36,6 +36,11 @@ export function EditPaymentModal({visible,payment,onClose,onSave}){
         <div style={{fontSize:10,color:C.muted,textTransform:'uppercase',letterSpacing:.5,marginBottom:6}}>Комментарий</div>
         <textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="Например: премия включена" rows={2} style={{...s.input,marginBottom:16,resize:'none'}}/>
         <Btn label="Сохранить" onClick={()=>{onSave({...payment,actualAmount:parseInt(actual)||payment.amount,isDone:done,note2:note});onClose();}}/>
+        {payment.isExtra&&onDelete&&(
+          <button onClick={()=>{if(confirm('Удалить эту выплату?')){onDelete(payment.id);onClose();}}} style={{width:'100%',padding:11,marginTop:8,borderRadius:10,border:'none',background:'none',color:C.red,fontSize:13,fontWeight:500,cursor:'pointer',fontFamily:'inherit'}}>
+            Удалить выплату
+          </button>
+        )}
       </div>
     </Modal>
   );

@@ -4,7 +4,7 @@ import {C,monthlyOf,yearlyOf,fmt,uid,isoMondayOf,getISOWeek,weekKey,todayKey,par
 import {s,merge,Btn,Card,PBar,SecTitle,Modal,DayPicker,Numpad} from '../lib/ui';
 
 export function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx,onQuickMark,tourStep}){
-  const{members,incomes,planned,weekItems,startBalance=0,payments={},customCats=[],transactions=[],budgetStartDate}=state;
+  const{members,incomes,planned,weekItems,startBalance=0,payments={},customCats=[],transactions=[],budgetStartDate,extraPayments=[]}=state;
   const week=todayKey();
   const wItems=weekItems[week]||[];
   const totalNet=incomes.reduce((s,i)=>s+calcNetFor(i),0);
@@ -23,11 +23,16 @@ export function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx,onQuick
   const pct=wPlan>0?Math.round(spent/wPlan*100):0;
   const upcoming=wItems.filter(i=>!i.isDone).slice(0,4);
   const now=new Date(); now.setHours(0,0,0,0); // начало дня чтобы сегодняшние выплаты не пропадали
-  const allUpcomingPay=incomes.flatMap(inc=>{
+  const scheduledUpcoming=incomes.flatMap(inc=>{
     const m=members.find(x=>x.id===inc.memberId);
     return buildPaymentSchedule(year,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc)
       .map(p=>({...p,memberName:m?.name||'',...(payments[p.displayLabel]||{})}));
-  }).filter(p=>p.date>=now).sort((a,b)=>a.date-b.date).slice(0,3);
+  }).filter(p=>p.date>=now);
+  const extraUpcomingToday=(extraPayments||[]).filter(p=>new Date(p.date)>=now).map(p=>{
+    const m=members.find(x=>x.id===p.memberId);
+    return{...p,date:new Date(p.date),memberName:m?.name||''};
+  });
+  const allUpcomingPay=[...scheduledUpcoming,...extraUpcomingToday].sort((a,b)=>a.date-b.date).slice(0,3);
   // Здоровье для главного экрана
   const mExp=planned.reduce((s,p)=>s+monthlyOf(p),0);
   const piggyM=planned.filter(p=>p.catId==='piggy').reduce((s,p)=>s+monthlyOf(p),0);
