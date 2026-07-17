@@ -6,13 +6,16 @@ import {s,merge,Btn,Card,PBar,SecTitle,Modal,DayPicker,Numpad} from '../lib/ui';
 function PigIcon({size=48,color='#fff'}){
   return(
     <svg width={size} height={size} viewBox="0 0 100 100" fill="none">
-      <ellipse cx="50" cy="58" rx="38" ry="28" fill={color}/>
-      <circle cx="76" cy="42" r="10" fill={color}/>
-      <rect x="44" y="26" width="12" height="4" rx="2" fill={color}/>
-      <circle cx="30" cy="55" r="4" fill="#E0522A"/>
-      <rect x="20" y="80" width="8" height="12" rx="3" fill={color}/>
-      <rect x="66" y="80" width="8" height="12" rx="3" fill={color}/>
-      <rect x="44" y="40" width="14" height="4" rx="2" fill="#E0522A"/>
+      <ellipse cx="46" cy="56" rx="34" ry="26" fill={color}/>
+      <circle cx="20" cy="40" r="9" fill={color}/>
+      <circle cx="76" cy="50" r="13" fill={color}/>
+      <circle cx="71" cy="48" r="2" fill="#E0522A"/>
+      <circle cx="81" cy="48" r="2" fill="#E0522A"/>
+      <circle cx="32" cy="48" r="3.5" fill="#E0522A"/>
+      <rect x="40" y="30" width="14" height="5" rx="2.5" fill="#E0522A"/>
+      <rect x="22" y="78" width="9" height="13" rx="4" fill={color}/>
+      <rect x="60" y="78" width="9" height="13" rx="4" fill={color}/>
+      <circle cx="12" cy="60" r="5" fill={color}/>
     </svg>
   );
 }
@@ -145,27 +148,30 @@ export function Onboarding({onDone}){
             <div key={i} style={{flex:1,height:3,borderRadius:2,background:i<=introPage?'#fff':'rgba(255,255,255,0.25)'}}/>
           ))}
         </div>
-        <div style={{position:'absolute',top:0,left:0,width:'40%',height:'100%',zIndex:2}} onClick={retreat}/>
-        <div style={{position:'absolute',top:0,right:0,width:'60%',height:'100%',zIndex:2}} onClick={isLast?undefined:advance}/>
+        {!isLast&&<>
+          <div style={{position:'absolute',top:0,left:0,width:'40%',height:'100%',zIndex:2}} onClick={retreat}/>
+          <div style={{position:'absolute',top:0,right:0,width:'60%',height:'100%',zIndex:2}} onClick={advance}/>
+        </>}
         {!isLast?(
           <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',textAlign:'center',position:'relative',zIndex:1}}>
-            <span style={{fontSize:80}}>{FRAMES[introPage].icon}</span>
-            <div style={{fontSize:30,fontWeight:800,color:'#fff',lineHeight:1.25,marginTop:22,whiteSpace:'pre-line'}}>{FRAMES[introPage].title}</div>
-            <div style={{fontSize:14,color:'rgba(255,255,255,0.55)',marginTop:14,maxWidth:260,lineHeight:1.5}}>{FRAMES[introPage].sub}</div>
+            <span style={{fontSize:96}}>{FRAMES[introPage].icon}</span>
+            <div style={{fontSize:34,fontWeight:800,color:'#fff',lineHeight:1.2,marginTop:26,whiteSpace:'pre-line'}}>{FRAMES[introPage].title}</div>
+            <div style={{fontSize:16,color:'rgba(255,255,255,0.55)',marginTop:16,maxWidth:260,lineHeight:1.5}}>{FRAMES[introPage].sub}</div>
           </div>
         ):(
-          <div style={{flex:1,display:'flex',flexDirection:'column',position:'relative',zIndex:1}}>
-            <div style={{fontSize:24,fontWeight:800,color:'#fff',textAlign:'center',marginBottom:20}}>Три потока</div>
-            <div style={{display:'flex',flexDirection:'column',gap:10}}>
+          <div style={{flex:1,display:'flex',flexDirection:'column'}}>
+            {introPage>0&&<button onClick={retreat} style={{alignSelf:'flex-start',background:'none',border:'none',cursor:'pointer',fontSize:13,color:'rgba(255,255,255,0.4)',fontFamily:'inherit',padding:0,marginBottom:14}}>← Назад</button>}
+            <div style={{fontSize:28,fontWeight:800,color:'#fff',textAlign:'center',marginBottom:24}}>Три потока</div>
+            <div style={{display:'flex',flexDirection:'column',gap:12}}>
               {STREAMS.map((b,i)=>(
-                <div key={i} style={{background:b.bg,borderRadius:14,padding:16,display:'flex',alignItems:'center',gap:14}}>
-                  <span style={{fontSize:28}}>{b.e}</span>
-                  <div style={{flex:1}}><div style={{fontSize:16,fontWeight:700,color:b.col}}>{b.t}</div><div style={{fontSize:11,color:b.col,opacity:.75,marginTop:1}}>{b.s}</div></div>
-                  <span style={{fontSize:16,fontWeight:700,color:b.col}}>{b.pct}</span>
+                <div key={i} style={{background:b.bg,borderRadius:16,padding:20,display:'flex',alignItems:'center',gap:16}}>
+                  <span style={{fontSize:40}}>{b.e}</span>
+                  <div style={{flex:1}}><div style={{fontSize:19,fontWeight:700,color:b.col}}>{b.t}</div><div style={{fontSize:13,color:b.col,opacity:.75,marginTop:2}}>{b.s}</div></div>
+                  <span style={{fontSize:20,fontWeight:700,color:b.col}}>{b.pct}</span>
                 </div>
               ))}
             </div>
-            <div style={{marginTop:'auto',position:'relative',zIndex:5}}><Btn label="Настроить бюджет →" onClick={goNext}/></div>
+            <div style={{marginTop:'auto',paddingTop:26}}><Btn label="Настроить бюджет →" onClick={goNext}/></div>
           </div>
         )}
       </div>
