@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {C,uid,weekKey,todayKey,calcAvgMonthlyNet,calcNetFor,generateAllWeeks,regenWeeksKeepDone,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED,computeBalances} from './lib/core';
-import {ConsentScreen,Onboarding} from './screens/Onboarding';
+import {SplashScreen,EntryScreen,Onboarding} from './screens/Onboarding';
 import {TodayScreen} from './screens/Today';
 import {PlanScreen} from './screens/CashFlow';
 import {BudgetScreen} from './screens/Budget';
@@ -12,6 +12,7 @@ import {
   loadCloudState,
   saveCloudState,
   login,
+  register,
   errText,
   resetRequest,
   resetConfirm,
@@ -44,7 +45,7 @@ export default function App(){
   const[onboarded,setOnboardedRaw]=useState(()=>savedState?.onboarded||false);
   const[tab,setTab]=useState('today');
   const[tourStep,setTourStep]=useState(-1); // -1 = тур выключен
-  const[showStartChoice,setShowStartChoice]=useState(true); // экран выбора демо/настройка
+  const[showSplash,setShowSplash]=useState(true); // загрузочный экран при старте приложения
   const[startLogin,setStartLogin]=useState(false); // форма входа на стартовом экране
   const[showAdd,setShowAdd]=useState(false);
   const[addWeek,setAddWeek]=useState(null); // неделя для добавления транзакции
@@ -70,6 +71,7 @@ export default function App(){
   const [cloudReady, setCloudReady] = useState(false);
 const [cloudError, setCloudError] = useState(null);
 const cloudSaveBusyRef = useRef(false);
+  useEffect(()=>{const t=setTimeout(()=>setShowSplash(false),1300);return()=>clearTimeout(t);},[]);
 const skipNextCloudSaveRef = useRef(false);
 const appStateRef = useRef(null); // после принятия серверной версии не шлём её эхом обратно
 const cloudSaveAgainRef = useRef(false);
@@ -443,7 +445,7 @@ useEffect(() => {
   };
   const TAB_TITLES={today:'Сегодня',plan:'Денежный поток',budget:'Годовой бюджет',health:'Здоровье бюджета',settings:'Настройки'};
   const shell={maxWidth:480,margin:'0 auto',minHeight:'100dvh',background:'#F8FAFC',display:'flex',flexDirection:'column',boxShadow:'0 0 40px rgba(0,0,0,0.12)',fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',position:'relative'};
-  if(!consented)return<div style={shell}><ConsentScreen onAccept={()=>setConsented(true)}/></div>;
+  if(showSplash)return<div style={shell}><SplashScreen/></div>;
   const startDemo=()=>{
     const demo=buildDemoState();
     setAppState(demo);
@@ -461,43 +463,19 @@ useEffect(() => {
     setOnboardedRaw(false);
     try{localStorage.setItem('ff_state',JSON.stringify({consented:true,onboarded:false}));}catch{}
   };
+  if(!consented)return(
+    <div style={shell}>
+      <EntryScreen
+        onDemo={()=>{setConsented(true);startDemo();}}
+        onSetup={()=>setConsented(true)}
+        onLoginClick={()=>setStartLogin(true)}
+      />
+      {startLogin&&<StartLoginForm onClose={()=>setStartLogin(false)}/>}
+    </div>
+  );
   if(!onboarded)return(
     <div style={shell}>
-      {showStartChoice
-        ?<div style={{minHeight:'100dvh',background:C.dark,display:'flex',flexDirection:'column',justifyContent:'center',padding:'32px 24px',boxSizing:'border-box'}}>
-          <div style={{textAlign:'center',marginBottom:28}}>
-            <div style={{width:72,height:72,borderRadius:24,background:C.orange,display:'flex',alignItems:'center',justifyContent:'center',fontSize:36,margin:'0 auto 16px',boxShadow:'0 0 40px rgba(224,58,34,0.35)'}}>💰</div>
-            <div style={{fontSize:24,fontWeight:800,color:'#fff',marginBottom:6}}>FamilyFlow</div>
-            <div style={{fontSize:13,color:'rgba(255,255,255,0.45)'}}>Как хотите начать?</div>
-          </div>
-          <button onClick={()=>{setShowStartChoice(false);startDemo();}}
-            style={{width:'100%',background:'rgba(224,58,34,0.12)',border:'2px solid rgba(224,58,34,0.5)',borderRadius:14,padding:'15px 16px',marginBottom:10,cursor:'pointer',textAlign:'left',display:'flex',gap:13,alignItems:'center',fontFamily:'inherit'}}>
-            <span style={{fontSize:26,flexShrink:0}}>▶️</span>
-            <div>
-              <div style={{fontSize:15,fontWeight:700,color:'#fff'}}>Посмотреть на демо-данных</div>
-              <div style={{fontSize:12,color:'rgba(255,255,255,0.45)',marginTop:2}}>семья Ивановых · 30 секунд</div>
-            </div>
-          </button>
-          <button onClick={()=>setShowStartChoice(false)}
-            style={{width:'100%',background:'rgba(255,255,255,0.05)',border:'.5px solid rgba(255,255,255,0.12)',borderRadius:14,padding:'15px 16px',cursor:'pointer',textAlign:'left',display:'flex',gap:13,alignItems:'center',fontFamily:'inherit'}}>
-            <span style={{fontSize:26,flexShrink:0}}>⚙️</span>
-            <div>
-              <div style={{fontSize:15,fontWeight:700,color:'#fff'}}>Настроить свой бюджет</div>
-              <div style={{fontSize:12,color:'rgba(255,255,255,0.45)',marginTop:2}}>5 минут · доход, платежи, категории</div>
-            </div>
-          </button>
-          <button onClick={()=>setStartLogin(true)}
-            style={{width:'100%',background:'transparent',border:'.5px solid rgba(255,255,255,0.12)',borderRadius:14,padding:'13px 16px',marginTop:8,cursor:'pointer',textAlign:'left',display:'flex',gap:13,alignItems:'center',fontFamily:'inherit'}}>
-            <span style={{fontSize:24,flexShrink:0}}>🔑</span>
-            <div>
-              <div style={{fontSize:15,fontWeight:700,color:'#fff'}}>У меня уже есть аккаунт</div>
-              <div style={{fontSize:12,color:'rgba(255,255,255,0.45)',marginTop:2}}>войти — бюджет подтянется из облака</div>
-            </div>
-          </button>
-          {startLogin&&<StartLoginForm onClose={()=>setStartLogin(false)}/>}
-          <div style={{fontSize:11,color:'rgba(255,255,255,0.25)',textAlign:'center',marginTop:16}}>Данные не покидают ваше устройство</div>
-        </div>
-        :<Onboarding onDone={handleOnboardingDone}/>}
+      <Onboarding onDone={handleOnboardingDone}/>
     </div>
   );
   return(
@@ -584,6 +562,7 @@ useEffect(() => {
 
 // ── Вход с стартового экрана: после успеха облако подтянет бюджет и флаги ──
 function StartLoginForm({onClose}){
+  const[mode,setMode]=useState('login'); // login | register
   const[email,setEmail]=useState('');
   const[pass,setPass]=useState('');
   const[busy,setBusy]=useState(false);
@@ -593,7 +572,8 @@ function StartLoginForm({onClose}){
   const submit=async()=>{
     setErr('');setBusy(true);
     try{
-      await login(email.trim(),pass);
+      if(mode==='register')await register(email.trim(),pass,undefined);
+      else await login(email.trim(),pass);
       window.location.reload(); // loadCloud восстановит бюджет и пропустит онбординг
     }catch(e){setErr(errText(e));setBusy(false);}
   };
@@ -614,8 +594,14 @@ function StartLoginForm({onClose}){
     <div style={{position:'fixed',inset:0,zIndex:300,background:'rgba(10,14,26,0.7)',display:'flex',alignItems:'center',justifyContent:'center',padding:20}} onClick={onClose}>
       <div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:360,background:'#1a1a2e',border:'.5px solid rgba(255,255,255,0.12)',borderRadius:16,padding:20,boxSizing:'border-box'}}>
         <div style={{fontSize:17,fontWeight:700,color:'#fff',marginBottom:4}}>
-          {step==='login'?'Вход в аккаунт':'Восстановление пароля'}
+          {step==='login'?(mode==='register'?'Создать аккаунт':'Вход в аккаунт'):'Восстановление пароля'}
         </div>
+        {step==='login'&&<div style={{display:'flex',gap:6,marginTop:10,marginBottom:2}}>
+          {[['login','Вход'],['register','Регистрация']].map(([id,l])=>(
+            <button key={id} onClick={()=>{setMode(id);setErr('');}}
+              style={{flex:1,padding:'7px 0',borderRadius:9,border:`.5px solid ${mode===id?'#E0522A':'rgba(255,255,255,0.15)'}`,background:mode===id?'rgba(224,82,42,0.15)':'transparent',color:mode===id?'#F0997B':'rgba(255,255,255,0.5)',fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>{l}</button>
+          ))}
+        </div>}
         {step==='reset2'&&<div style={{fontSize:12,color:'rgba(255,255,255,0.5)',marginBottom:8,lineHeight:'17px'}}>
           Если аккаунт существует — на {email} пришло письмо с кодом (действует 15 минут).
         </div>}
@@ -630,11 +616,11 @@ function StartLoginForm({onClose}){
         {err&&<div style={{fontSize:12,color:'#f87171',marginBottom:10}}>{err}</div>}
         {step==='login'&&<>
           <button onClick={submit} disabled={busy}
-            style={{width:'100%',padding:13,borderRadius:12,border:'none',background:busy?'rgba(255,255,255,0.2)':'#E03A22',color:'#fff',fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>
-            {busy?'Секунду…':'Войти'}
+            style={{width:'100%',padding:13,borderRadius:12,border:'none',background:busy?'rgba(255,255,255,0.2)':'#E0522A',color:'#fff',fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>
+            {busy?'Секунду…':mode==='register'?'Создать аккаунт':'Войти'}
           </button>
-          <button onClick={()=>{setErr('');setPass('');setStep('reset1');}}
-            style={{width:'100%',padding:9,marginTop:6,background:'none',border:'none',fontSize:12,color:'#60a5fa',cursor:'pointer',fontFamily:'inherit'}}>Забыли пароль?</button>
+          {mode==='login'&&<button onClick={()=>{setErr('');setPass('');setStep('reset1');}}
+            style={{width:'100%',padding:9,marginTop:6,background:'none',border:'none',fontSize:12,color:'#60a5fa',cursor:'pointer',fontFamily:'inherit'}}>Забыли пароль?</button>}
         </>}
         {step==='reset1'&&<button onClick={askCode} disabled={busy}
           style={{width:'100%',padding:13,borderRadius:12,border:'none',background:busy?'rgba(255,255,255,0.2)':'#60a5fa',color:'#fff',fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>
