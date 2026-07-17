@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import {C,monthlyOf,yearlyOf,fmt,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Modal,DayPicker,Numpad} from '../lib/ui';
 
-export function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx,onQuickMark,tourStep}){
+export function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx,onQuickMark,onWithdrawPiggy,tourStep}){
   const{members,incomes,planned,weekItems,startBalance=0,payments={},customCats=[],transactions=[],budgetStartDate,extraPayments=[]}=state;
   const week=todayKey();
   const wItems=weekItems[week]||[];
@@ -130,7 +130,10 @@ export function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx,onQuick
             <span style={{fontSize:14,fontWeight:600,color:'#86efac',marginLeft:'auto',whiteSpace:'nowrap'}}>+{fmt(totalSaved)}</span>
           </button>
           {showPiggyInfo&&<div style={{background:'rgba(255,255,255,0.06)',borderRadius:8,padding:'8px 11px',marginTop:5}}>
-            <div style={{fontSize:11,color:'rgba(255,255,255,0.55)',lineHeight:'17px'}}>Эти деньги переведены на отдельный накопительный счёт. Они не входят в «остаток на руках», потому что тратить их нельзя — это ваш резерв.</div>
+            <div style={{fontSize:11,color:'rgba(255,255,255,0.55)',lineHeight:'17px',marginBottom:8}}>Эти деньги переведены на отдельный накопительный счёт. Они не входят в «остаток на руках», потому что тратить их нельзя — это ваш резерв.</div>
+            {onWithdrawPiggy&&<button onClick={onWithdrawPiggy} style={{width:'100%',padding:9,borderRadius:8,border:'0.5px solid rgba(134,239,172,0.4)',background:'rgba(134,239,172,0.12)',color:'#86efac',fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>
+              🐷 Снять с копилки и потратить
+            </button>}
           </div>}
         </div>}
       </div>

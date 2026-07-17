@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import {C,monthlyOf,yearlyOf,fmt,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Modal,DayPicker,Numpad} from '../lib/ui';
 
-export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onAddExtra}){
+export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onAddExtra,onWithdrawPiggy}){
   const[showVacPlanner,setShowVacPlanner]=useState(false);
   const[vacStart,setVacStart]=useState('');
   // сброс статуса при смене параметров
@@ -46,13 +46,27 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
       <div style={s.hero}>
         <div style={{fontSize:11,color:'rgba(255,255,255,0.45)',marginBottom:4}}>Расходы · {budgetStart.toLocaleDateString('ru',{day:'numeric',month:'short'})} – {budgetEnd.toLocaleDateString('ru',{day:'numeric',month:'short',year:'numeric'})}</div>
         <div style={{fontSize:24,fontWeight:600}}>{fmt(totalYearlyExp)}</div>
-        <div style={{fontSize:11,color:'rgba(255,255,255,0.4)',marginTop:2}}>Плановый доход: {fmt(plannedYearlyIncome)}{(txExtraIncome+extraYearlyIncome)>0?` + доп. ${fmt(txExtraIncome+extraYearlyIncome)}`:''}</div>
+        <div style={{fontSize:11,color:'rgba(255,255,255,0.4)',marginTop:2}}>Плановый доход: {fmt(totalYearlyIncome)}</div>
         <PBar pct={totalYearlyIncome>0?(totalYearlyExp/totalYearlyIncome)*100:0} color={profit>=0?'#4ade80':'#f87171'} h={4}/>
       </div>
       <div style={{display:'flex',gap:6,marginBottom:10}}>
         <div style={{...s.card,flex:1,background:profit>=0?C.greenL:C.redL,border:`.5px solid ${profit>=0?C.greenB:C.redB}`,marginBottom:0}}><div style={{fontSize:12,color:profit>=0?C.green:C.red,marginBottom:2}}>{profit>=0?'Профицит / год':'Дефицит / год'}</div><div style={{fontSize:14,fontWeight:600,color:profit>=0?C.green:C.red}}>{profit>=0?'+':''}{fmt(profit)}</div></div>
         <div style={{...s.card,flex:1,background:C.blueL,border:`.5px solid ${C.blueB}`,marginBottom:0}}><div style={{fontSize:9,color:C.blue,marginBottom:2}}>Накопления</div><div style={{fontSize:14,fontWeight:600,color:C.blue}}>{fmt(Math.max(profit,0))}</div></div>
       </div>
+      {(()=>{
+        const{totalSaved}=computeBalances(state);
+        if(totalSaved<=0)return null;
+        return(
+          <button onClick={onWithdrawPiggy} style={{...s.card,display:'flex',alignItems:'center',gap:9,width:'100%',textAlign:'left',cursor:'pointer',background:C.greenL,border:`.5px solid ${C.greenB}`,fontFamily:'inherit',marginBottom:10,boxSizing:'border-box'}}>
+            <span style={{fontSize:18}}>🐷</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:12,fontWeight:600,color:C.green}}>В копилке {fmt(totalSaved)}</div>
+              <div style={{fontSize:10,color:C.green,opacity:.8}}>Нажмите, чтобы снять и потратить</div>
+            </div>
+            <span style={{fontSize:14,color:C.green}}>›</span>
+          </button>
+        );
+      })()}
       {txExtraIncome>0&&(
         <div style={{...s.card,background:C.greenL,border:`.5px solid ${C.greenB}`,marginBottom:10}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}><span style={{fontSize:11,fontWeight:700,color:C.green}}>💰 Доп. доходы (факт)</span><span style={{fontSize:14,fontWeight:700,color:C.green}}>+{fmt(txExtraIncome)}</span></div>

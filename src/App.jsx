@@ -6,7 +6,7 @@ import {PlanScreen} from './screens/CashFlow';
 import {BudgetScreen} from './screens/Budget';
 import {HealthScreen} from './screens/Health';
 import {SettingsScreen} from './screens/Settings';
-import {EditPaymentModal,AddExtraModal,AddTxModal,EditCatModal,EditTxModal,EditIncomeModal,TabBar} from './modals';
+import {EditPaymentModal,AddExtraModal,AddTxModal,EditCatModal,EditTxModal,EditIncomeModal,WithdrawPiggyModal,TabBar} from './modals';
 import {
   isLoggedIn,
   loadCloudState,
@@ -53,6 +53,7 @@ export default function App(){
   const[showEditPay,setShowEditPay]=useState(false);
   const[editPayment,setEditPayment]=useState(null);
   const[showAddExtra,setShowAddExtra]=useState(false);
+  const[showWithdrawPiggy,setShowWithdrawPiggy]=useState(false);
   const[showEditIncome,setShowEditIncome]=useState(false);
   const[showEditTx,setShowEditTx]=useState(false);
   const[editTxItem,setEditTxItem]=useState(null);
@@ -371,6 +372,14 @@ useEffect(() => {
     };
     setAppState(prev=>({...prev,extraPayments:[...prev.extraPayments,ep]}));
   };
+  const handleWithdrawPiggy=({amount,catId,name,memberId})=>{
+    const n=parseInt(amount)||0;
+    if(!n)return;
+    const wk=todayKey();
+    const withdrawTx={id:uid(),week:wk,type:'expense',catId:'piggy',amount:-n,name:'Снятие с копилки',memberId,date:new Date().toISOString(),isDone:true};
+    const spendTx={id:uid(),week:wk,type:'expense',catId:catId||'other',name:name||'Покупка из копилки',amount:n,memberId,date:new Date().toISOString(),isDone:true};
+    setAppState(prev=>({...prev,transactions:[spendTx,withdrawTx,...(prev.transactions||[])]}));
+  };
   const handleDeleteExtra=(id)=>{
     setAppState(prev=>({...prev,extraPayments:prev.extraPayments.filter(ep=>ep.id!==id)}));
   };
@@ -509,9 +518,9 @@ useEffect(() => {
         )}
       </div>
       <div style={{flex:1,display:'flex',flexDirection:'column'}}>
-        {tab==='today'&&<TodayScreen state={appState} onToggle={handleToggle} onAdd={()=>setShowAdd(true)} onEditPayment={handleEditPayment} onEditTx={handleEditTx} onQuickMark={handleQuickMark} tourStep={tourStep}/>}
+        {tab==='today'&&<TodayScreen state={appState} onToggle={handleToggle} onAdd={()=>setShowAdd(true)} onEditPayment={handleEditPayment} onEditTx={handleEditTx} onQuickMark={handleQuickMark} onWithdrawPiggy={()=>setShowWithdrawPiggy(true)} tourStep={tourStep}/>}
         {tab==='plan'&&<PlanScreen state={appState} onToggle={handleToggle} onAdd={(wk)=>{setAddWeek(wk);setShowAdd(true);}} onEditTx={handleEditTx}/>}
-        {tab==='budget'&&<BudgetScreen state={appState} onEditPlanned={item=>{setEditItem(item);setShowEdit(true);}} onAddPlanned={handleAddPlanned} onEditPayment={handleEditPayment} onAddExtra={(data)=>{if(data&&data.amount){handleAddExtra(data);}else{setShowAddExtra(true);}}}/>}
+        {tab==='budget'&&<BudgetScreen state={appState} onEditPlanned={item=>{setEditItem(item);setShowEdit(true);}} onAddPlanned={handleAddPlanned} onEditPayment={handleEditPayment} onAddExtra={(data)=>{if(data&&data.amount){handleAddExtra(data);}else{setShowAddExtra(true);}}} onWithdrawPiggy={()=>setShowWithdrawPiggy(true)}/>}
         {tab==='health'&&<HealthScreen state={appState}/>}
         {tab==='settings'&&<SettingsScreen state={appState} onEditCat={item=>{const{isNew,...rest}=item||{};setEditItem(rest);setShowEdit(true);}} onAddCat={handleAddPlanned} onEditIncome={handleEditIncome} onAddIncome={handleAddIncomeSource}/>}
       </div>
@@ -520,6 +529,7 @@ useEffect(() => {
       <EditCatModal visible={showEdit} item={editItem} members={appState.members} customCats={appState.customCats} onClose={()=>{setShowEdit(false);setEditItem(null);}} onSave={item=>{const{isNew,...rest}=item||{};handleEditPlanned(isNew?{...rest,isNew:true}:rest);}} onDelete={handleDeletePlanned}/>
       <EditPaymentModal visible={showEditPay} payment={editPayment} onClose={()=>{setShowEditPay(false);setEditPayment(null);}} onSave={handleSavePayment} onDelete={handleDeleteExtra}/>
       <AddExtraModal visible={showAddExtra} onClose={()=>setShowAddExtra(false)} onSave={handleAddExtra} members={appState.members} incomes={appState.incomes}/>
+      <WithdrawPiggyModal visible={showWithdrawPiggy} onClose={()=>setShowWithdrawPiggy(false)} onSave={handleWithdrawPiggy} members={appState.members} customCats={appState.customCats} available={computeBalances(appState).totalSaved}/>
       <EditTxModal visible={showEditTx} item={editTxItem} members={appState.members} customCats={appState.customCats}
         onClose={()=>{setShowEditTx(false);setEditTxItem(null);}}
         onSave={handleSaveTx} onDelete={id=>{handleDeleteTx(id);setShowEditTx(false);setEditTxItem(null);}}/>
