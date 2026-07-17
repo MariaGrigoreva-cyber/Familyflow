@@ -28,10 +28,36 @@ export function HealthScreen({state}){
   },0)+Object.entries(txPiggyMap).filter(([wk])=>!weekItems[wk]).reduce((s,[,v])=>s+v,0);
   const cushion=piggyActual>0?piggyActual:Math.round(piggyMonthly/4.3*4);
   const isDeficit=monthlyExp>totalNet; // годовой дефицит
+  // Прогноз кассовых разрывов на ближайшие недели: считаем накопительный баланс вперёд
+  // и сравниваем с планом следующей недели — если баланс покрывает меньше половины плана, неделя "рискованная"
+  const projectedRiskyWeeks=(()=>{
+    const allWeekKeys=Object.keys(weekItems).sort();
+    const risky=[];
+    let runBal=computeBalances(state).savingStart;
+    for(let i=0;i<Math.min(allWeekKeys.length-1,12);i++){
+      const wk=allWeekKeys[i];
+      const items=weekItems[wk]||[];
+      const wkStart=weekKeyToDate(wk),wkEnd=new Date(wkStart.getTime()+6*86400000);
+      const wkInc=incomes.reduce((s,inc)=>{const yr=wkStart.getFullYear();const sch=buildPaymentSchedule(yr,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc);return s+sch.filter(p=>p.date>=wkStart&&p.date<=wkEnd).reduce((ss,p)=>ss+(p.actualAmount||p.amount),0);},0)+extraIncomeInRange(wkStart,wkEnd);
+      const wkSpent=items.filter(x=>x.isDone).reduce((s,x)=>s+x.amount,0);
+      runBal=runBal+wkInc-wkSpent;
+      const nextWk=allWeekKeys[i+1];
+      const nextItems=weekItems[nextWk]||[];
+      const nextPlan=nextItems.reduce((s,x)=>s+x.amount,0);
+      if(nextPlan>0&&runBal<nextPlan*0.5){
+        risky.push({wk,runBal,nextWk,nextPlan,pct:Math.round(runBal/nextPlan*100)});
+      }
+    }
+    return risky;
+  })();
+  const hasCashGapDeficit=projectedRiskyWeeks.some(r=>r.pct<=0);
+  // Расходы % от дохода — теперь чисто информационная строка (см. ниже), не даёт очков.
+  // Прогноз кассовых разрывов заменил и её, и старый критерий "копилка в месяцах расходов",
+  // объединив их вес (30+20) в одну более точную forward-looking метрику
+  const cashGapScore=projectedRiskyWeeks.length===0?50:hasCashGapDeficit?0:25;
   const healthScore=Math.max(0,Math.min(100,
     (isDeficit?0:savingsRate>=20?30:savingsRate>=10?15:0)+
-    (monthlyExp<=totalNet*.7?30:monthlyExp<=totalNet*.9?15:isDeficit?0:0)+
-    (cushion>=monthlyExp*3?20:cushion>=monthlyExp?10:0)+
+    cashGapScore+
     (freeCash>0&&!isDeficit?20:0)
   ));
   const healthColor=healthScore>=80?C.green:healthScore>=60?'#CA8A04':healthScore>=40?C.orange:C.red;
@@ -60,8 +86,7 @@ export function HealthScreen({state}){
           <div style={{fontSize:10,color:'rgba(255,255,255,0.3)',letterSpacing:.5,marginBottom:8}}>КАК СЧИТАЕТСЯ БАЛЛ</div>
           {[
             [savingsRate>=20?C.green:savingsRate>=10?C.yellow:C.red, `Норма сбережений ${savingsRate}%`, savingsRate>=20?30:15, 30],
-            [monthlyExp<=totalNet*.7?C.green:monthlyExp<=totalNet*.9?C.yellow:C.red, `Расходы ${totalNet>0?Math.round(monthlyExp/totalNet*100):0}% от дохода`, monthlyExp<=totalNet*.7?30:15, 30],
-            [cushion>=monthlyExp*3?C.green:cushion>=monthlyExp?C.yellow:C.red, `Копилка: ${monthlyExp>0?Math.round(cushion/monthlyExp*10)/10:0} мес расходов`, cushion>=monthlyExp*3?20:cushion>=monthlyExp?10:0, 20],
+            [projectedRiskyWeeks.length===0?C.green:hasCashGapDeficit?C.red:C.yellow, projectedRiskyWeeks.length===0?'Кассовых разрывов не прогнозируется':`Риск разрыва — ${projectedRiskyWeeks.length} нед. вперёд`, cashGapScore, 50],
             [freeCash>0?C.green:C.red, freeCash>0?'Есть свободные средства':'Нет свободных средств', freeCash>0?20:0, 20],
           ].map(([col,label,got,max],i)=>(
             <div key={i} style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
@@ -72,9 +97,17 @@ export function HealthScreen({state}){
               <span style={{fontSize:11,fontWeight:600,color:col}}>{got}/{max}</span>
             </div>
           ))}
+          {/* Расходы % от дохода — справочная строка, в балл не входит */}
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6,opacity:.6}}>
+            <div style={{width:18,height:18,borderRadius:9,background:'rgba(255,255,255,0.08)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+              <span style={{fontSize:9,color:'rgba(255,255,255,0.5)'}}>ℹ️</span>
+            </div>
+            <span style={{flex:1,fontSize:11,color:'rgba(255,255,255,0.45)'}}>Расходы {expenseRatio}% от дохода</span>
+            <span style={{fontSize:10,color:'rgba(255,255,255,0.35)'}}>справочно</span>
+          </div>
           <div style={{borderTop:'0.5px solid rgba(255,255,255,0.1)',paddingTop:8,marginTop:4}}>
             <div style={{fontSize:11,color:'rgba(255,255,255,0.35)',lineHeight:'16px'}}>
-              {healthScore<80?`Чтобы достичь 80: ${cushion<monthlyExp*3?`накопить ${fmt(monthlyExp*3-cushion)} в копилке`:'увеличить норму сбережений'}`:
+              {healthScore<80?`Чтобы достичь 80: ${projectedRiskyWeeks.length>0?'устранить риск кассового разрыва в ближайших неделях':'увеличить норму сбережений'}`:
               'Отличный результат — продолжай в том же духе!'}
             </div>
           </div>
@@ -148,33 +181,13 @@ export function HealthScreen({state}){
           ))}
         </div>
       </div>
-      {/* Рискованные недели */}
+      {/* Рискованные недели (используем прогноз, посчитанный выше для балла здоровья) */}
       {(()=>{
-        const allWeekKeys=Object.keys(weekItems).sort();
-        const riskyWeeks=[];
-        let runBal=computeBalances(state).savingStart;
-        // считаем накопительный баланс по неделям
-        for(let i=0;i<Math.min(allWeekKeys.length-1,12);i++){
-          const wk=allWeekKeys[i];
-          const items=weekItems[wk]||[];
-          const wkStart=weekKeyToDate(wk),wkEnd=new Date(wkStart.getTime()+6*86400000);
-          const wkInc=incomes.reduce((s,inc)=>{const yr=wkStart.getFullYear();const sch=buildPaymentSchedule(yr,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc);return s+sch.filter(p=>p.date>=wkStart&&p.date<=wkEnd).reduce((ss,p)=>ss+(p.actualAmount||p.amount),0);},0)+extraIncomeInRange(wkStart,wkEnd);
-          const wkSpent=items.filter(i=>i.isDone).reduce((s,i)=>s+i.amount,0);
-          const wkPlan=items.reduce((s,i)=>s+i.amount,0);
-          runBal=runBal+wkInc-wkSpent;
-          // план следующей недели
-          const nextWk=allWeekKeys[i+1];
-          const nextItems=weekItems[nextWk]||[];
-          const nextPlan=nextItems.reduce((s,i)=>s+i.amount,0);
-          if(nextPlan>0&&runBal<nextPlan*0.5){
-            riskyWeeks.push({wk,runBal,nextWk,nextPlan,pct:Math.round(runBal/nextPlan*100)});
-          }
-        }
-        if(!riskyWeeks.length)return null;
+        if(!projectedRiskyWeeks.length)return null;
         return(
           <>
             <SecTitle>⚠️ РИСКОВАННЫЕ НЕДЕЛИ</SecTitle>
-            {riskyWeeks.slice(0,3).map((r,i)=>(
+            {projectedRiskyWeeks.slice(0,3).map((r,i)=>(
               <div key={i} style={{...s.card,background:r.pct<=0?C.redL:C.yellowL,border:`.5px solid ${r.pct<=0?C.redB:C.yellowB}`,padding:'10px 12px',marginBottom:6}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
                   <div>
