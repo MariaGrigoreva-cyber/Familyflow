@@ -36,7 +36,7 @@ export function EditPaymentModal({visible,payment,onClose,onSave,onDelete}){
         <div style={{fontSize:10,color:C.muted,textTransform:'uppercase',letterSpacing:.5,marginBottom:6}}>Комментарий</div>
         <textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="Например: премия включена" rows={2} style={{...s.input,marginBottom:16,resize:'none'}}/>
         <Btn label="Сохранить" onClick={()=>{onSave({...payment,actualAmount:parseInt(actual)||payment.amount,isDone:done,note2:note});onClose();}}/>
-        {payment.isExtra&&onDelete&&(
+        {!['salary','advance'].includes(payment.type)&&onDelete&&(
           <button onClick={()=>{if(confirm('Удалить эту выплату?')){onDelete(payment.id);onClose();}}} style={{width:'100%',padding:11,marginTop:8,borderRadius:10,border:'none',background:'none',color:C.red,fontSize:13,fontWeight:500,cursor:'pointer',fontFamily:'inherit'}}>
             Удалить выплату
           </button>

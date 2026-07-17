@@ -355,15 +355,19 @@ useEffect(() => {
     });
   };
   const handleAddExtra=payment=>{
+    const label=payment.label||payment.name||'Доп. выплата';
     const ep={
+      ...payment,
       id:payment.id||uid(),
-      label:payment.label||payment.name||'Доп. выплата',
+      label,
       amount:parseInt(payment.amount)||0,
       date:payment.date||new Date().toISOString(),
       memberId:payment.memberId||appState.members[0]?.id||'m1',
       incomeId:payment.incomeId,
       type:payment.type||'extra',
       note:payment.note||'',
+      isExtra:true,
+      displayLabel:payment.displayLabel||label,
     };
     setAppState(prev=>({...prev,extraPayments:[...prev.extraPayments,ep]}));
   };
