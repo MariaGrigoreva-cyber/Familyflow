@@ -41,12 +41,15 @@ export function EditPaymentModal({visible,payment,onClose,onSave}){
   );
 }
 
-export function AddExtraModal({visible,onClose,onSave,members}){
+export function AddExtraModal({visible,onClose,onSave,members,incomes=[]}){
   const now=new Date();
   const[type,setType]=useState('bonus');
   const[amount,setAmount]=useState('');
   const[memberId,setMemberId]=useState(members[0]?.id||'');
+  const[incomeId,setIncomeId]=useState('');
   const[label,setLabel]=useState('');
+  const memberIncomes=incomes.filter(i=>i.memberId===memberId&&i.gross>0);
+  useEffect(()=>{setIncomeId(memberIncomes[0]?.id||'');}, [memberId]);
   const[selDay,setSelDay]=useState(now.getDate());
   const[selMonth,setSelMonth]=useState(now.getMonth()+1);
   const[selYear,setSelYear]=useState(now.getFullYear());
@@ -59,7 +62,7 @@ export function AddExtraModal({visible,onClose,onSave,members}){
     const n=parseInt(amount)||0;if(!n){alert('Введите сумму');return;}
     const t=TYPES.find(x=>x.id===type);
     const fmtD=d=>`${d.getDate()} ${MONTH_SHORT[d.getMonth()]} ${d.getFullYear()}`;
-    onSave({id:uid(),type,label:label||t?.label,amount:n,actualAmount:n,memberId,date:actualDate,isDone:false,isExtra:true,shifted,note:shifted?`перенос с ${safeDay} ${MONTH_SHORT[selMonth-1]}`:'',displayLabel:`${t?.emoji} ${label||t?.label} · ${fmtD(actualDate)}`,note2:''});
+    onSave({id:uid(),type,label:label||t?.label,amount:n,actualAmount:n,memberId,incomeId:incomeId||undefined,date:actualDate,isDone:false,isExtra:true,shifted,note:shifted?`перенос с ${safeDay} ${MONTH_SHORT[selMonth-1]}`:'',displayLabel:`${t?.emoji} ${label||t?.label} · ${fmtD(actualDate)}`,note2:''});
     setAmount('');setLabel('');onClose();
   };
   return(
@@ -76,6 +79,12 @@ export function AddExtraModal({visible,onClose,onSave,members}){
         <div style={{display:'flex',gap:4,marginBottom:14}}>
           {members.map(m=><button key={m.id} onClick={()=>setMemberId(m.id)} style={{flex:1,padding:8,borderRadius:7,border:'none',background:memberId===m.id?C.orangeL:'#f1f5f9',color:memberId===m.id?'#991B1B':C.muted,fontSize:12,fontWeight:memberId===m.id?600:400,cursor:'pointer',fontFamily:'inherit'}}>{m.avatar} {m.name}</button>)}
         </div>
+        {memberIncomes.length>1&&(<>
+          <div style={{fontSize:10,color:C.muted,textTransform:'uppercase',letterSpacing:.5,marginBottom:6}}>Источник дохода</div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:14}}>
+            {memberIncomes.map(inc=><button key={inc.id} onClick={()=>setIncomeId(inc.id)} style={{padding:'6px 11px',borderRadius:20,border:`.5px solid ${incomeId===inc.id?C.orangeB:C.border}`,background:incomeId===inc.id?C.orangeL:'#fff',color:incomeId===inc.id?'#991B1B':C.muted,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}>{inc.name||`${fmt(inc.gross)}/мес`}</button>)}
+          </div>
+        </>)}
         <div style={{fontSize:10,color:C.muted,textTransform:'uppercase',letterSpacing:.5,marginBottom:6}}>Год</div>
         <div style={{display:'flex',gap:8,marginBottom:14}}>
           {[now.getFullYear(),now.getFullYear()+1].map(y=><button key={y} onClick={()=>setSelYear(y)} style={{flex:1,padding:8,borderRadius:8,border:`.5px solid ${selYear===y?C.orangeB:C.border}`,background:selYear===y?C.orangeL:'#fff',color:selYear===y?'#991B1B':C.text,fontSize:14,fontWeight:selYear===y?600:400,cursor:'pointer',fontFamily:'inherit'}}>{y}</button>)}
@@ -335,6 +344,7 @@ export function EditTxModal({visible,item,onClose,onSave,onDelete,members,custom
 }
 
 export function EditIncomeModal({visible,income,member,onClose,onSave}){
+  const[name,setName]=useState('');
   const[gross,setGross]=useState('');
   const[salaryDays,setSalaryDays]=useState([]);
   const[advanceDays,setAdvanceDays]=useState([]);
@@ -345,12 +355,12 @@ export function EditIncomeModal({visible,income,member,onClose,onSave}){
   const[effDay,setEffDay]=useState(now.getDate());
   const[effMonth,setEffMonth]=useState(now.getMonth()+1);
   const[effYear,setEffYear]=useState(now.getFullYear());
-  useEffect(()=>{if(income){setGross(String(income.gross||''));setSalaryDays(income.salaryDays||[]);setAdvanceDays(income.advanceDays||[]);setAdvancePct(String(income.advancePct||'40'));setIncomeType(income.incomeType||'employed');setTaxRate(String(income.taxRate||'6'));}}, [income]);
+  useEffect(()=>{if(income){setName(income.name||'');setGross(String(income.gross||''));setSalaryDays(income.salaryDays||[]);setAdvanceDays(income.advanceDays||[]);setAdvancePct(String(income.advancePct||'40'));setIncomeType(income.incomeType||'employed');setTaxRate(String(income.taxRate||'6'));}}, [income]);
   if(!income||!member)return null;
   const grossN=parseInt(gross)||0;
   const avgNet=calcNetFor({gross:grossN,incomeType,taxRate});
   const effWeekK=weekKey(new Date(effYear,effMonth-1,effDay));
-  const doSave=()=>{if(!grossN){alert('Введите сумму');return;}onSave({...income,gross:grossN,net:avgNet,salaryDays,advanceDays,advancePct,incomeType,taxRate,effectiveFrom:{day:effDay,month:effMonth,year:effYear,weekKey:effWeekK}});onClose();};
+  const doSave=()=>{if(!grossN){alert('Введите сумму');return;}onSave({...income,name:name.trim(),gross:grossN,net:avgNet,salaryDays,advanceDays,advancePct,incomeType,taxRate,effectiveFrom:{day:effDay,month:effMonth,year:effYear,weekKey:effWeekK}});onClose();};
   return(
     <Modal visible={visible} onClose={onClose} title={`${member.avatar} ${member.name}`} onSave={doSave}>
       <div style={{padding:16,paddingBottom:40}}>
@@ -370,6 +380,10 @@ export function EditIncomeModal({visible,income,member,onClose,onSave}){
               </button>
             );
           })}
+        </div>
+        <div style={{marginBottom:8}}>
+          <div style={{fontSize:10,color:C.muted,textTransform:'uppercase',letterSpacing:.5,marginBottom:6}}>Название источника (необязательно)</div>
+          <input type="text" value={name} onChange={e=>setName(e.target.value)} placeholder="Основная работа, подработка..." style={{...s.input}}/>
         </div>
         {incomeType==='self'&&(
           <div style={{...s.card,marginBottom:8,display:'flex',alignItems:'center',gap:8,padding:'10px 13px'}}>

@@ -4,7 +4,7 @@ import {C,fmt,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyTo
 import {s,merge,Btn,Card,PBar,SecTitle,Modal,DayPicker,Numpad} from '../lib/ui';
 import {isLoggedIn,logout,register,login,familyMe,familyInvite,familyJoin,errText,changePassword,resetRequest,resetConfirm,saveCloudState} from '../api';
 
-export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome}){
+export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncome}){
   const{members,incomes,planned,familyName,customCats=[]}=state;
   const allCats=[...DEFAULT_CATS,...customCats];
   const[showHow,setShowHow]=useState(false);
@@ -150,12 +150,12 @@ export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome}){
       <SecTitle>ДОХОДЫ</SecTitle>
       <div style={{...s.card,padding:0}}>
         {incomes.filter(i=>i.gross>0).map((inc,idx)=>{
-          const m=members[idx]||members.find(x=>x.id===inc.memberId);
+          const m=members.find(x=>x.id===inc.memberId);
           return(
             <button key={inc.id} onClick={()=>onEditIncome&&onEditIncome(inc,m)} style={{...s.row,width:'100%',textAlign:'left',cursor:'pointer',background:'#fff',border:'none',fontFamily:'inherit',borderBottom:`.5px solid ${C.border}`,boxSizing:'border-box'}}>
               <span style={{fontSize:13}}>{m?.avatar}</span>
               <div style={{flex:1,marginLeft:8}}>
-                <div style={{fontSize:12,color:C.text,fontWeight:500}}>{m?.name}</div>
+                <div style={{fontSize:12,color:C.text,fontWeight:500}}>{m?.name}{inc.name?` · ${inc.name}`:''}</div>
                 <div style={{fontSize:10,color:C.muted,marginTop:1}}>{getNDFLDesc(inc.gross||0)}</div>
                 {inc.effectiveFrom&&<div style={{fontSize:9,color:C.blue,marginTop:1}}>✦ изменён с {inc.effectiveFrom.day} {MONTH_SHORT[inc.effectiveFrom.month-1]} {inc.effectiveFrom.year}</div>}
               </div>
@@ -168,6 +168,15 @@ export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome}){
           );
         })}
       </div>
+      {onAddIncome&&members.length>0&&(
+        <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:14,marginTop:6}}>
+          {members.map(m=>(
+            <button key={m.id} onClick={()=>onAddIncome(m.id)} style={{padding:'6px 11px',borderRadius:20,border:`.5px solid ${C.border}`,background:'#fff',color:C.blue,fontSize:11,fontWeight:500,cursor:'pointer',fontFamily:'inherit'}}>
+              + Ещё источник для {m.avatar} {m.name}
+            </button>
+          ))}
+        </div>
+      )}
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}>
         <SecTitle>КАТЕГОРИИ РАСХОДОВ</SecTitle>
       </div>

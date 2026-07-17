@@ -11,6 +11,7 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
   const[vacDays,setVacDays]=useState(14);
   const[vacActual12,setVacActual12]=useState('');
   const[vacAdded,setVacAdded]=useState(false);
+  const[showAllUpcoming,setShowAllUpcoming]=useState(false);
   const{incomes,planned,members,customCats=[],payments={},extraPayments=[],transactions=[]}=state;
   const allCats=[...DEFAULT_CATS,...customCats];
   const totalNet=incomes.reduce((s,i)=>s+calcNetFor(i),0);
@@ -34,7 +35,8 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
   const budgetEnd=new Date(budgetStart.getTime()+365*86400000);
   const yearsInRange=[...new Set([budgetStart.getFullYear(),budgetEnd.getFullYear()])];
   const allPayments=incomes.flatMap(inc=>{const m=members.find(x=>x.id===inc.memberId);return yearsInRange.flatMap(yr=>buildPaymentSchedule(yr,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc)).filter(p=>p.date>=budgetStart&&p.date<=budgetEnd).map(p=>({...p,memberName:m?.name||'',memberAvatar:m?.avatar||'',...(payments[p.displayLabel]||{})}));}).sort((a,b)=>a.date-b.date);
-  const upcoming=allPayments.filter(p=>p.date>=budgetStart).slice(0,6);
+  const upcomingAll=allPayments.filter(p=>p.date>=budgetStart);
+  const upcoming=showAllUpcoming?upcomingAll:upcomingAll.slice(0,6);
   const shiftedCnt=allPayments.filter(p=>p.date>=budgetStart&&p.shifted).length;
   const extraUpcoming=(extraPayments||[]).filter(p=>new Date(p.date)>=now);
   const pad={padding:'14px 14px 80px'};
@@ -90,6 +92,11 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
           </button>
         ))}
       </div>
+      {upcomingAll.length>6&&(
+        <button onClick={()=>setShowAllUpcoming(p=>!p)} style={{width:'100%',padding:10,marginBottom:10,borderRadius:10,border:`.5px solid ${C.border}`,background:'#fff',color:C.blue,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>
+          {showAllUpcoming?'Свернуть список':`Показать все выплаты (${upcomingAll.length})`}
+        </button>
+      )}
       {/* Планировщик отпуска */}
       {showVacPlanner&&(
         <div style={{...s.card,marginBottom:10}}>

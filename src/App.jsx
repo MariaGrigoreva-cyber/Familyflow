@@ -345,7 +345,15 @@ useEffect(() => {
   const handleDeletePlanned=id=>setAppState(prev=>{const np=prev.planned.filter(p=>p.id!==id);return{...prev,planned:np,weekItems:regenWeeksKeepDone(np,prev.weekItems)};});
   const handleAddPlanned=()=>{setEditItem({id:uid(),catId:'other',name:'Новая',amount:0,memberId:appState.members[0]?.id||'m1',repeat:'weekly',days:[],isNew:true});setShowEdit(true);};
   const handleEditPayment=payment=>{setEditPayment(payment);setShowEditPay(true);};
-  const handleSavePayment=payment=>setAppState(prev=>({...prev,payments:{...prev.payments,[payment.displayLabel]:{actualAmount:payment.actualAmount,isDone:payment.isDone,note2:payment.note2}}}));
+  const handleSavePayment=payment=>{
+    setAppState(prev=>{
+      const isExtraPay=prev.extraPayments.some(ep=>ep.id===payment.id);
+      if(isExtraPay){
+        return{...prev,extraPayments:prev.extraPayments.map(ep=>ep.id===payment.id?{...ep,actualAmount:payment.actualAmount,isDone:payment.isDone,note2:payment.note2}:ep)};
+      }
+      return{...prev,payments:{...prev.payments,[payment.displayLabel]:{actualAmount:payment.actualAmount,isDone:payment.isDone,note2:payment.note2}}};
+    });
+  };
   const handleAddExtra=payment=>{
     const ep={
       id:payment.id||uid(),
@@ -353,10 +361,19 @@ useEffect(() => {
       amount:parseInt(payment.amount)||0,
       date:payment.date||new Date().toISOString(),
       memberId:payment.memberId||appState.members[0]?.id||'m1',
+      incomeId:payment.incomeId,
       type:payment.type||'extra',
       note:payment.note||'',
     };
     setAppState(prev=>({...prev,extraPayments:[...prev.extraPayments,ep]}));
+  };
+  const handleAddIncomeSource=(memberId)=>{
+    const ni={id:uid(),memberId,name:'',gross:'',salaryDays:[],advanceDays:[],advancePct:'40',advanceMode:'pct'};
+    setAppState(prev=>({...prev,incomes:[...prev.incomes,ni]}));
+    const m=appState.members.find(x=>x.id===memberId);
+    setEditIncomeItem(ni);
+    setEditIncomeMember(m);
+    setShowEditIncome(true);
   };
   const handleEditTx=(item)=>{setEditTxItem(item);setShowEditTx(true);};
   const handleSaveTx=(updated)=>{
@@ -489,17 +506,22 @@ useEffect(() => {
         {tab==='plan'&&<PlanScreen state={appState} onToggle={handleToggle} onAdd={(wk)=>{setAddWeek(wk);setShowAdd(true);}} onEditTx={handleEditTx}/>}
         {tab==='budget'&&<BudgetScreen state={appState} onEditPlanned={item=>{setEditItem(item);setShowEdit(true);}} onAddPlanned={handleAddPlanned} onEditPayment={handleEditPayment} onAddExtra={(data)=>{if(data&&data.amount){handleAddExtra(data);}else{setShowAddExtra(true);}}}/>}
         {tab==='health'&&<HealthScreen state={appState}/>}
-        {tab==='settings'&&<SettingsScreen state={appState} onEditCat={item=>{const{isNew,...rest}=item||{};setEditItem(rest);setShowEdit(true);}} onAddCat={handleAddPlanned} onEditIncome={handleEditIncome}/>}
+        {tab==='settings'&&<SettingsScreen state={appState} onEditCat={item=>{const{isNew,...rest}=item||{};setEditItem(rest);setShowEdit(true);}} onAddCat={handleAddPlanned} onEditIncome={handleEditIncome} onAddIncome={handleAddIncomeSource}/>}
       </div>
       <TabBar active={tab} onPress={setTab}/>
       <AddTxModal visible={showAdd} onClose={()=>setShowAdd(false)} onSave={handleAddTx} members={appState.members} planned={appState.planned} customCats={appState.customCats}/>
       <EditCatModal visible={showEdit} item={editItem} members={appState.members} customCats={appState.customCats} onClose={()=>{setShowEdit(false);setEditItem(null);}} onSave={item=>{const{isNew,...rest}=item||{};handleEditPlanned(isNew?{...rest,isNew:true}:rest);}} onDelete={handleDeletePlanned}/>
       <EditPaymentModal visible={showEditPay} payment={editPayment} onClose={()=>{setShowEditPay(false);setEditPayment(null);}} onSave={handleSavePayment}/>
-      <AddExtraModal visible={showAddExtra} onClose={()=>setShowAddExtra(false)} onSave={handleAddExtra} members={appState.members}/>
+      <AddExtraModal visible={showAddExtra} onClose={()=>setShowAddExtra(false)} onSave={handleAddExtra} members={appState.members} incomes={appState.incomes}/>
       <EditTxModal visible={showEditTx} item={editTxItem} members={appState.members} customCats={appState.customCats}
         onClose={()=>{setShowEditTx(false);setEditTxItem(null);}}
         onSave={handleSaveTx} onDelete={id=>{handleDeleteTx(id);setShowEditTx(false);setEditTxItem(null);}}/>
-      <EditIncomeModal visible={showEditIncome} income={editIncomeItem} member={editIncomeMember} onClose={()=>{setShowEditIncome(false);setEditIncomeItem(null);setEditIncomeMember(null);}} onSave={inc=>{handleSaveIncome(inc);setShowEditIncome(false);setEditIncomeItem(null);setEditIncomeMember(null);}}/>
+      <EditIncomeModal visible={showEditIncome} income={editIncomeItem} member={editIncomeMember}
+        onClose={()=>{
+          setAppState(prev=>({...prev,incomes:prev.incomes.filter(i=>!(i.id===editIncomeItem?.id&&!i.gross))}));
+          setShowEditIncome(false);setEditIncomeItem(null);setEditIncomeMember(null);
+        }}
+        onSave={inc=>{handleSaveIncome(inc);setShowEditIncome(false);setEditIncomeItem(null);setEditIncomeMember(null);}}/>
       {/* ═══ ОБУЧАЮЩИЙ ТУР ═══ */}
       {tourStep>=0&&(()=>{
         const TOUR=[

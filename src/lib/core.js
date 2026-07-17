@@ -126,7 +126,7 @@ const regenWeeksKeepDone=(planned,prevWeekItems)=>{
 // ЕДИНАЯ ФОРМУЛА БАЛАНСА — все экраны берут цифры отсюда, чтобы не расходиться
 // ═══════════════════════════════════════════════════════════════════════════
 const computeBalances=(state)=>{
-  const{incomes=[],weekItems={},startBalance=0,payments={},transactions=[],budgetStartDate}=state;
+  const{incomes=[],weekItems={},startBalance=0,payments={},transactions=[],budgetStartDate,extraPayments=[]}=state;
   const week=todayKey();
   const wItems=weekItems[week]||[];
   const isPiggy=i=>i.catId==='piggy';
@@ -150,6 +150,15 @@ const computeBalances=(state)=>{
     .filter(p=>!p.isDone&&p.date>=budgetStart&&p.date<=now)
     .sort((a,b)=>b.date-a.date);
 
+  // Доп. разовые выплаты (премии, 13-я зарплата, ручной доход) — входят в доход периода при отметке "получено"
+  const extraReceived=(extraPayments||[])
+    .filter(p=>p.isDone&&new Date(p.date)>=budgetStart)
+    .reduce((s,p)=>s+(p.actualAmount||p.amount),0);
+  const unmarkedExtra=(extraPayments||[])
+    .filter(p=>!p.isDone&&new Date(p.date)>=budgetStart&&new Date(p.date)<=now)
+    .map(p=>({...p,date:new Date(p.date)}))
+    .sort((a,b)=>b.date-a.date);
+
   // Доп. доходы (все недели)
   const txIncome=(transactions||[]).filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
 
@@ -171,7 +180,7 @@ const computeBalances=(state)=>{
   const allSpentTotal=weekSpent+pastSpent+futureSpent;
 
   // КАНОНИЧЕСКИЙ БАЛАНС: старт + получено + доп.доходы − потрачено − отложено в копилку
-  const balance=startBalance+actualSalaryReceived+txIncome-allSpentTotal-totalSaved;
+  const balance=startBalance+actualSalaryReceived+txIncome+extraReceived-allSpentTotal-totalSaved;
   // Стартовая точка накопительных рядов (недели/месяцы/годы):
   // копилка теперь входит в недельный план/факт, поэтому на старте вычитаем
   // только то, что отложено ДО первой отображаемой недели (иначе двойной счёт)
@@ -179,8 +188,8 @@ const computeBalances=(state)=>{
   const savedBeforeFirst=Object.entries(txPiggyByWeek).filter(([wk])=>wk<firstWk).reduce((s,[,v])=>s+v,0);
   const savingStart=startBalance-savedBeforeFirst;
 
-  return{balance,totalSaved,allSpentTotal,actualSalaryReceived,txIncome,weekSpent,pastSpent,
-    savingStart,unmarkedPayments,week,wItems};
+  return{balance,totalSaved,allSpentTotal,actualSalaryReceived,txIncome,extraReceived,weekSpent,pastSpent,
+    savingStart,unmarkedPayments:[...unmarkedPayments,...unmarkedExtra].sort((a,b)=>b.date-a.date),week,wItems};
 };
 
 const generateAllWeeks=planned=>{
