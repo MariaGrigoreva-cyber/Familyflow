@@ -3,17 +3,42 @@ import React, { useState, useEffect } from 'react';
 import {C,fmt,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Modal,DayPicker,Numpad} from '../lib/ui';
 
-export function ConsentScreen({onAccept}){
-  const[c1,setC1]=useState(false);
-  const[c2,setC2]=useState(false);
+function PigIcon({size=48,color='#fff'}){
+  return(
+    <svg width={size} height={size} viewBox="0 0 100 100" fill="none">
+      <ellipse cx="46" cy="56" rx="34" ry="26" fill={color}/>
+      <circle cx="20" cy="40" r="9" fill={color}/>
+      <circle cx="76" cy="50" r="13" fill={color}/>
+      <circle cx="71" cy="48" r="2" fill="#E0522A"/>
+      <circle cx="81" cy="48" r="2" fill="#E0522A"/>
+      <circle cx="32" cy="48" r="3.5" fill="#E0522A"/>
+      <rect x="40" y="30" width="14" height="5" rx="2.5" fill="#E0522A"/>
+      <rect x="22" y="78" width="9" height="13" rx="4" fill={color}/>
+      <rect x="60" y="78" width="9" height="13" rx="4" fill={color}/>
+      <circle cx="12" cy="60" r="5" fill={color}/>
+    </svg>
+  );
+}
+
+export function SplashScreen(){
+  return(
+    <div style={{minHeight:'100dvh',background:'#E0522A',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
+      <PigIcon size={110}/>
+      <div style={{fontSize:38,fontWeight:800,color:'#fff',letterSpacing:'-0.5px',marginTop:14}}>FamilyFlow</div>
+      <div style={{width:48,height:48,borderRadius:24,border:'4px solid rgba(255,255,255,0.3)',borderTopColor:'#fff',marginTop:30,animation:'ff-spin 0.9s linear infinite'}}/>
+      <style>{'@keyframes ff-spin{to{transform:rotate(360deg)}}'}</style>
+    </div>
+  );
+}
+
+export function EntryScreen({onDemo,onSetup,onLoginClick}){
+  const[agree,setAgree]=useState(false);
   const[policy,setPolicy]=useState(false);
-  const ok=c1&&c2;
-  const POINTS=[['🔒','Данные хранятся только на вашем устройстве','Никакие серверы не задействованы'],['🚫','Мы не продаём ваши данные','Никакой рекламы, никаких третьих лиц'],['📊','Рекомендации носят информационный характер','Не являются финансовой консультацией']];
-  const POLICY_ITEMS=[['Какие данные мы обрабатываем','Приложение обрабатывает данные, которые вы вводите: имена членов семьи, сведения о доходах и расходах. Эти данные относятся к персональным данным в соответствии с ФЗ № 152-ФЗ.'],['Где хранятся данные','Все данные хранятся исключительно на вашем устройстве. Приложение не передаёт данные на внешние серверы.'],['Цель обработки','Данные используются только для формирования семейного бюджета. Не передаются третьим лицам и не используются в коммерческих целях.'],['Информационный характер','FamilyFlow — инструмент планирования. Расчёты и рекомендации не являются финансовой консультацией.'],['Удаление данных','Вы можете удалить все данные, очистив данные приложения. После удаления данные полностью уничтожаются.']];
+  const POLICY_ITEMS=[['Какие данные мы обрабатываем','Приложение обрабатывает данные, которые вы вводите: имена членов семьи, сведения о доходах и расходах. Эти данные относятся к персональным данным в соответствии с ФЗ № 152-ФЗ.'],['Где хранятся данные','По умолчанию все данные хранятся на вашем устройстве. Если вы включите синхронизацию, данные также сохраняются в облаке для доступа с других устройств.'],['Цель обработки','Данные используются только для формирования семейного бюджета. Не передаются третьим лицам и не используются в коммерческих целях.'],['Информационный характер','FamilyFlow — инструмент планирования. Расчёты и рекомендации не являются финансовой консультацией.'],['Удаление данных','Вы можете удалить все данные, очистив данные приложения или аккаунт. После удаления данные полностью уничтожаются.']];
   if(policy)return(
     <div style={{minHeight:'100dvh',background:'#F8FAFC',display:'flex',flexDirection:'column'}}>
       <div style={{display:'flex',alignItems:'center',gap:12,padding:'14px 16px',background:'#fff',borderBottom:'.5px solid #E2E8F0',position:'sticky',top:0,zIndex:10}}>
-        <button onClick={()=>setPolicy(false)} style={{background:'none',border:'none',cursor:'pointer',fontSize:13,color:'#E03A22',fontFamily:'inherit'}}>← Назад</button>
+        <button onClick={()=>setPolicy(false)} style={{background:'none',border:'none',cursor:'pointer',fontSize:13,color:'#E0522A',fontFamily:'inherit'}}>← Назад</button>
         <span style={{fontSize:15,fontWeight:600,color:'#1E293B'}}>Политика конфиденциальности</span>
       </div>
       <div style={{padding:'18px 16px 40px',overflowY:'auto'}}>
@@ -26,34 +51,31 @@ export function ConsentScreen({onAccept}){
       </div>
     </div>
   );
+  const guard=fn=>()=>{if(!agree)return;fn();};
   return(
-    <div style={{minHeight:'100dvh',background:'#1a1a2e',display:'flex',flexDirection:'column',justifyContent:'space-between',padding:24,boxSizing:'border-box'}}>
-      <div style={{flex:1,display:'flex',flexDirection:'column',justifyContent:'center'}}>
-        <div style={{display:'flex',flexDirection:'column',alignItems:'center',textAlign:'center',marginBottom:32}}>
-          <div style={{width:70,height:70,borderRadius:20,background:'#E03A22',display:'flex',alignItems:'center',justifyContent:'center',fontSize:36,marginBottom:16}}>🔐</div>
-          <div style={{fontSize:22,fontWeight:800,color:'#fff',marginBottom:8}}>Перед началом</div>
-          <div style={{fontSize:13,color:'rgba(255,255,255,0.5)',lineHeight:'20px',maxWidth:280}}>Нам важно, чтобы вы знали как мы обращаемся с вашими данными</div>
-        </div>
-        <div style={{display:'flex',flexDirection:'column',gap:10,marginBottom:28}}>
-          {POINTS.map(([icon,title,sub],i)=>(
-            <div key={i} style={{display:'flex',flexDirection:'row',gap:12,alignItems:'flex-start',background:'rgba(255,255,255,0.05)',borderRadius:12,padding:12}}>
-              <span style={{fontSize:20,flexShrink:0}}>{icon}</span>
-              <div><div style={{fontSize:12,fontWeight:600,color:'#fff',marginBottom:2}}>{title}</div><div style={{fontSize:11,color:'rgba(255,255,255,0.4)'}}>{sub}</div></div>
-            </div>
-          ))}
-        </div>
-        {[[c1,setC1,<>Согласен(а) на обработку персональных данных в соответствии с <span onClick={e=>{e.stopPropagation();setPolicy(true);}} style={{color:'#E03A22',textDecoration:'underline',cursor:'pointer'}}>Политикой конфиденциальности</span></>],[c2,setC2,'Понимаю, что рекомендации носят информационный характер и не являются финансовой консультацией']].map(([val,set,label],i)=>(
-          <div key={i} onClick={()=>set(p=>!p)} style={{display:'flex',flexDirection:'row',gap:12,alignItems:'flex-start',padding:12,background:'#fff',borderRadius:10,marginBottom:8,border:`.5px solid ${val?'#FCA5A5':'#E2E8F0'}`,cursor:'pointer',userSelect:'none'}}>
-            <div style={{width:22,height:22,borderRadius:6,flexShrink:0,marginTop:1,border:`1.5px solid ${val?'#E03A22':'#CBD5E1'}`,background:val?'#E03A22':'transparent',display:'flex',alignItems:'center',justifyContent:'center'}}>
-              {val&&<span style={{color:'#fff',fontSize:13,fontWeight:700,lineHeight:1}}>✓</span>}
-            </div>
-            <div style={{fontSize:12,color:'#1E293B',lineHeight:'18px',flex:1}}>{label}</div>
-          </div>
-        ))}
+    <div style={{minHeight:'100dvh',background:'#0f172a',display:'flex',flexDirection:'column',padding:'24px 20px',boxSizing:'border-box'}}>
+      <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:18}}>
+        <div style={{width:40,height:40,borderRadius:12,background:'#E0522A',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><PigIcon size={20}/></div>
+        <div><div style={{fontSize:17,fontWeight:700,color:'#fff'}}>FamilyFlow</div><div style={{fontSize:11,color:'rgba(255,255,255,0.45)'}}>Финансовый директор семьи</div></div>
       </div>
-      <div style={{display:'flex',flexDirection:'column',gap:10,paddingTop:16}}>
-        <Btn label="Продолжить →" onClick={onAccept} disabled={!ok}/>
-        {!ok&&<div style={{fontSize:11,color:'rgba(255,255,255,0.3)',textAlign:'center'}}>Отметьте оба пункта чтобы продолжить</div>}
+      <div style={{fontSize:12,color:'rgba(255,255,255,0.5)',marginBottom:8}}>Как хотите начать?</div>
+      <button onClick={guard(onDemo)} disabled={!agree} style={{width:'100%',background:'rgba(224,82,42,0.15)',border:'1.5px solid #E0522A',borderRadius:14,padding:'13px 14px',marginBottom:8,cursor:agree?'pointer':'default',textAlign:'left',display:'flex',gap:12,alignItems:'center',fontFamily:'inherit',opacity:agree?1:0.5}}>
+        <span style={{fontSize:22,flexShrink:0}}>▶️</span>
+        <div><div style={{fontSize:14,fontWeight:600,color:'#fff'}}>Демо-данные</div><div style={{fontSize:11,color:'rgba(255,255,255,0.45)',marginTop:1}}>семья Ивановых · 30 секунд</div></div>
+      </button>
+      <button onClick={guard(onSetup)} disabled={!agree} style={{width:'100%',background:'rgba(255,255,255,0.06)',border:'.5px solid rgba(255,255,255,0.12)',borderRadius:14,padding:'13px 14px',marginBottom:8,cursor:agree?'pointer':'default',textAlign:'left',display:'flex',gap:12,alignItems:'center',fontFamily:'inherit',opacity:agree?1:0.5}}>
+        <span style={{fontSize:22,flexShrink:0}}>⚙️</span>
+        <div><div style={{fontSize:14,fontWeight:600,color:'#fff'}}>Настроить свой бюджет</div><div style={{fontSize:11,color:'rgba(255,255,255,0.45)',marginTop:1}}>5 минут · доход, платежи, категории</div></div>
+      </button>
+      <button onClick={guard(onLoginClick)} disabled={!agree} style={{width:'100%',background:'transparent',border:'.5px solid rgba(255,255,255,0.12)',borderRadius:14,padding:'12px 14px',marginBottom:16,cursor:agree?'pointer':'default',textAlign:'left',display:'flex',gap:12,alignItems:'center',fontFamily:'inherit',opacity:agree?1:0.5}}>
+        <span style={{fontSize:20,flexShrink:0}}>🔑</span>
+        <div><div style={{fontSize:13,fontWeight:600,color:'#fff'}}>У меня уже есть аккаунт</div><div style={{fontSize:11,color:'rgba(255,255,255,0.45)',marginTop:1}}>войти или создать — бюджет из облака</div></div>
+      </button>
+      <div onClick={()=>setAgree(p=>!p)} style={{display:'flex',alignItems:'flex-start',gap:9,padding:'11px 12px',background:'rgba(255,255,255,0.06)',borderRadius:10,border:`.5px solid ${agree?'rgba(224,82,42,0.5)':'rgba(255,255,255,0.1)'}`,cursor:'pointer',userSelect:'none'}}>
+        <div style={{width:18,height:18,borderRadius:5,flexShrink:0,marginTop:1,background:agree?'#E0522A':'transparent',border:`1.5px solid ${agree?'#E0522A':'rgba(255,255,255,0.3)'}`,display:'flex',alignItems:'center',justifyContent:'center'}}>
+          {agree&&<span style={{color:'#fff',fontSize:11,fontWeight:700,lineHeight:1}}>✓</span>}
+        </div>
+        <div style={{fontSize:'10.5px',color:'rgba(255,255,255,0.65)',lineHeight:'16px'}}>Принимаю <span onClick={e=>{e.stopPropagation();setPolicy(true);}} style={{color:'#F0997B',textDecoration:'underline',cursor:'pointer'}}>условия использования</span> и обработку персональных данных. Данные остаются на устройстве, если не выбрана синхронизация.</div>
       </div>
     </div>
   );
@@ -104,75 +126,54 @@ export function Onboarding({onDone}){
   );
   const pad={padding:'14px 14px 80px'};
 
-  // INTRO
+  // INTRO — формат сторис: 3 коротких кадра вместо двух плотных слайдов
   if(step===0){
-    const PAGES=[
-      // ─── Слайд 0: Splash + механика ─────────────────────────────────────
-      (onNext)=>(
-        <div style={{minHeight:'100dvh',background:C.dark,display:'flex',flexDirection:'column',justifyContent:'space-between',padding:28,boxSizing:'border-box'}}>
-          <div style={{flex:1,display:'flex',flexDirection:'column',justifyContent:'center',alignItems:'center',textAlign:'center'}}>
-            <div style={{width:80,height:80,borderRadius:26,background:C.orange,display:'flex',alignItems:'center',justifyContent:'center',fontSize:40,marginBottom:20,boxShadow:'0 0 40px rgba(224,58,34,0.4)'}}>💰</div>
-            <div style={{fontSize:28,fontWeight:800,color:'#fff',letterSpacing:'-.5px',marginBottom:6}}>FamilyFlow</div>
-            <div style={{fontSize:13,color:'rgba(255,255,255,0.45)',marginBottom:24}}>Финансовый директор семьи</div>
-            <div style={{width:36,height:2,background:C.orange,borderRadius:1,marginBottom:24}}/>
-            <div style={{display:'flex',flexDirection:'column',gap:8,width:'100%',marginBottom:8}}>
-              {[['🏦','Накопительный счёт (Saving)','сюда поступают все деньги'],
-                ['📅','Еженедельно','распределяем по трём счетам'],
-                ['✅','Тратим только переведённое','Saving остаётся нетронутым']
-              ].map(([e,t,s])=>(
-                <div key={t} style={{display:'flex',alignItems:'center',gap:12,background:'rgba(255,255,255,0.05)',borderRadius:10,padding:'10px 12px',textAlign:'left'}}>
-                  <span style={{fontSize:20,flexShrink:0}}>{e}</span>
-                  <div><div style={{fontSize:12,fontWeight:600,color:'#fff'}}>{t}</div><div style={{fontSize:11,color:'rgba(255,255,255,0.4)',marginTop:1}}>{s}</div></div>
+    const FRAMES=[
+      {icon:'🏦',title:'Один счёт\nдля всех денег',sub:'Зарплата, аванс, подработки — всё собирается в одном месте'},
+      {icon:'📅',title:'Раз в неделю —\nпо трём потокам',sub:'FamilyFlow сам распределяет деньги по направлениям'},
+    ];
+    const STREAMS=[
+      {e:'🛡️',t:'Защита',s:'копилка, кредиты, страховки',col:'#F0997B',bg:'rgba(216,90,48,0.18)',pct:'55%'},
+      {e:'🍽️',t:'Жизнь',s:'еда, транспорт, здоровье',col:'#EF9F27',bg:'rgba(239,159,39,0.18)',pct:'25%'},
+      {e:'🛋️',t:'Комфорт',s:'одежда, дом, путешествия',col:'#85B7EB',bg:'rgba(55,138,221,0.18)',pct:'20%'},
+    ];
+    const TOTAL=FRAMES.length+1; // + финальный кадр с потоками
+    const advance=()=>{if(introPage<TOTAL-1)setIntroPage(p=>p+1);else{setIntroPage(0);goNext();}};
+    const retreat=()=>{if(introPage>0)setIntroPage(p=>p-1);};
+    const isLast=introPage===TOTAL-1;
+    return(
+      <div style={{minHeight:'100dvh',background:'#0f172a',boxSizing:'border-box',padding:'16px 20px 24px',display:'flex',flexDirection:'column',position:'relative'}}>
+        <div style={{display:'flex',gap:4,marginBottom:16}}>
+          {Array.from({length:TOTAL}).map((_,i)=>(
+            <div key={i} style={{flex:1,height:3,borderRadius:2,background:i<=introPage?'#fff':'rgba(255,255,255,0.25)'}}/>
+          ))}
+        </div>
+        {!isLast&&<>
+          <div style={{position:'absolute',top:0,left:0,width:'40%',height:'100%',zIndex:2}} onClick={retreat}/>
+          <div style={{position:'absolute',top:0,right:0,width:'60%',height:'100%',zIndex:2}} onClick={advance}/>
+        </>}
+        {!isLast?(
+          <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',textAlign:'center',position:'relative',zIndex:1}}>
+            <span style={{fontSize:96}}>{FRAMES[introPage].icon}</span>
+            <div style={{fontSize:34,fontWeight:800,color:'#fff',lineHeight:1.2,marginTop:26,whiteSpace:'pre-line'}}>{FRAMES[introPage].title}</div>
+            <div style={{fontSize:16,color:'rgba(255,255,255,0.55)',marginTop:16,maxWidth:260,lineHeight:1.5}}>{FRAMES[introPage].sub}</div>
+          </div>
+        ):(
+          <div style={{flex:1,display:'flex',flexDirection:'column'}}>
+            {introPage>0&&<button onClick={retreat} style={{alignSelf:'flex-start',background:'none',border:'none',cursor:'pointer',fontSize:13,color:'rgba(255,255,255,0.4)',fontFamily:'inherit',padding:0,marginBottom:14}}>← Назад</button>}
+            <div style={{fontSize:28,fontWeight:800,color:'#fff',textAlign:'center',marginBottom:24}}>Три потока</div>
+            <div style={{display:'flex',flexDirection:'column',gap:12}}>
+              {STREAMS.map((b,i)=>(
+                <div key={i} style={{background:b.bg,borderRadius:16,padding:20,display:'flex',alignItems:'center',gap:16}}>
+                  <span style={{fontSize:40}}>{b.e}</span>
+                  <div style={{flex:1}}><div style={{fontSize:19,fontWeight:700,color:b.col}}>{b.t}</div><div style={{fontSize:13,color:b.col,opacity:.75,marginTop:2}}>{b.s}</div></div>
+                  <span style={{fontSize:20,fontWeight:700,color:b.col}}>{b.pct}</span>
                 </div>
               ))}
             </div>
+            <div style={{marginTop:'auto',paddingTop:26}}><Btn label="Настроить бюджет →" onClick={goNext}/></div>
           </div>
-          <div style={{display:'flex',flexDirection:'column',gap:10}}>
-            <Btn label="Узнать про три направления →" onClick={onNext}/>
-            <div style={{fontSize:11,color:'rgba(255,255,255,0.2)',textAlign:'center'}}>Данные хранятся только на вашем устройстве</div>
-          </div>
-        </div>
-      ),
-      // ─── Слайд 1: Три направления ────────────────────────────────────────
-      (onNext,onBack)=>(
-        <div style={{minHeight:'100dvh',background:'#0f172a',overflowY:'auto',boxSizing:'border-box'}}>
-          <div style={{padding:'24px 20px 48px'}}>
-            <button onClick={onBack} style={{background:'none',border:'none',cursor:'pointer',fontSize:13,color:'rgba(255,255,255,0.35)',fontFamily:'inherit',marginBottom:24,padding:0,display:'block'}}>← Назад</button>
-            <div style={{fontSize:11,color:C.orange,fontWeight:700,letterSpacing:'1.5px',marginBottom:10}}>ТРИ НАПРАВЛЕНИЯ</div>
-            <div style={{fontSize:22,fontWeight:800,color:'#fff',lineHeight:1.3,marginBottom:6}}>Разделите расходы<br/>на три потока</div>
-            <div style={{fontSize:13,color:'rgba(255,255,255,0.45)',marginBottom:24,lineHeight:'20px'}}>Это даёт ясность — куда уходят деньги и где есть резервы.</div>
-            {[{e:'🛡️',t:'Защита',s:'Копилка, ипотека, кредиты, страховки',col:'#F87171',bg:'rgba(248,113,113,0.1)',bdr:'rgba(248,113,113,0.25)',pct:'50–60%',acc:'накопительный счёт №2'},
-              {e:'🍽️',t:'Жизнь',s:'Еда, транспорт, здоровье, развлечения',col:'#FBBF24',bg:'rgba(251,191,36,0.1)',bdr:'rgba(251,191,36,0.25)',pct:'20–30%',acc:'карточный счёт'},
-              {e:'🛋️',t:'Комфорт',s:'Одежда, дом, красота, путешествия',col:'#60A5FA',bg:'rgba(96,165,250,0.1)',bdr:'rgba(96,165,250,0.25)',pct:'10–20%',acc:'счёт до востребования'},
-            ].map((b,i)=>(
-              <div key={i} style={{background:b.bg,border:`0.5px solid ${b.bdr}`,borderRadius:12,padding:'12px 14px',marginBottom:10}}>
-                <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:6}}>
-                  <span style={{fontSize:24,flexShrink:0}}>{b.e}</span>
-                  <div style={{flex:1}}><div style={{fontSize:15,fontWeight:700,color:b.col}}>{b.t}</div><div style={{fontSize:11,color:'rgba(255,255,255,0.4)',marginTop:1}}>{b.s}</div></div>
-                  <span style={{fontSize:10,color:b.col,fontWeight:600,padding:'3px 8px',borderRadius:20,background:b.bg,border:`0.5px solid ${b.bdr}`,flexShrink:0}}>{b.pct}</span>
-                </div>
-                <div style={{display:'flex',alignItems:'center',gap:6,paddingTop:6,borderTop:`0.5px solid ${b.bdr}`}}>
-                  <span style={{fontSize:10,color:b.col,opacity:.7}}>→ переводим на</span>
-                  <span style={{fontSize:10,fontWeight:600,color:b.col}}>{b.acc}</span>
-                </div>
-              </div>
-            ))}
-            <div style={{background:'rgba(224,58,34,0.08)',border:'0.5px solid rgba(224,58,34,0.2)',borderRadius:10,padding:'10px 14px',marginBottom:24,textAlign:'center'}}>
-              <span style={{fontSize:12,color:'rgba(255,255,255,0.5)'}}>FamilyFlow покажет баланс между направлениями и предупредит о рисках</span>
-            </div>
-            <Btn label="Настроить бюджет →" onClick={onNext}/>
-          </div>
-        </div>
-      ),
-    ];
-    const onIntroNext=()=>{if(introPage<PAGES.length-1)setIntroPage(p=>p+1);else{setIntroPage(0);goNext();}};
-    const onIntroBack=()=>{if(introPage>0)setIntroPage(p=>p-1);};
-    return(
-      <div style={{position:'relative'}}>
-        {PAGES[introPage](onIntroNext,onIntroBack)}
-        <div style={{position:'fixed',bottom:100,left:'50%',transform:'translateX(-50%)',display:'flex',gap:6,pointerEvents:'none',zIndex:5}}>
-          {PAGES.map((_,i)=><div key={i} style={{width:i===introPage?20:6,height:6,borderRadius:3,background:i===introPage?C.orange:'rgba(255,255,255,0.2)',transition:'width .2s'}}/>)}
-        </div>
+        )}
       </div>
     );
   }
