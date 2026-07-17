@@ -14,10 +14,14 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
   const[showAllUpcoming,setShowAllUpcoming]=useState(false);
   const{incomes,planned,members,customCats=[],payments={},extraPayments=[],transactions=[]}=state;
   const allCats=[...DEFAULT_CATS,...customCats];
+  const now=new Date();
+  const budgetStart=new Date(); budgetStart.setHours(0,0,0,0); // начало сегодняшнего дня
+  const budgetEnd=new Date(budgetStart.getTime()+365*86400000);
   const totalNet=incomes.reduce((s,i)=>s+calcNetFor(i),0);
   const txExtraIncome=(transactions||[]).filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+  const extraYearlyIncome=(extraPayments||[]).filter(p=>{const d=new Date(p.date);return d>=budgetStart&&d<=budgetEnd;}).reduce((s,p)=>s+(p.actualAmount||p.amount),0);
   const plannedYearlyIncome=totalNet*12;
-  const totalYearlyIncome=plannedYearlyIncome+txExtraIncome;
+  const totalYearlyIncome=plannedYearlyIncome+txExtraIncome+extraYearlyIncome;
   // База для расчёта отпускных
   const knownMonthsCount=Math.min(12,Math.max(1,Math.round((new Date()-new Date(state.budgetStartDate||new Date()))/86400000/30)));
   const monthlyGross=incomes[0]?.gross||0;
@@ -30,9 +34,6 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
     return{cat,monthly,yearly,hasOnce};}).filter(c=>c.yearly>0).sort((a,b)=>b.yearly-a.yearly);
   const totalYearlyExp=catTotals.reduce((s,c)=>s+c.yearly,0);
   const profit=totalYearlyIncome-totalYearlyExp,maxVal=catTotals[0]?.yearly||1;
-  const now=new Date();
-  const budgetStart=new Date(); budgetStart.setHours(0,0,0,0); // начало сегодняшнего дня
-  const budgetEnd=new Date(budgetStart.getTime()+365*86400000);
   const yearsInRange=[...new Set([budgetStart.getFullYear(),budgetEnd.getFullYear()])];
   const allPayments=incomes.flatMap(inc=>{const m=members.find(x=>x.id===inc.memberId);return yearsInRange.flatMap(yr=>buildPaymentSchedule(yr,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc)).filter(p=>p.date>=budgetStart&&p.date<=budgetEnd).map(p=>({...p,memberName:m?.name||'',memberAvatar:m?.avatar||'',...(payments[p.displayLabel]||{})}));}).sort((a,b)=>a.date-b.date);
   const upcomingAll=allPayments.filter(p=>p.date>=budgetStart);
@@ -45,7 +46,7 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
       <div style={s.hero}>
         <div style={{fontSize:11,color:'rgba(255,255,255,0.45)',marginBottom:4}}>Расходы · {budgetStart.toLocaleDateString('ru',{day:'numeric',month:'short'})} – {budgetEnd.toLocaleDateString('ru',{day:'numeric',month:'short',year:'numeric'})}</div>
         <div style={{fontSize:24,fontWeight:600}}>{fmt(totalYearlyExp)}</div>
-        <div style={{fontSize:11,color:'rgba(255,255,255,0.4)',marginTop:2}}>Плановый доход: {fmt(plannedYearlyIncome)}{txExtraIncome>0?` + доп. ${fmt(txExtraIncome)}`:''}</div>
+        <div style={{fontSize:11,color:'rgba(255,255,255,0.4)',marginTop:2}}>Плановый доход: {fmt(plannedYearlyIncome)}{(txExtraIncome+extraYearlyIncome)>0?` + доп. ${fmt(txExtraIncome+extraYearlyIncome)}`:''}</div>
         <PBar pct={totalYearlyIncome>0?(totalYearlyExp/totalYearlyIncome)*100:0} color={profit>=0?'#4ade80':'#f87171'} h={4}/>
       </div>
       <div style={{display:'flex',gap:6,marginBottom:10}}>
