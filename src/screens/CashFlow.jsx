@@ -46,9 +46,9 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx}){
     return{wk,wSp,wTot,wInc:wInc+txInc+exInc,bal:(wInc+txInc+exInc)-wTot,wPiggy};
   };
   const weeksSummary=allWeekKeys.map(getWData);
-  const monthsSummary=()=>{const map={};allWeekKeys.forEach(wk=>{const wS=weekKeyToDate(wk);const mk=monthKey(wS);if(!map[mk])map[mk]={mk,wTot:0,wSp:0,wInc:0};const d=getWData(wk);map[mk].wTot+=d.wTot;map[mk].wSp+=d.wSp;map[mk].wInc+=d.wInc;});return Object.values(map).sort((a,b)=>a.mk.localeCompare(b.mk));};
-  const yearsSummary=()=>{const map={};allWeekKeys.forEach(wk=>{const yr=weekKeyToDate(wk).getFullYear(); // календарный год по дате начала недели
-    if(!map[yr])map[yr]={yr,wTot:0,wSp:0,wInc:0};const d=getWData(wk);map[yr].wTot+=d.wTot;map[yr].wSp+=d.wSp;map[yr].wInc+=d.wInc;});return Object.values(map).sort((a,b)=>a.yr-b.yr);};
+  const monthsSummary=()=>{const curWk2=todayKey();const map={};allWeekKeys.forEach(wk=>{const wS=weekKeyToDate(wk);const mk=monthKey(wS);if(!map[mk])map[mk]={mk,wTot:0,wSp:0,wInc:0,wDeduct:0};const d=getWData(wk);map[mk].wTot+=d.wTot;map[mk].wSp+=d.wSp;map[mk].wInc+=d.wInc;map[mk].wDeduct+=(wk>curWk2?d.wTot:d.wSp);});return Object.values(map).sort((a,b)=>a.mk.localeCompare(b.mk));};
+  const yearsSummary=()=>{const curWk3=todayKey();const map={};allWeekKeys.forEach(wk=>{const yr=weekKeyToDate(wk).getFullYear(); // календарный год по дате начала недели
+    if(!map[yr])map[yr]={yr,wTot:0,wSp:0,wInc:0,wDeduct:0};const d=getWData(wk);map[yr].wTot+=d.wTot;map[yr].wSp+=d.wSp;map[yr].wInc+=d.wInc;map[yr].wDeduct+=(wk>curWk3?d.wTot:d.wSp);});return Object.values(map).sort((a,b)=>a.yr-b.yr);};
   const TABS=[{id:'detail',label:'📋 Неделя'},{id:'weeks',label:'📊 Недели'},{id:'months',label:'📅 Месяцы'},{id:'year',label:'🗓 Всё время'}];
   const pad={padding:'14px 14px 80px'};
   const navBtn={padding:'8px 12px',borderRadius:8,border:`.5px solid ${C.border}`,background:'#fff',color:C.orange,fontWeight:500,fontSize:12,cursor:'pointer',fontFamily:'inherit'};
@@ -178,12 +178,11 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx}){
         :(()=>{
           let runBal=computeBalances(state).savingStart;
           const curMk=todayMonthKey();
-          return monthsSummary().map(({mk,wTot,wSp,wInc})=>{
+          return monthsSummary().map(({mk,wTot,wSp,wInc,wDeduct})=>{
           const isCur=mk===curMk;
-          const isFutureMonth=mk>curMk;
-          const deduct=isFutureMonth?wTot:wSp; // план для будущих, факт для прошлых
-          const bal=wInc-deduct,inPlus=bal>=0,pctD=wTot>0?Math.round(wSp/wTot*100):0;
-          runBal=runBal+wInc-deduct;
+          // Смешанный расчёт: для прошедших/текущей недели внутри месяца — факт, для будущих недель — план
+          const bal=wInc-wDeduct,inPlus=bal>=0,pctD=wTot>0?Math.round(wSp/wTot*100):0;
+          runBal=runBal+wInc-wDeduct;
           const runPlus=runBal>=0;
           return(
             <div key={mk}>
@@ -213,13 +212,12 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx}){
         <SecTitle>ИТОГИ ПО ГОДАМ</SecTitle>
         {(()=>{
           let runBalYr=computeBalances(state).savingStart;
-          return yearsSummary().map(({yr,wTot,wSp,wInc})=>{
+          return yearsSummary().map(({yr,wTot,wSp,wInc,wDeduct})=>{
           const curYr=new Date().getFullYear();
           const isCur=yr===curYr;
-          const isFutureYr=yr>curYr;
-          const deductYr=isFutureYr?wTot:wSp;
-          const bal=wInc-deductYr,inPlus=bal>=0,pctD=wTot>0?Math.round(wSp/wTot*100):0;
-          runBalYr=runBalYr+wInc-deductYr;
+          // Смешанный расчёт: для прошедших/текущей недели внутри года — факт, для будущих недель — план
+          const bal=wInc-wDeduct,inPlus=bal>=0,pctD=wTot>0?Math.round(wSp/wTot*100):0;
+          runBalYr=runBalYr+wInc-wDeduct;
           const runPlusYr=runBalYr>=0;
           return(
             <div key={yr} style={{marginBottom:6}}>
