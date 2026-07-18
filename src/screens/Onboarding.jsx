@@ -2,22 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import {C,fmt,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Modal,DayPicker,Numpad} from '../lib/ui';
+import {IconPigMoney} from '@tabler/icons-react';
 
 function PigIcon({size=48,color='#fff'}){
-  return(
-    <svg width={size} height={size} viewBox="0 0 100 100" fill="none">
-      <ellipse cx="46" cy="56" rx="34" ry="26" fill={color}/>
-      <circle cx="20" cy="40" r="9" fill={color}/>
-      <circle cx="76" cy="50" r="13" fill={color}/>
-      <circle cx="71" cy="48" r="2" fill="#E0522A"/>
-      <circle cx="81" cy="48" r="2" fill="#E0522A"/>
-      <circle cx="32" cy="48" r="3.5" fill="#E0522A"/>
-      <rect x="40" y="30" width="14" height="5" rx="2.5" fill="#E0522A"/>
-      <rect x="22" y="78" width="9" height="13" rx="4" fill={color}/>
-      <rect x="60" y="78" width="9" height="13" rx="4" fill={color}/>
-      <circle cx="12" cy="60" r="5" fill={color}/>
-    </svg>
-  );
+  return<IconPigMoney size={size} color={color} stroke={1.6}/>;
 }
 
 export function SplashScreen(){
