@@ -10,7 +10,7 @@ function PigIcon({size=48,color='#fff'}){
 
 export function SplashScreen(){
   return(
-    <div style={{minHeight:'100dvh',background:'#E0522A',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
+    <div style={{minHeight:'100dvh',maxWidth:480,margin:'0 auto',width:'100%',boxSizing:'border-box',background:'#E0522A',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
       <PigIcon size={110}/>
       <div style={{fontSize:38,fontWeight:800,color:'#fff',letterSpacing:'-0.5px',marginTop:14}}>FamilyFlow</div>
       <div style={{width:48,height:48,borderRadius:24,border:'4px solid rgba(255,255,255,0.3)',borderTopColor:'#fff',marginTop:30,animation:'ff-spin 0.9s linear infinite'}}/>
@@ -24,7 +24,7 @@ export function EntryScreen({onDemo,onSetup,onLoginClick}){
   const[policy,setPolicy]=useState(false);
   const POLICY_ITEMS=[['Какие данные мы обрабатываем','Приложение обрабатывает данные, которые вы вводите: имена членов семьи, сведения о доходах и расходах. Эти данные относятся к персональным данным в соответствии с ФЗ № 152-ФЗ.'],['Где хранятся данные','По умолчанию все данные хранятся на вашем устройстве. Если вы включите синхронизацию, данные также сохраняются в облаке для доступа с других устройств.'],['Цель обработки','Данные используются только для формирования семейного бюджета. Не передаются третьим лицам и не используются в коммерческих целях.'],['Информационный характер','FamilyFlow — инструмент планирования. Расчёты и рекомендации не являются финансовой консультацией.'],['Удаление данных','Вы можете удалить все данные, очистив данные приложения или аккаунт. После удаления данные полностью уничтожаются.']];
   if(policy)return(
-    <div style={{minHeight:'100dvh',background:'#F8FAFC',display:'flex',flexDirection:'column'}}>
+    <div style={{minHeight:'100dvh',maxWidth:480,margin:'0 auto',width:'100%',boxSizing:'border-box',background:'#F8FAFC',display:'flex',flexDirection:'column'}}>
       <div style={{display:'flex',alignItems:'center',gap:12,padding:'14px 16px',background:'#fff',borderBottom:'.5px solid #E2E8F0',position:'sticky',top:0,zIndex:10}}>
         <button onClick={()=>setPolicy(false)} style={{background:'none',border:'none',cursor:'pointer',fontSize:13,color:'#E0522A',fontFamily:'inherit'}}>← Назад</button>
         <span style={{fontSize:15,fontWeight:600,color:'#1E293B'}}>Политика конфиденциальности</span>
@@ -41,7 +41,7 @@ export function EntryScreen({onDemo,onSetup,onLoginClick}){
   );
   const guard=fn=>()=>{if(!agree)return;fn();};
   return(
-    <div style={{minHeight:'100dvh',background:'#0f172a',display:'flex',flexDirection:'column',padding:'24px 20px',boxSizing:'border-box'}}>
+    <div style={{minHeight:'100dvh',maxWidth:480,margin:'0 auto',width:'100%',background:'#0f172a',display:'flex',flexDirection:'column',justifyContent:'center',padding:'24px 20px',boxSizing:'border-box'}}>
       <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:18}}>
         <div style={{width:40,height:40,borderRadius:12,background:'#E0522A',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}><PigIcon size={20}/></div>
         <div><div style={{fontSize:17,fontWeight:700,color:'#fff'}}>FamilyFlow</div><div style={{fontSize:11,color:'rgba(255,255,255,0.45)'}}>Финансовый директор семьи</div></div>
@@ -130,7 +130,7 @@ export function Onboarding({onDone}){
     const retreat=()=>{if(introPage>0)setIntroPage(p=>p-1);};
     const isLast=introPage===TOTAL-1;
     return(
-      <div style={{minHeight:'100dvh',background:'#0f172a',boxSizing:'border-box',padding:'16px 20px 24px',display:'flex',flexDirection:'column',position:'relative'}}>
+      <div style={{minHeight:'100dvh',maxWidth:480,margin:'0 auto',width:'100%',background:'#0f172a',boxSizing:'border-box',padding:'16px 20px 24px',display:'flex',flexDirection:'column',position:'relative'}}>
         <div style={{display:'flex',gap:4,marginBottom:16}}>
           {Array.from({length:TOTAL}).map((_,i)=>(
             <div key={i} style={{flex:1,height:3,borderRadius:2,background:i<=introPage?'#fff':'rgba(255,255,255,0.25)'}}/>
