@@ -493,7 +493,7 @@ useEffect(() => {
             <span style={{fontSize:13}}>👁</span>
             <span style={{flex:1,fontSize:12,color:C.blue}}>Демо · семья Ивановых</span>
             <button onClick={()=>{setTab('today');setTourStep(0);}} style={{fontSize:11,fontWeight:600,color:C.blue,background:'#fff',border:`.5px solid ${C.blueB}`,padding:'4px 10px',borderRadius:20,cursor:'pointer',fontFamily:'inherit'}}>▶ Тур</button>
-            <button onClick={()=>setTab('settings')} style={{fontSize:11,fontWeight:600,color:C.blue,background:'#fff',border:`.5px solid ${C.blueB}`,padding:'4px 10px',borderRadius:20,cursor:'pointer',fontFamily:'inherit'}}>Создать аккаунт</button>
+            <button onClick={()=>setStartLogin(true)} style={{fontSize:11,fontWeight:600,color:C.blue,background:'#fff',border:`.5px solid ${C.blueB}`,padding:'4px 10px',borderRadius:20,cursor:'pointer',fontFamily:'inherit'}}>Создать аккаунт</button>
             <button onClick={exitDemo} style={{fontSize:11,fontWeight:600,color:'#fff',background:C.blue,border:'none',padding:'4px 10px',borderRadius:20,cursor:'pointer',fontFamily:'inherit'}}>Начать со своими</button>
           </div>
         )}
@@ -510,6 +510,7 @@ useEffect(() => {
       <EditCatModal visible={showEdit} item={editItem} members={appState.members} customCats={appState.customCats} onClose={()=>{setShowEdit(false);setEditItem(null);}} onSave={item=>{const{isNew,...rest}=item||{};handleEditPlanned(isNew?{...rest,isNew:true}:rest);}} onDelete={handleDeletePlanned}/>
       <EditPaymentModal visible={showEditPay} payment={editPayment} onClose={()=>{setShowEditPay(false);setEditPayment(null);}} onSave={handleSavePayment} onDelete={handleDeleteExtra}/>
       <AddExtraModal visible={showAddExtra} onClose={()=>setShowAddExtra(false)} onSave={handleAddExtra} members={appState.members} incomes={appState.incomes}/>
+      {startLogin&&<StartLoginForm onClose={()=>setStartLogin(false)}/>}
       <WithdrawPiggyModal visible={showWithdrawPiggy} onClose={()=>setShowWithdrawPiggy(false)} onSave={handleWithdrawPiggy} members={appState.members} customCats={appState.customCats} available={computeBalances(appState).totalSaved}/>
       <EditTxModal visible={showEditTx} item={editTxItem} members={appState.members} customCats={appState.customCats}
         onClose={()=>{setShowEditTx(false);setEditTxItem(null);}}

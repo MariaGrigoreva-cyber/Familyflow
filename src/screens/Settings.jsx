@@ -156,7 +156,7 @@ export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncom
               <span style={{fontSize:13}}>{m?.avatar}</span>
               <div style={{flex:1,marginLeft:8}}>
                 <div style={{fontSize:12,color:C.text,fontWeight:500}}>{m?.name}{inc.name?` · ${inc.name}`:''}</div>
-                <div style={{fontSize:10,color:C.muted,marginTop:1}}>{getNDFLDesc(inc.gross||0)}</div>
+                <div style={{fontSize:10,color:C.muted,marginTop:1}}>{inc.incomeType==='self'?`${parseFloat(inc.taxRate)||6}% (самозанятый/ИП)`:inc.incomeType==='manual'?'без налога — сумма на руки':getNDFLDesc(inc.gross||0)}</div>
                 {inc.effectiveFrom&&<div style={{fontSize:9,color:C.blue,marginTop:1}}>✦ изменён с {inc.effectiveFrom.day} {MONTH_SHORT[inc.effectiveFrom.month-1]} {inc.effectiveFrom.year}</div>}
               </div>
               <div style={{textAlign:'right'}}>
