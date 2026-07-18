@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {C,uid,weekKey,todayKey,calcAvgMonthlyNet,calcNetFor,generateAllWeeks,regenWeeksKeepDone,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED,computeBalances} from './lib/core';
-import {SplashScreen,EntryScreen,Onboarding} from './screens/Onboarding';
+import {SplashScreen,IntroStories,EntryScreen,Onboarding} from './screens/Onboarding';
 import {TodayScreen} from './screens/Today';
 import {PlanScreen} from './screens/CashFlow';
 import {BudgetScreen} from './screens/Budget';
@@ -46,6 +46,7 @@ export default function App(){
   const[tab,setTab]=useState('today');
   const[tourStep,setTourStep]=useState(-1); // -1 = тур выключен
   const[showSplash,setShowSplash]=useState(true); // загрузочный экран при старте приложения
+  const[introSeen,setIntroSeen]=useState(false); // сторис-методика показана перед согласием
   const[startLogin,setStartLogin]=useState(false); // форма входа на стартовом экране
   const[showAdd,setShowAdd]=useState(false);
   const[addWeek,setAddWeek]=useState(null); // неделя для добавления транзакции
@@ -446,6 +447,7 @@ useEffect(() => {
   const TAB_TITLES={today:'Сегодня',plan:'Денежный поток',budget:'Годовой бюджет',health:'Здоровье бюджета',settings:'Настройки'};
   const shell={maxWidth:480,margin:'0 auto',minHeight:'100dvh',background:'#F8FAFC',display:'flex',flexDirection:'column',boxShadow:'0 0 40px rgba(0,0,0,0.12)',fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',position:'relative'};
   if(showSplash)return<div style={shell}><SplashScreen/></div>;
+  if(!consented&&!introSeen)return<div style={shell}><IntroStories onDone={()=>setIntroSeen(true)}/></div>;
   const startDemo=()=>{
     const demo=buildDemoState();
     setAppState(demo);
@@ -491,6 +493,7 @@ useEffect(() => {
             <span style={{fontSize:13}}>👁</span>
             <span style={{flex:1,fontSize:12,color:C.blue}}>Демо · семья Ивановых</span>
             <button onClick={()=>{setTab('today');setTourStep(0);}} style={{fontSize:11,fontWeight:600,color:C.blue,background:'#fff',border:`.5px solid ${C.blueB}`,padding:'4px 10px',borderRadius:20,cursor:'pointer',fontFamily:'inherit'}}>▶ Тур</button>
+            <button onClick={()=>setTab('settings')} style={{fontSize:11,fontWeight:600,color:C.blue,background:'#fff',border:`.5px solid ${C.blueB}`,padding:'4px 10px',borderRadius:20,cursor:'pointer',fontFamily:'inherit'}}>Создать аккаунт</button>
             <button onClick={exitDemo} style={{fontSize:11,fontWeight:600,color:'#fff',background:C.blue,border:'none',padding:'4px 10px',borderRadius:20,cursor:'pointer',fontFamily:'inherit'}}>Начать со своими</button>
           </div>
         )}

@@ -59,11 +59,12 @@ export function EntryScreen({onDemo,onSetup,onLoginClick}){
         <span style={{fontSize:20,flexShrink:0}}>🔑</span>
         <div><div style={{fontSize:13,fontWeight:600,color:'#fff'}}>У меня уже есть аккаунт</div><div style={{fontSize:11,color:'rgba(255,255,255,0.45)',marginTop:1}}>войти или создать — бюджет из облака</div></div>
       </button>
-      <div onClick={()=>setAgree(p=>!p)} style={{display:'flex',alignItems:'flex-start',gap:9,padding:'11px 12px',background:'rgba(255,255,255,0.06)',borderRadius:10,border:`.5px solid ${agree?'rgba(224,82,42,0.5)':'rgba(255,255,255,0.1)'}`,cursor:'pointer',userSelect:'none'}}>
-        <div style={{width:18,height:18,borderRadius:5,flexShrink:0,marginTop:1,background:agree?'#E0522A':'transparent',border:`1.5px solid ${agree?'#E0522A':'rgba(255,255,255,0.3)'}`,display:'flex',alignItems:'center',justifyContent:'center'}}>
-          {agree&&<span style={{color:'#fff',fontSize:11,fontWeight:700,lineHeight:1}}>✓</span>}
+      {!agree&&<div style={{fontSize:11,color:'#F0997B',fontWeight:600,marginBottom:6,textAlign:'center'}}>👇 Отметьте, чтобы продолжить</div>}
+      <div onClick={()=>setAgree(p=>!p)} style={{display:'flex',alignItems:'flex-start',gap:9,padding:'12px 13px',background:agree?'rgba(224,82,42,0.12)':'rgba(255,255,255,0.06)',borderRadius:10,border:`1.5px solid ${agree?'#E0522A':'rgba(240,153,123,0.5)'}`,cursor:'pointer',userSelect:'none'}}>
+        <div style={{width:20,height:20,borderRadius:6,flexShrink:0,marginTop:1,background:agree?'#E0522A':'transparent',border:`2px solid ${agree?'#E0522A':'rgba(240,153,123,0.7)'}`,display:'flex',alignItems:'center',justifyContent:'center'}}>
+          {agree&&<span style={{color:'#fff',fontSize:12,fontWeight:700,lineHeight:1}}>✓</span>}
         </div>
-        <div style={{fontSize:'10.5px',color:'rgba(255,255,255,0.65)',lineHeight:'16px'}}>Принимаю <span onClick={e=>{e.stopPropagation();setPolicy(true);}} style={{color:'#F0997B',textDecoration:'underline',cursor:'pointer'}}>условия использования</span> и обработку персональных данных. Данные остаются на устройстве, если не выбрана синхронизация.</div>
+        <div style={{fontSize:'10.5px',color:'rgba(255,255,255,0.7)',lineHeight:'16px'}}>Принимаю <span onClick={e=>{e.stopPropagation();setPolicy(true);}} style={{color:'#F0997B',textDecoration:'underline',cursor:'pointer'}}>условия использования</span> и обработку персональных данных. Данные остаются на устройстве, если не выбрана синхронизация.</div>
       </div>
     </div>
   );
@@ -72,9 +73,60 @@ export function EntryScreen({onDemo,onSetup,onLoginClick}){
 // ════════════════════════════════════════════════════════════════════════
 // ONBOARDING
 // ════════════════════════════════════════════════════════════════════════
-export function Onboarding({onDone}){
-  const[step,setStep]=useState(0);
+export function IntroStories({onDone}){
   const[introPage,setIntroPage]=useState(0);
+  const FRAMES=[
+    {icon:'🏦',title:'Один счёт\nдля всех денег',sub:'Зарплата, аванс, подработки — всё собирается в одном месте'},
+    {icon:'📅',title:'Раз в неделю —\nпо трём потокам',sub:'FamilyFlow сам распределяет деньги по направлениям'},
+  ];
+  const STREAMS=[
+    {e:'🛡️',t:'Защита',s:'копилка, кредиты, страховки',col:'#F0997B',bg:'rgba(216,90,48,0.18)',pct:'55%'},
+    {e:'🍽️',t:'Жизнь',s:'еда, транспорт, здоровье',col:'#EF9F27',bg:'rgba(239,159,39,0.18)',pct:'25%'},
+    {e:'🛋️',t:'Комфорт',s:'одежда, дом, путешествия',col:'#85B7EB',bg:'rgba(55,138,221,0.18)',pct:'20%'},
+  ];
+  const TOTAL=FRAMES.length+1; // + финальный кадр с потоками
+  const advance=()=>{if(introPage<TOTAL-1)setIntroPage(p=>p+1);else{setIntroPage(0);onDone();}};
+  const retreat=()=>{if(introPage>0)setIntroPage(p=>p-1);};
+  const isLast=introPage===TOTAL-1;
+  return(
+    <div style={{minHeight:'100dvh',maxWidth:480,margin:'0 auto',width:'100%',background:'#0f172a',boxSizing:'border-box',padding:'16px 20px 24px',display:'flex',flexDirection:'column',position:'relative'}}>
+      <div style={{display:'flex',gap:4,marginBottom:16}}>
+        {Array.from({length:TOTAL}).map((_,i)=>(
+          <div key={i} style={{flex:1,height:3,borderRadius:2,background:i<=introPage?'#fff':'rgba(255,255,255,0.25)'}}/>
+        ))}
+      </div>
+      {!isLast&&<>
+        <div style={{position:'absolute',top:0,left:0,width:'40%',height:'100%',zIndex:2}} onClick={retreat}/>
+        <div style={{position:'absolute',top:0,right:0,width:'60%',height:'100%',zIndex:2}} onClick={advance}/>
+      </>}
+      {!isLast?(
+        <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',textAlign:'center',position:'relative',zIndex:1}}>
+          <span style={{fontSize:96}}>{FRAMES[introPage].icon}</span>
+          <div style={{fontSize:34,fontWeight:800,color:'#fff',lineHeight:1.2,marginTop:26,whiteSpace:'pre-line'}}>{FRAMES[introPage].title}</div>
+          <div style={{fontSize:16,color:'rgba(255,255,255,0.55)',marginTop:16,maxWidth:260,lineHeight:1.5}}>{FRAMES[introPage].sub}</div>
+        </div>
+      ):(
+        <div style={{flex:1,display:'flex',flexDirection:'column'}}>
+          {introPage>0&&<button onClick={retreat} style={{alignSelf:'flex-start',background:'none',border:'none',cursor:'pointer',fontSize:13,color:'rgba(255,255,255,0.4)',fontFamily:'inherit',padding:0,marginBottom:14}}>← Назад</button>}
+          <div style={{fontSize:28,fontWeight:800,color:'#fff',textAlign:'center',marginBottom:24}}>Три потока</div>
+          <div style={{display:'flex',flexDirection:'column',gap:12}}>
+            {STREAMS.map((b,i)=>(
+              <div key={i} style={{background:b.bg,borderRadius:16,padding:20,display:'flex',alignItems:'center',gap:16}}>
+                <span style={{fontSize:40}}>{b.e}</span>
+                <div style={{flex:1}}><div style={{fontSize:19,fontWeight:700,color:b.col}}>{b.t}</div><div style={{fontSize:13,color:b.col,opacity:.75,marginTop:2}}>{b.s}</div></div>
+                <span style={{fontSize:20,fontWeight:700,color:b.col}}>{b.pct}</span>
+              </div>
+            ))}
+          </div>
+          <div style={{marginTop:'auto',paddingTop:26}}><Btn label="Настроить бюджет →" onClick={onDone}/></div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function Onboarding({onDone}){
+  const[step,setStep]=useState(1);
   const[startBalance,setStartBalance]=useState('');
   const[familyName,setFamilyName]=useState('');
   const[members,setMembers]=useState([{id:'m1',name:'',avatar:'👩',color:C.orange}]);
@@ -83,7 +135,7 @@ export function Onboarding({onDone}){
   const[catSetup,setCatSetup]=useState({});
   const[openCat,setOpenCat]=useState(null);
   const goNext=()=>setStep(p=>p+1);
-  const goBack=()=>setStep(p=>Math.max(0,p-1));
+  const goBack=()=>setStep(p=>Math.max(1,p-1));
   const updInc=(id,f,v)=>setIncomes(p=>p.map(i=>i.id===id?{...i,[f]:v}:i));
   const updCat=(catId,f,v)=>setCatSetup(p=>({...p,[catId]:{...(p[catId]||{}),[f]:v}}));
   const toggleCatDay=(catId,d)=>{const cur=catSetup[catId]?.days||[];updCat(catId,'days',cur.includes(d)?cur.filter(x=>x!==d):[...cur,d].sort((a,b)=>a-b));};
@@ -113,58 +165,6 @@ export function Onboarding({onDone}){
     </div>
   );
   const pad={padding:'14px 14px 80px'};
-
-  // INTRO — формат сторис: 3 коротких кадра вместо двух плотных слайдов
-  if(step===0){
-    const FRAMES=[
-      {icon:'🏦',title:'Один счёт\nдля всех денег',sub:'Зарплата, аванс, подработки — всё собирается в одном месте'},
-      {icon:'📅',title:'Раз в неделю —\nпо трём потокам',sub:'FamilyFlow сам распределяет деньги по направлениям'},
-    ];
-    const STREAMS=[
-      {e:'🛡️',t:'Защита',s:'копилка, кредиты, страховки',col:'#F0997B',bg:'rgba(216,90,48,0.18)',pct:'55%'},
-      {e:'🍽️',t:'Жизнь',s:'еда, транспорт, здоровье',col:'#EF9F27',bg:'rgba(239,159,39,0.18)',pct:'25%'},
-      {e:'🛋️',t:'Комфорт',s:'одежда, дом, путешествия',col:'#85B7EB',bg:'rgba(55,138,221,0.18)',pct:'20%'},
-    ];
-    const TOTAL=FRAMES.length+1; // + финальный кадр с потоками
-    const advance=()=>{if(introPage<TOTAL-1)setIntroPage(p=>p+1);else{setIntroPage(0);goNext();}};
-    const retreat=()=>{if(introPage>0)setIntroPage(p=>p-1);};
-    const isLast=introPage===TOTAL-1;
-    return(
-      <div style={{minHeight:'100dvh',maxWidth:480,margin:'0 auto',width:'100%',background:'#0f172a',boxSizing:'border-box',padding:'16px 20px 24px',display:'flex',flexDirection:'column',position:'relative'}}>
-        <div style={{display:'flex',gap:4,marginBottom:16}}>
-          {Array.from({length:TOTAL}).map((_,i)=>(
-            <div key={i} style={{flex:1,height:3,borderRadius:2,background:i<=introPage?'#fff':'rgba(255,255,255,0.25)'}}/>
-          ))}
-        </div>
-        {!isLast&&<>
-          <div style={{position:'absolute',top:0,left:0,width:'40%',height:'100%',zIndex:2}} onClick={retreat}/>
-          <div style={{position:'absolute',top:0,right:0,width:'60%',height:'100%',zIndex:2}} onClick={advance}/>
-        </>}
-        {!isLast?(
-          <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',textAlign:'center',position:'relative',zIndex:1}}>
-            <span style={{fontSize:96}}>{FRAMES[introPage].icon}</span>
-            <div style={{fontSize:34,fontWeight:800,color:'#fff',lineHeight:1.2,marginTop:26,whiteSpace:'pre-line'}}>{FRAMES[introPage].title}</div>
-            <div style={{fontSize:16,color:'rgba(255,255,255,0.55)',marginTop:16,maxWidth:260,lineHeight:1.5}}>{FRAMES[introPage].sub}</div>
-          </div>
-        ):(
-          <div style={{flex:1,display:'flex',flexDirection:'column'}}>
-            {introPage>0&&<button onClick={retreat} style={{alignSelf:'flex-start',background:'none',border:'none',cursor:'pointer',fontSize:13,color:'rgba(255,255,255,0.4)',fontFamily:'inherit',padding:0,marginBottom:14}}>← Назад</button>}
-            <div style={{fontSize:28,fontWeight:800,color:'#fff',textAlign:'center',marginBottom:24}}>Три потока</div>
-            <div style={{display:'flex',flexDirection:'column',gap:12}}>
-              {STREAMS.map((b,i)=>(
-                <div key={i} style={{background:b.bg,borderRadius:16,padding:20,display:'flex',alignItems:'center',gap:16}}>
-                  <span style={{fontSize:40}}>{b.e}</span>
-                  <div style={{flex:1}}><div style={{fontSize:19,fontWeight:700,color:b.col}}>{b.t}</div><div style={{fontSize:13,color:b.col,opacity:.75,marginTop:2}}>{b.s}</div></div>
-                  <span style={{fontSize:20,fontWeight:700,color:b.col}}>{b.pct}</span>
-                </div>
-              ))}
-            </div>
-            <div style={{marginTop:'auto',paddingTop:26}}><Btn label="Настроить бюджет →" onClick={goNext}/></div>
-          </div>
-        )}
-      </div>
-    );
-  }
 
   // STEP 1: Семья
   if(step===1)return(
