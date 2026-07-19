@@ -138,7 +138,7 @@ export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncom
   const memberWord=members.length===1?'ЧЕЛОВЕК':'ЧЕЛОВЕКА';
 
   return(
-    <div style={{overflowY:'auto',flex:1,WebkitOverflowScrolling:'touch'}}><div style={pad}>
+    <div style={{overflowY:'auto',flex:1,minHeight:0,WebkitOverflowScrolling:'touch'}}><div style={pad}>
       <button onClick={()=>setShowFamilyEdit(v=>!v)} style={{width:'100%',display:'flex',alignItems:'center',gap:14,paddingBottom:showFamilyEdit?14:18,border:'none',background:'none',cursor:'pointer',fontFamily:'inherit',textAlign:'left'}}>
         <div style={{display:'flex',flexShrink:0}}>
           {members.map((m,i)=><span key={m.id} style={{width:44,height:44,borderRadius:'50%',background:m.color,display:'flex',alignItems:'center',justifyContent:'center',fontSize:19,border:`2px solid ${C.bg}`,marginLeft:i>0?-10:0}}>{m.avatar}</span>)}
@@ -155,7 +155,7 @@ export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncom
             <div key={m.id} style={{display:'flex',alignItems:'center',gap:10}}>
               <button onClick={()=>setEmojiPickerFor(m.id)} style={{width:40,height:40,borderRadius:'50%',background:m.color,border:'none',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0,cursor:'pointer'}}>{m.avatar}</button>
               <input type="text" value={m.name} onChange={e=>onUpdateMember(m.id,'name',e.target.value)} placeholder="Имя участника" style={{...s.input,flex:1,padding:'10px 12px'}}/>
-              <button onClick={()=>onRemoveMember(m.id)} style={{width:28,height:28,borderRadius:'50%',border:`1px solid ${C.border}`,background:'#fff',color:C.muted,fontSize:13,cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}>×</button>
+              <button onClick={()=>onRemoveMember(m.id)} style={{position:'relative',width:28,height:28,borderRadius:'50%',border:`1px solid ${C.border}`,background:'#fff',color:C.muted,fontSize:13,cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}><span style={{position:'absolute',inset:-8}}/>×</button>
             </div>
           ))}
           <button onClick={onAddMember} style={{textAlign:'center',border:`1.5px dashed ${C.borderS}`,borderRadius:12,padding:11,fontSize:12.5,fontWeight:600,color:C.orangeD,background:'none',cursor:'pointer',fontFamily:'inherit'}}>+ Добавить участника</button>

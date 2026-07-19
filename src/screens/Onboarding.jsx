@@ -5,7 +5,7 @@ import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,EmojiPicker} 
 
 export function SplashScreen(){
   return(
-    <div style={{minHeight:'100dvh',maxWidth:480,margin:'0 auto',width:'100%',boxSizing:'border-box',background:C.orange,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
+    <div style={{height:'100%',maxWidth:480,margin:'0 auto',width:'100%',boxSizing:'border-box',background:C.orange,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
       <div style={{width:88,height:88,borderRadius:26,background:'rgba(255,255,255,.14)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:44}}>🐷</div>
       <div style={{fontSize:32,fontWeight:600,letterSpacing:-.5,color:'#fff',marginTop:22}}>FamilyFlow</div>
       <div style={{fontFamily:MONO,fontSize:11,letterSpacing:2.5,color:'rgba(255,255,255,.6)',marginTop:8}}>ФИНАНСОВЫЙ ДИРЕКТОР СЕМЬИ</div>
@@ -20,7 +20,7 @@ export function SplashScreen(){
 export function EntryScreen({onDemo,onSetup,onLoginClick}){
   const[policy,setPolicy]=useState(false);
   if(policy)return(
-    <div style={{minHeight:'100dvh',maxWidth:480,margin:'0 auto',width:'100%',boxSizing:'border-box',background:C.bg,display:'flex',flexDirection:'column'}}>
+    <div style={{height:'100%',maxWidth:480,margin:'0 auto',width:'100%',boxSizing:'border-box',background:C.bg,display:'flex',flexDirection:'column'}}>
       <div style={{display:'flex',alignItems:'center',gap:12,padding:'14px 16px',background:'#fff',borderBottom:`1px solid ${C.border}`,position:'sticky',top:0,zIndex:10}}>
         <button onClick={()=>setPolicy(false)} style={{background:'none',border:'none',cursor:'pointer',fontSize:13,color:C.orangeD,fontFamily:'inherit'}}>← Назад</button>
         <span style={{fontSize:15,fontWeight:600,color:C.text}}>Политика конфиденциальности</span>
@@ -36,7 +36,7 @@ export function EntryScreen({onDemo,onSetup,onLoginClick}){
     </div>
   );
   return(
-    <div style={{minHeight:'100dvh',maxWidth:480,margin:'0 auto',width:'100%',background:C.bg,display:'flex',flexDirection:'column',justifyContent:'center',padding:24,boxSizing:'border-box'}}>
+    <div style={{height:'100%',maxWidth:480,margin:'0 auto',width:'100%',background:C.bg,display:'flex',flexDirection:'column',justifyContent:'center',padding:24,boxSizing:'border-box',overflowY:'auto'}}>
       <div style={{display:'flex',alignItems:'center',gap:12}}>
         <div style={{width:44,height:44,borderRadius:13,background:C.orange,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>🐷</div>
         <div><div style={{fontSize:18,fontWeight:600,color:C.text}}>FamilyFlow</div><div style={{fontFamily:MONO,fontSize:9.5,letterSpacing:1.5,color:C.muted,marginTop:2}}>ФИНАНСОВЫЙ ДИРЕКТОР СЕМЬИ</div></div>
@@ -84,7 +84,7 @@ export function IntroStories({onDone}){
   const retreat=()=>{if(introPage>0)setIntroPage(p=>p-1);};
   const isLast=introPage===TOTAL-1;
   return(
-    <div style={{minHeight:'100dvh',maxWidth:480,margin:'0 auto',width:'100%',background:C.bg,boxSizing:'border-box',padding:'18px 24px 24px',display:'flex',flexDirection:'column',position:'relative'}}>
+    <div style={{height:'100%',maxWidth:480,margin:'0 auto',width:'100%',background:C.bg,boxSizing:'border-box',padding:'18px 24px 24px',display:'flex',flexDirection:'column',position:'relative'}}>
       <div style={{display:'flex',gap:5}}>
         {Array.from({length:TOTAL}).map((_,i)=>(
           <div key={i} style={{flex:1,height:3,borderRadius:2,background:i<=introPage?C.orange:C.border}}/>
@@ -175,9 +175,9 @@ export function Onboarding({onDone}){
 
   // STEP 1: Семья
   if(step===1)return(
-    <div style={{minHeight:'100dvh',background:C.bg,display:'flex',flexDirection:'column'}}>
+    <div style={{height:'100%',background:C.bg,display:'flex',flexDirection:'column'}}>
       <OSteps current={0}/>
-      <div style={{overflowY:'auto',flex:1}}><div style={pad}>
+      <div style={{overflowY:'auto',flex:1,minHeight:0}}><div style={pad}>
         <h2 style={{fontSize:24,fontWeight:600,letterSpacing:-.3,color:C.text,margin:'0 0 20px'}}>Семья и стартовый баланс</h2>
         <div style={{fontFamily:MONO,fontSize:10.5,letterSpacing:1.5,color:C.muted,textTransform:'uppercase',marginBottom:8}}>СКОЛЬКО СЕЙЧАС НА СЧЕТАХ?</div>
         <div style={{border:`1.5px solid ${C.orange}`,background:'#fff',borderRadius:14,padding:'16px 18px',display:'flex',alignItems:'baseline',justifyContent:'space-between',boxSizing:'border-box'}}>
@@ -193,7 +193,7 @@ export function Onboarding({onDone}){
             <div key={m.id} style={{display:'flex',alignItems:'center',gap:10}}>
               <button onClick={()=>setEmojiPickerFor(m.id)} style={{width:42,height:42,borderRadius:'50%',background:m.color,border:'none',display:'flex',alignItems:'center',justifyContent:'center',fontSize:19,flexShrink:0,cursor:'pointer'}}>{m.avatar}</button>
               <input type="text" value={m.name} onChange={e=>setMembers(p=>p.map(x=>x.id===m.id?{...x,name:e.target.value}:x))} placeholder="Имя участника" style={{...s.input,flex:1}}/>
-              <button onClick={()=>removeMember(m.id)} style={{width:30,height:30,borderRadius:'50%',border:`1px solid ${C.border}`,background:'#fff',color:C.muted,fontSize:14,cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}>×</button>
+              <button onClick={()=>removeMember(m.id)} style={{position:'relative',width:30,height:30,borderRadius:'50%',border:`1px solid ${C.border}`,background:'#fff',color:C.muted,fontSize:14,cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}><span style={{position:'absolute',inset:-7}}/>×</button>
             </div>
           ))}
           <button onClick={addMember} style={{textAlign:'center',border:`1.5px dashed ${C.borderS}`,borderRadius:12,padding:12,fontSize:13,fontWeight:600,color:C.orangeD,background:'none',cursor:'pointer',fontFamily:'inherit'}}>+ Добавить участника</button>
@@ -207,9 +207,9 @@ export function Onboarding({onDone}){
 
   // STEP 2: Доходы
   if(step===2)return(
-    <div style={{minHeight:'100dvh',background:C.bg,display:'flex',flexDirection:'column'}}>
+    <div style={{height:'100%',background:C.bg,display:'flex',flexDirection:'column'}}>
       <OSteps current={1}/>
-      <div style={{overflowY:'auto',flex:1}}><div style={pad}>
+      <div style={{overflowY:'auto',flex:1,minHeight:0}}><div style={pad}>
         <h2 style={{fontSize:24,fontWeight:600,letterSpacing:-.3,color:C.text,margin:'0 0 18px'}}>Доходы семьи</h2>
         {memberIncomes.map((inc,idx)=>{
           const m=activeMembers.find(x=>x.id===inc.memberId)||activeMembers[idx];
@@ -334,9 +334,9 @@ export function Onboarding({onDone}){
 
   // STEP 3: Категории
   if(step===3)return(
-    <div style={{minHeight:'100dvh',background:C.bg,display:'flex',flexDirection:'column'}}>
+    <div style={{height:'100%',background:C.bg,display:'flex',flexDirection:'column'}}>
       <OSteps current={2}/>
-      <div style={{overflowY:'auto',flex:1}}><div style={pad}>
+      <div style={{overflowY:'auto',flex:1,minHeight:0}}><div style={pad}>
         <h2 style={{fontSize:24,fontWeight:600,letterSpacing:-.3,color:C.text,margin:0}}>Категории трат</h2>
         <div style={{fontSize:12.5,color:'#8B8175',marginTop:4,marginBottom:14}}>Выберите — как иконки на телефоне, потом настройте суммы</div>
         <div style={{display:'flex',gap:10,alignItems:'flex-start',background:C.cream,borderRadius:12,padding:'11px 13px',marginBottom:18}}>
@@ -428,9 +428,9 @@ export function Onboarding({onDone}){
   const fundBreakdown=FUND_GROUPS.map(g=>({...g,monthly:selArr.filter(catId=>g.catIds.includes(catId)).reduce((s,catId)=>s+monthlyOfSetup(catSetup[catId]||{}),0)})).filter(g=>g.monthly>0);
   const sb=parseInt(startBalance)||0,profit=totalNet-monthlyExp;
   return(
-    <div style={{minHeight:'100dvh',background:C.bg,display:'flex',flexDirection:'column'}}>
+    <div style={{height:'100%',background:C.bg,display:'flex',flexDirection:'column'}}>
       <OSteps current={3}/>
-      <div style={{overflowY:'auto',flex:1}}><div style={{...pad,display:'flex',flexDirection:'column'}}>
+      <div style={{overflowY:'auto',flex:1,minHeight:0}}><div style={{...pad,display:'flex',flexDirection:'column'}}>
         <h2 style={{fontSize:24,fontWeight:600,letterSpacing:-.3,color:C.text,margin:'0 0 18px'}}>Ваш план готов</h2>
         <div style={{background:C.orange,color:'#fff',borderRadius:18,padding:20,marginBottom:18}}>
           <div style={{fontFamily:MONO,fontSize:10.5,letterSpacing:1.5,color:'rgba(255,255,255,.55)',textTransform:'uppercase'}}>БЮДЖЕТ В НЕДЕЛЮ</div>

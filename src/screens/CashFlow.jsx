@@ -58,7 +58,7 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx}){
   const pad={padding:'16px 20px 90px'};
   const navBtn={width:30,height:30,borderRadius:9,border:`1px solid ${C.border}`,background:'#fff',color:'#8B8175',fontSize:13,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0};
   return(
-    <div style={{overflowY:'auto',flex:1,WebkitOverflowScrolling:'touch'}}><div style={pad}>
+    <div style={{overflowY:'auto',flex:1,minHeight:0,WebkitOverflowScrolling:'touch'}}><div style={pad}>
       <div style={{display:'flex',gap:6,overflowX:'auto',marginBottom:16,paddingBottom:4}}>
         {TABS.map(t=><Chip key={t.id} active={viewMode===t.id} onClick={()=>setViewMode(t.id)}>{t.label}</Chip>)}
       </div>
@@ -96,12 +96,13 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx}){
             return(
               <div key={item.id} style={{display:'flex',alignItems:'center',gap:12,padding:'8px 0',borderBottom:i<filtered.length-1?`1px dashed ${C.border}`:'none'}}>
                 <button onClick={()=>item.isTx?(onEditTx&&onEditTx(item)):onToggle(week,item.id)}
-                  style={{width:18,height:18,borderRadius:5,border:`1.5px solid ${item.isDone?C.green:C.borderS}`,background:item.isDone?C.green:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,cursor:'pointer',padding:0}}>
+                  style={{position:'relative',width:18,height:18,borderRadius:5,border:`1.5px solid ${item.isDone?C.green:C.borderS}`,background:item.isDone?C.green:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,cursor:'pointer',padding:0}}>
+                  <span style={{position:'absolute',inset:-13}}/>
                   {item.isDone&&<span style={{color:'#fff',fontSize:10}}>✓</span>}
                 </button>
                 <span style={{flex:1,fontSize:13.5,fontWeight:500,color:item.isDone?C.faint:C.text,textDecoration:item.isDone?'line-through':'none'}}>{cat?.emoji||'📦'} {item.name} {showMember&&<span style={{fontSize:11,color:C.muted,fontWeight:400,textDecoration:'none'}}>· {mem?.name||''}</span>}</span>
                 <span style={{fontFamily:MONO,fontSize:12.5,fontWeight:600,color:item.isDone?C.faint:C.text,textDecoration:item.isDone?'line-through':'none'}}>{fmtN(item.amount)}</span>
-                <button onClick={()=>onEditTx&&onEditTx({...item,week})} style={{background:'none',border:'none',cursor:'pointer',padding:0,color:C.muted,fontSize:11}}>✏️</button>
+                <button onClick={()=>onEditTx&&onEditTx({...item,week})} style={{position:'relative',background:'none',border:'none',cursor:'pointer',padding:0,color:C.muted,fontSize:11}}><span style={{position:'absolute',inset:-13}}/>✏️</button>
               </div>
             );
           })

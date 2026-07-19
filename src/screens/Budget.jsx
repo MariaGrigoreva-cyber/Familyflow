@@ -45,7 +45,7 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
   const pad={padding:'16px 20px 90px'};
   const bday=d=>`${d.getDate()} ${MONTH_SHORT[d.getMonth()]}`;
   return(
-    <div style={{overflowY:'auto',flex:1,WebkitOverflowScrolling:'touch'}}><div style={pad}>
+    <div style={{overflowY:'auto',flex:1,minHeight:0,WebkitOverflowScrolling:'touch'}}><div style={pad}>
       <div style={{paddingBottom:18,borderBottom:`1px solid ${C.border}`,marginBottom:16}}>
         <div style={{fontFamily:MONO,fontSize:10.5,letterSpacing:1.5,color:C.muted,textTransform:'uppercase',marginBottom:4}}>РАСХОДЫ ЗА ГОД · ПЛАН</div>
         <div style={{fontFamily:MONO,fontSize:36,fontWeight:500,letterSpacing:-1,lineHeight:1.1,color:C.text}}>{fmt(totalYearlyExp)}</div>
@@ -124,7 +124,7 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
         <div style={{...s.card,marginTop:10}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
             <div style={{fontSize:15,fontWeight:600,color:C.text}}>✈️ Планировщик отпуска</div>
-            <button onClick={()=>setShowVacPlanner(false)} style={{background:'none',border:'none',cursor:'pointer',fontSize:18,color:C.muted}}>×</button>
+            <button onClick={()=>setShowVacPlanner(false)} style={{position:'relative',background:'none',border:'none',cursor:'pointer',fontSize:18,color:C.muted}}><span style={{position:'absolute',inset:-13}}/>×</button>
           </div>
           {/* Источник данных */}
           <div style={{background:vacActual12?C.greenL:C.yellowL,border:`1px solid ${vacActual12?C.greenB:C.yellowB}`,borderRadius:12,padding:'10px 12px',marginBottom:12}}>

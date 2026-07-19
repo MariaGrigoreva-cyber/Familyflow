@@ -85,41 +85,6 @@ export function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx,onQuick
   });
   const allUpcomingPay=[...scheduledUpcoming,...extraUpcomingToday].sort((a,b)=>a.date-b.date).slice(0,3);
   const showMember=members.length>1; // при одном члене семьи не дублируем его имя в каждой строке
-  // Фонды по направлениям — список скрыт (см. TipsCarousel), но расчёт используется для алертов
-  const fondGroups=[
-    {key:'defense',e:'🛡️',n:'Защита',catIds:['mortgage','credit','piggy'],type:'monthly'},
-    {key:'life',e:'🍽️',n:'Жизнь',catIds:['food','transport','health','fun'],type:'weekly'},
-    {key:'comfort',e:'🛋️',n:'Комфорт',catIds:['clothes','beauty','home','gifts','edu','sport','pets','other','travel'],type:'weekly'},
-  ].map(g=>{
-    const gPlanned=planned.filter(p=>g.catIds.includes(p.catId));
-    // Недельный план (только еженедельные категории)
-    const weeklyPlan=gPlanned.filter(p=>p.repeat==='weekly'||p.repeat==='biweekly').reduce((s,p)=>s+(p.repeat==='weekly'?p.amount:p.amount/2),0);
-    // Месячный план (все категории × 4.3 или фиксированные)
-    const monthlyPlan=gPlanned.reduce((s,p)=>s+monthlyOf(p),0);
-    // Потрачено на текущей неделе
-    const weekSpent2=wItems.filter(i=>g.catIds.includes(i.catId)&&i.isDone).reduce((s,i)=>s+i.amount,0);
-    const pct2=weeklyPlan>0?Math.round(weekSpent2/weeklyPlan*100):0;
-    const left=Math.max(weeklyPlan-weekSpent2,0);
-    // Детали по категориям для раскрытия
-    const details=gPlanned.map(p=>{
-      const cat=[...DEFAULT_CATS,...customCats].find(c=>c.id===p.catId);
-      const wSpentCat=wItems.filter(i=>i.catId===p.catId&&i.isDone).reduce((s,i)=>s+i.amount,0);
-      const wPlanCat=p.repeat==='weekly'?p.amount:p.repeat==='biweekly'?p.amount/2:0;
-      return{id:p.id,catId:p.catId,name:cat?.name||p.name,emoji:cat?.emoji||'📦',repeat:p.repeat,amount:p.amount,days:p.days||[],wPlan:wPlanCat,wSpent:wSpentCat};
-    });
-    // Ближайшие месячные платежи этого фонда
-    const now2=new Date(); now2.setHours(0,0,0,0);
-    const monthlyItems=gPlanned.filter(p=>p.repeat==='monthly'||p.repeat==='once').map(p=>{
-      const cat=[...DEFAULT_CATS,...customCats].find(c=>c.id===p.catId);
-      // Следующая дата платежа
-      const today=new Date(); const d=today.getDate();
-      const payDay=p.days?.[0]||1;
-      let payDate=new Date(today.getFullYear(),today.getMonth(),payDay);
-      if(payDate<now2) payDate=new Date(today.getFullYear(),today.getMonth()+1,payDay);
-      return{name:cat?.name||p.name,emoji:cat?.emoji||'📦',amount:p.amount,payDate,payDay};
-    });
-    return{...g,weeklyPlan,monthlyPlan,weekSpent:weekSpent2,pct:pct2,left,details,monthlyItems};
-  }).filter(g=>g.monthlyPlan>0||g.weeklyPlan>0);
   const[showPiggyInfo,setShowPiggyInfo]=useState(false);
   const pad={padding:'16px 20px 90px'};
   // Подсветка блока при обучающем туре
@@ -131,7 +96,7 @@ export function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx,onQuick
     }
   },[tourStep]);
   return(
-    <div style={{overflowY:'auto',flex:1,WebkitOverflowScrolling:'touch'}}><div style={pad}>
+    <div style={{overflowY:'auto',flex:1,minHeight:0,WebkitOverflowScrolling:'touch'}}><div style={pad}>
       {/* Баланс — терракотовый hero */}
       <div data-tour="0" style={{background:C.orange,color:'#fff',borderRadius:18,padding:'20px 22px 18px',marginBottom:14,...glow(0)}}>
         <div style={{fontFamily:MONO,fontSize:10.5,letterSpacing:1.5,color:'rgba(255,255,255,.55)',textTransform:'uppercase'}}>ОСТАТОК НА РУКАХ</div>
@@ -185,24 +150,6 @@ export function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx,onQuick
         <TipsCarousel/>
       </div>
 
-      {/* Однострочные предупреждения по фондам — только проблемные */}
-      {(()=>{
-        const alerts=fondGroups.filter(g=>g.type==='weekly'&&g.pct>=80).map(g=>({
-          n:g.n,exhausted:g.pct>=100,left:g.left,
-        }));
-        if(alerts.length===0)return null;
-        return(
-          <div style={{display:'flex',flexDirection:'column',gap:6,marginTop:12}}>
-            {alerts.map((a,i)=>(
-              <div key={i} style={{display:'flex',alignItems:'center',gap:9,background:C.yellowL,border:`1px solid ${C.yellowB}`,borderRadius:10,padding:'9px 12px'}}>
-                <span style={{fontSize:13,flexShrink:0}}>⚠️</span>
-                <span style={{fontSize:12,color:C.yellow}}>{a.exhausted?`${a.n} — исчерпан на этой неделе`:`${a.n} — осталось ${fmt(a.left)}`}</span>
-              </div>
-            ))}
-          </div>
-        );
-      })()}
-
       {allUpcomingPay.length>0&&<div data-tour="3" style={{...glow(3),borderRadius:12}}>
         <SecTitle>БЛИЖАЙШИЕ ВЫПЛАТЫ</SecTitle>
         {allUpcomingPay.map((p,i)=>{
@@ -251,12 +198,13 @@ export function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx,onQuick
               <button
                 onClick={()=>onToggle(week,item.id)}
                 onContextMenu={e=>{e.preventDefault();onEditTx&&onEditTx({...item,week});}}
-                style={{width:18,height:18,borderRadius:5,border:`1.5px solid ${item.isDone?C.green:C.borderS}`,background:item.isDone?C.green:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,cursor:'pointer',padding:0,WebkitTouchCallout:'none'}}>
+                style={{position:'relative',width:18,height:18,borderRadius:5,border:`1.5px solid ${item.isDone?C.green:C.borderS}`,background:item.isDone?C.green:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,cursor:'pointer',padding:0,WebkitTouchCallout:'none'}}>
+                <span style={{position:'absolute',inset:-13}}/>
                 {item.isDone&&<span style={{color:'#fff',fontSize:10}}>✓</span>}
               </button>
               <span style={{fontSize:13.5,fontWeight:500,flex:1,color:item.isDone?C.faint:C.text,textDecoration:item.isDone?'line-through':'none'}}>{cat?.emoji||'📦'} {item.name} {showMember&&<span style={{fontSize:11,color:C.muted,fontWeight:400,textDecoration:'none'}}>· {mem?.name||''}</span>}</span>
               <span style={{fontFamily:MONO,fontSize:12.5,fontWeight:600,color:item.isDone?C.faint:C.text,textDecoration:item.isDone?'line-through':'none'}}>{fmtN(item.amount)}</span>
-              <button onClick={()=>onEditTx&&onEditTx({...item,week})} style={{background:'none',border:'none',cursor:'pointer',padding:0,color:C.muted,fontSize:11}}>✏️</button>
+              <button onClick={()=>onEditTx&&onEditTx({...item,week})} style={{position:'relative',background:'none',border:'none',cursor:'pointer',padding:0,color:C.muted,fontSize:11}}><span style={{position:'absolute',inset:-13}}/>✏️</button>
             </div>
           );
         })

@@ -88,7 +88,7 @@ export function HealthScreen({state}){
   const recDot={yellow:C.yellow,red:C.red,green:C.green};
   const pad={padding:'16px 20px 90px'};
   return(
-    <div style={{overflowY:'auto',flex:1,WebkitOverflowScrolling:'touch'}}><div style={pad}>
+    <div style={{overflowY:'auto',flex:1,minHeight:0,WebkitOverflowScrolling:'touch'}}><div style={pad}>
       <div style={{background:C.orange,color:'#fff',borderRadius:18,padding:20,marginBottom:16}}>
         <div style={{display:'flex',alignItems:'center',gap:18}}>
           <div style={{fontFamily:MONO,fontSize:52,fontWeight:500,letterSpacing:-2,lineHeight:1,flexShrink:0}}>{healthScore}</div>

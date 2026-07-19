@@ -14,8 +14,8 @@ const C = {
 };
 const MONO = "'IBM Plex Mono', monospace";
 
-const fmt = n => new Intl.NumberFormat('ru-RU').format(Math.round(Math.abs(n))).replace(/\u00A0/g,'\u2009') + ' ₽';
-const fmtN = n => new Intl.NumberFormat('ru-RU').format(Math.round(Math.abs(n))).replace(/\u00A0/g,'\u2009');
+const fmt = n => new Intl.NumberFormat('ru-RU').format(Math.round(Math.abs(n))).replace(/\u00A0/g,'\u2006') + ' ₽';
+const fmtN = n => new Intl.NumberFormat('ru-RU').format(Math.round(Math.abs(n))).replace(/\u00A0/g,'\u2006');
 const uid = () => Math.random().toString(36).slice(2);
 
 const isoMondayOf = d => {
