@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import {C,uid,weekKey,todayKey,calcAvgMonthlyNet,calcNetFor,generateAllWeeks,regenWeeksKeepDone,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED,computeBalances} from './lib/core';
+import {C,MONO,uid,weekKey,todayKey,getISOWeek,calcAvgMonthlyNet,calcNetFor,generateAllWeeks,regenWeeksKeepDone,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED,DEFAULT_CATS,nextMemberTint,POLICY_ITEMS,computeBalances} from './lib/core';
+import {Modal} from './lib/ui';
 import {SplashScreen,IntroStories,EntryScreen,Onboarding} from './screens/Onboarding';
 import {TodayScreen} from './screens/Today';
 import {PlanScreen} from './screens/CashFlow';
@@ -344,7 +345,14 @@ useEffect(() => {
     const np=existsInPlanned
       ?prev.planned.map(p=>p.id===cleanItem.id?itemWithDate:p)  // обновляем
       :[...prev.planned,itemWithDate];                            // добавляем новую
-    return{...prev,planned:np,weekItems:regenWeeksKeepDone(np,prev.weekItems)};
+    // Новая произвольная категория («Своя») — регистрируем её в customCats,
+    // чтобы она осталась отдельной плиткой в сетке категорий, а «Своя» — доступна для следующей
+    let customCats=prev.customCats||[];
+    if(cleanItem.catId?.startsWith('custom_')&&!customCats.some(c=>c.id===cleanItem.catId)){
+      const fallback=DEFAULT_CATS.find(c=>c.id==='other');
+      customCats=[...customCats,{id:cleanItem.catId,name:cleanItem.name,emoji:cleanItem.emoji||'📦',color:fallback?.color||'oklch(0.94 0.02 250)'}];
+    }
+    return{...prev,planned:np,customCats,weekItems:regenWeeksKeepDone(np,prev.weekItems)};
   });};
   const handleDeletePlanned=id=>setAppState(prev=>{const np=prev.planned.filter(p=>p.id!==id);return{...prev,planned:np,weekItems:regenWeeksKeepDone(np,prev.weekItems)};});
   const handleAddPlanned=()=>{setEditItem({id:uid(),catId:'other',name:'Новая',amount:0,memberId:appState.members[0]?.id||'m1',repeat:'weekly',days:[],isNew:true});setShowEdit(true);};
@@ -395,6 +403,16 @@ useEffect(() => {
     setShowEditIncome(true);
   };
   const handleEditTx=(item)=>{setEditTxItem(item);setShowEditTx(true);};
+  // Состав семьи можно менять в любой момент из Настроек
+  const handleUpdateMember=(id,field,value)=>setAppState(prev=>({...prev,members:prev.members.map(m=>m.id===id?{...m,[field]:value}:m)}));
+  const handleAddMember=()=>setAppState(prev=>({...prev,members:[...prev.members,{id:uid(),name:'',avatar:'🧑',color:nextMemberTint(prev.members.length)}]}));
+  const handleRemoveMember=id=>setAppState(prev=>{
+    if(prev.members.length<=1){alert('Должен остаться хотя бы один участник семьи');return prev;}
+    const remaining=prev.members.filter(m=>m.id!==id);
+    const fallbackId=remaining[0]?.id;
+    const planned=prev.planned.map(p=>p.memberId===id?{...p,memberId:fallbackId}:p);
+    return{...prev,members:remaining,incomes:prev.incomes.filter(i=>i.memberId!==id),planned,weekItems:regenWeeksKeepDone(planned,prev.weekItems)};
+  });
   const handleSaveTx=(updated)=>{
     setAppState(prev=>{
       // Обновляем в transactions (доп. записи)
@@ -445,7 +463,7 @@ useEffect(() => {
     });
   };
   const TAB_TITLES={today:'Сегодня',plan:'Денежный поток',budget:'Годовой бюджет',health:'Здоровье бюджета',settings:'Настройки'};
-  const shell={maxWidth:480,margin:'0 auto',minHeight:'100dvh',background:'#F8FAFC',display:'flex',flexDirection:'column',boxShadow:'0 0 40px rgba(0,0,0,0.12)',fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif',position:'relative'};
+  const shell={maxWidth:480,margin:'0 auto',minHeight:'100dvh',background:C.bg,display:'flex',flexDirection:'column',fontFamily:"'IBM Plex Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",position:'relative'};
   if(showSplash)return<div style={shell}><SplashScreen/></div>;
   if(!consented&&!introSeen)return<div style={shell}><IntroStories onDone={()=>setIntroSeen(true)}/></div>;
   const startDemo=()=>{
@@ -483,18 +501,17 @@ useEffect(() => {
   return(
     <div style={shell}>
       <div style={{background:'#fff',flexShrink:0,position:'sticky',top:0,zIndex:50}}>
-        <div style={{height:5,background:C.orange}}/>
-        <div style={{padding:'10px 14px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-          <span style={{fontSize:17,fontWeight:700,color:C.text}}>{TAB_TITLES[tab]}</span>
-          <span style={{fontSize:11,color:C.muted}}>{appState.familyName}</span>
+        <div style={{padding:'14px 20px 12px',display:'flex',justifyContent:'space-between',alignItems:'baseline'}}>
+          <span style={{fontSize:20,fontWeight:600,letterSpacing:-.2,color:C.text}}>{TAB_TITLES[tab]}</span>
+          <span style={{fontFamily:MONO,fontSize:11,color:C.muted}}>{(appState.familyName||'').toUpperCase()}{appState.familyName?' · НЕД ':''}{getISOWeek(new Date()).week}</span>
         </div>
         {appState.demoMode&&(
-          <div style={{display:'flex',alignItems:'center',gap:8,background:C.blueL,borderTop:`.5px solid ${C.blueB}`,borderBottom:`.5px solid ${C.blueB}`,padding:'7px 14px'}}>
+          <div style={{display:'flex',alignItems:'center',gap:8,background:C.orangeL,borderTop:`1px solid ${C.orangeB}`,borderBottom:`1px solid ${C.orangeB}`,padding:'7px 14px'}}>
             <span style={{fontSize:13}}>👁</span>
-            <span style={{flex:1,fontSize:12,color:C.blue}}>Демо · семья Ивановых</span>
-            <button onClick={()=>{setTab('today');setTourStep(0);}} style={{fontSize:11,fontWeight:600,color:C.blue,background:'#fff',border:`.5px solid ${C.blueB}`,padding:'4px 10px',borderRadius:20,cursor:'pointer',fontFamily:'inherit'}}>▶ Тур</button>
-            <button onClick={()=>setStartLogin(true)} style={{fontSize:11,fontWeight:600,color:C.blue,background:'#fff',border:`.5px solid ${C.blueB}`,padding:'4px 10px',borderRadius:20,cursor:'pointer',fontFamily:'inherit'}}>Создать аккаунт</button>
-            <button onClick={exitDemo} style={{fontSize:11,fontWeight:600,color:'#fff',background:C.blue,border:'none',padding:'4px 10px',borderRadius:20,cursor:'pointer',fontFamily:'inherit'}}>Начать со своими</button>
+            <span style={{flex:1,fontFamily:MONO,fontSize:11,color:C.orangeD}}>ДЕМО · СЕМЬЯ ИВАНОВЫХ</span>
+            <button onClick={()=>{setTab('today');setTourStep(0);}} style={{fontFamily:MONO,fontSize:10.5,fontWeight:600,color:C.orangeD,background:'#fff',border:`1px solid ${C.orangeB}`,padding:'4px 10px',borderRadius:20,cursor:'pointer'}}>▶ ТУР</button>
+            <button onClick={()=>setStartLogin(true)} style={{fontFamily:MONO,fontSize:10.5,fontWeight:600,color:C.orangeD,background:'#fff',border:`1px solid ${C.orangeB}`,padding:'4px 10px',borderRadius:20,cursor:'pointer'}}>АККАУНТ</button>
+            <button onClick={exitDemo} style={{fontFamily:MONO,fontSize:10.5,fontWeight:600,color:'#fff',background:C.orange,border:'none',padding:'4px 10px',borderRadius:20,cursor:'pointer'}}>СВОИ ДАННЫЕ</button>
           </div>
         )}
       </div>
@@ -503,7 +520,7 @@ useEffect(() => {
         {tab==='plan'&&<PlanScreen state={appState} onToggle={handleToggle} onAdd={(wk)=>{setAddWeek(wk);setShowAdd(true);}} onEditTx={handleEditTx}/>}
         {tab==='budget'&&<BudgetScreen state={appState} onEditPlanned={item=>{setEditItem(item);setShowEdit(true);}} onAddPlanned={handleAddPlanned} onEditPayment={handleEditPayment} onAddExtra={(data)=>{if(data&&data.amount){handleAddExtra(data);}else{setShowAddExtra(true);}}} onWithdrawPiggy={()=>setShowWithdrawPiggy(true)}/>}
         {tab==='health'&&<HealthScreen state={appState}/>}
-        {tab==='settings'&&<SettingsScreen state={appState} onEditCat={item=>{const{isNew,...rest}=item||{};setEditItem(rest);setShowEdit(true);}} onAddCat={handleAddPlanned} onEditIncome={handleEditIncome} onAddIncome={handleAddIncomeSource}/>}
+        {tab==='settings'&&<SettingsScreen state={appState} onEditCat={item=>{setEditItem(item||null);setShowEdit(true);}} onAddCat={handleAddPlanned} onEditIncome={handleEditIncome} onAddIncome={handleAddIncomeSource} onUpdateMember={handleUpdateMember} onAddMember={handleAddMember} onRemoveMember={handleRemoveMember}/>}
       </div>
       <TabBar active={tab} onPress={setTab}/>
       <AddTxModal visible={showAdd} onClose={()=>setShowAdd(false)} onSave={handleAddTx} members={appState.members} planned={appState.planned} customCats={appState.customCats}/>
@@ -526,7 +543,7 @@ useEffect(() => {
         const TOUR=[
           {icon:'💰',title:'Остаток на руках',body:'Главная цифра: сколько денег на основном счёте прямо сейчас. Формула: старт + получено − потрачено − копилка. Три мини-карточки под цифрой показывают слагаемые.'},
           {icon:'🐷',title:'Копилка — отдельно',body:'Деньги в копилке уже переведены на накопительный счёт. Они НЕ входят в «остаток на руках» — тратить их нельзя, это резерв. Поэтому зелёная строка отдельно.'},
-          {icon:'📊',title:'Фонды — план недели',body:'Жизнь и Комфорт показывают недельный прогресс: жёлтая полоска — фонд почти исчерпан. Защита показывает месячную сумму — ипотека платится раз в месяц. Нажмите на фонд — увидите детали.'},
+          {icon:'💡',title:'Советы',body:'Карточки с подсказками по приложению и личным финансам. Пролистайте их пальцем в сторону или дождитесь автоматической смены.'},
           {icon:'📅',title:'Выплаты — с переносами',body:'Если день зарплаты выпал на выходной — приложение само сдвигает её на рабочий день по производственному календарю РФ. Один тап — выплата отмечена как полученная.'},
         ];
         const st=TOUR[tourStep];
@@ -558,7 +575,7 @@ useEffect(() => {
         );
       })()}
       <style>{`@keyframes ffTourPop{0%{opacity:0;transform:translateY(16px)}100%{opacity:1;transform:translateY(0)}}
-@keyframes ffTourGlow{0%,100%{box-shadow:0 0 0 3px #E03A22,0 0 20px rgba(224,58,34,.3)}50%{box-shadow:0 0 0 3px #E03A22,0 0 34px rgba(224,58,34,.55)}}`}</style>
+@keyframes ffTourGlow{0%,100%{box-shadow:0 0 0 3px oklch(0.62 0.13 40),0 0 20px oklch(0.62 0.13 40 / 30%)}50%{box-shadow:0 0 0 3px oklch(0.62 0.13 40),0 0 34px oklch(0.62 0.13 40 / 55%)}}`}</style>
     </div>
   );
 }
@@ -573,6 +590,7 @@ function StartLoginForm({onClose}){
   const[err,setErr]=useState('');
   const[step,setStep]=useState('login'); // login | reset1 | reset2
   const[code,setCode]=useState('');
+  const[showPolicy,setShowPolicy]=useState(false);
   const submit=async()=>{
     setErr('');setBusy(true);
     try{
@@ -595,50 +613,67 @@ function StartLoginForm({onClose}){
     }catch(e){setErr(errText(e));setBusy(false);}
   };
   return(
-    <div style={{position:'fixed',inset:0,zIndex:300,background:'rgba(10,14,26,0.7)',display:'flex',alignItems:'center',justifyContent:'center',padding:20}} onClick={onClose}>
-      <div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:360,background:'#1a1a2e',border:'.5px solid rgba(255,255,255,0.12)',borderRadius:16,padding:20,boxSizing:'border-box'}}>
-        <div style={{fontSize:17,fontWeight:700,color:'#fff',marginBottom:4}}>
+    <div style={{position:'fixed',inset:0,zIndex:300,background:'rgba(28,25,22,0.5)',display:'flex',alignItems:'center',justifyContent:'center',padding:20}} onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:360,background:C.bg,border:`1px solid ${C.border}`,borderRadius:16,padding:20,boxSizing:'border-box'}}>
+        <div style={{fontSize:17,fontWeight:600,color:C.text,marginBottom:4}}>
           {step==='login'?(mode==='register'?'Создать аккаунт':'Вход в аккаунт'):'Восстановление пароля'}
         </div>
         {step==='login'&&<div style={{display:'flex',gap:6,marginTop:10,marginBottom:2}}>
-          {[['login','Вход'],['register','Регистрация']].map(([id,l])=>(
+          {[['register','Регистрация'],['login','Вход']].map(([id,l])=>(
             <button key={id} onClick={()=>{setMode(id);setErr('');}}
-              style={{flex:1,padding:'7px 0',borderRadius:9,border:`.5px solid ${mode===id?'#E0522A':'rgba(255,255,255,0.15)'}`,background:mode===id?'rgba(224,82,42,0.15)':'transparent',color:mode===id?'#F0997B':'rgba(255,255,255,0.5)',fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>{l}</button>
+              style={{flex:1,textAlign:'center',fontFamily:MONO,fontSize:11,fontWeight:600,padding:9,borderRadius:10,border:`1px solid ${mode===id?C.orange:C.border}`,background:mode===id?C.orange:'#fff',color:mode===id?'#fff':C.muted,cursor:'pointer'}}>{l.toUpperCase()}</button>
           ))}
         </div>}
-        {step==='reset2'&&<div style={{fontSize:12,color:'rgba(255,255,255,0.5)',marginBottom:8,lineHeight:'17px'}}>
+        {step==='reset2'&&<div style={{fontSize:12,color:C.text2,marginBottom:8,lineHeight:'17px'}}>
           Если аккаунт существует — на {email} пришло письмо с кодом (действует 15 минут).
         </div>}
         <div style={{marginTop:8}}/>
         <input type="email" placeholder="email" value={email} onChange={e=>setEmail(e.target.value)} autoFocus disabled={step==='reset2'}
-          style={{width:'100%',boxSizing:'border-box',background:'rgba(255,255,255,0.06)',border:'.5px solid rgba(255,255,255,0.15)',borderRadius:10,padding:'11px 13px',fontSize:16,color:step==='reset2'?'rgba(255,255,255,0.4)':'#fff',outline:'none',fontFamily:'inherit',marginBottom:8}}/>
+          style={{width:'100%',boxSizing:'border-box',background:'#fff',border:`1px solid ${C.border}`,borderRadius:12,padding:'13px 15px',fontSize:14,color:step==='reset2'?C.muted:C.text,outline:'none',fontFamily:'inherit',marginBottom:8}}/>
         {step==='reset2'&&<input inputMode="numeric" placeholder="код из письма (6 цифр)" value={code} onChange={e=>setCode(e.target.value)}
-          style={{width:'100%',boxSizing:'border-box',background:'rgba(255,255,255,0.06)',border:'.5px solid rgba(255,255,255,0.15)',borderRadius:10,padding:'11px 13px',fontSize:16,color:'#fff',outline:'none',fontFamily:'inherit',marginBottom:8,letterSpacing:4}}/>}
+          style={{width:'100%',boxSizing:'border-box',background:'#fff',border:`1px solid ${C.border}`,borderRadius:12,padding:'13px 15px',fontSize:14,color:C.text,outline:'none',fontFamily:'inherit',marginBottom:8,letterSpacing:4}}/>}
         {step!=='reset1'&&<input type="password" placeholder={step==='reset2'?'новый пароль (мин. 6)':'пароль'} value={pass} onChange={e=>setPass(e.target.value)}
           onKeyDown={e=>e.key==='Enter'&&(step==='login'?submit():confirmReset())}
-          style={{width:'100%',boxSizing:'border-box',background:'rgba(255,255,255,0.06)',border:'.5px solid rgba(255,255,255,0.15)',borderRadius:10,padding:'11px 13px',fontSize:16,color:'#fff',outline:'none',fontFamily:'inherit',marginBottom:10}}/>}
-        {err&&<div style={{fontSize:12,color:'#f87171',marginBottom:10}}>{err}</div>}
+          style={{width:'100%',boxSizing:'border-box',background:'#fff',border:`1px solid ${C.border}`,borderRadius:12,padding:'13px 15px',fontSize:14,color:C.text,outline:'none',fontFamily:'inherit',marginBottom:10}}/>}
+        {err&&<div style={{fontSize:12,color:C.red,marginBottom:10}}>{err}</div>}
+        {step==='login'&&mode==='register'&&<div style={{fontSize:10.5,lineHeight:1.5,color:C.muted,marginBottom:10}}>
+          Регистрируясь, вы принимаете <span onClick={()=>setShowPolicy(true)} style={{color:C.orangeD,textDecoration:'underline',cursor:'pointer'}}>условия использования</span> и даёте согласие на обработку персональных данных (152-ФЗ).
+        </div>}
         {step==='login'&&<>
           <button onClick={submit} disabled={busy}
-            style={{width:'100%',padding:13,borderRadius:12,border:'none',background:busy?'rgba(255,255,255,0.2)':'#E0522A',color:'#fff',fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>
+            style={{width:'100%',padding:15,borderRadius:14,border:'none',background:busy?C.borderS:C.orange,color:'#fff',fontSize:14.5,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>
             {busy?'Секунду…':mode==='register'?'Создать аккаунт':'Войти'}
           </button>
           {mode==='login'&&<button onClick={()=>{setErr('');setPass('');setStep('reset1');}}
-            style={{width:'100%',padding:9,marginTop:6,background:'none',border:'none',fontSize:12,color:'#60a5fa',cursor:'pointer',fontFamily:'inherit'}}>Забыли пароль?</button>}
+            style={{width:'100%',padding:9,marginTop:6,background:'none',border:'none',fontSize:12,color:C.orangeD,cursor:'pointer',fontFamily:'inherit'}}>Забыли пароль?</button>}
         </>}
         {step==='reset1'&&<button onClick={askCode} disabled={busy}
-          style={{width:'100%',padding:13,borderRadius:12,border:'none',background:busy?'rgba(255,255,255,0.2)':'#60a5fa',color:'#fff',fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>
+          style={{width:'100%',padding:15,borderRadius:14,border:'none',background:busy?C.borderS:C.orange,color:'#fff',fontSize:14.5,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>
           {busy?'Отправляем…':'Прислать код на почту'}
         </button>}
         {step==='reset2'&&<button onClick={confirmReset} disabled={busy}
-          style={{width:'100%',padding:13,borderRadius:12,border:'none',background:busy?'rgba(255,255,255,0.2)':'#4ade80',color:'#0b1220',fontSize:14,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>
+          style={{width:'100%',padding:15,borderRadius:14,border:'none',background:busy?C.borderS:C.green,color:'#fff',fontSize:14.5,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>
           {busy?'Проверяем…':'Сменить пароль и войти'}
         </button>}
         <button onClick={()=>{step==='login'?onClose():(setStep('login'),setErr(''),setCode(''),setPass(''));}}
-          style={{width:'100%',padding:10,marginTop:6,background:'none',border:'none',fontSize:13,color:'rgba(255,255,255,0.4)',cursor:'pointer',fontFamily:'inherit'}}>
+          style={{width:'100%',padding:10,marginTop:6,background:'none',border:'none',fontSize:13,color:C.muted,cursor:'pointer',fontFamily:'inherit'}}>
           {step==='login'?'Отмена':'← Назад ко входу'}
         </button>
+        <div style={{marginTop:14,display:'flex',gap:11,alignItems:'center',background:C.cream,borderRadius:12,padding:'12px 14px'}}>
+          <span style={{fontSize:15}}>☁️</span>
+          <span style={{fontSize:11.5,lineHeight:1.5,color:C.text2}}>После входа бюджет автоматически восстановится из облака — онбординг проходить не нужно.</span>
+        </div>
       </div>
+      <Modal visible={showPolicy} onClose={()=>setShowPolicy(false)} title="Политика конфиденциальности">
+        <div style={{padding:'18px 16px 40px'}}>
+          {POLICY_ITEMS.map(([t,txt],i)=>(
+            <div key={i} style={{marginBottom:20}}>
+              <div style={{fontSize:14,fontWeight:600,color:C.text,marginBottom:6}}>{t}</div>
+              <div style={{fontSize:12,color:C.text2,lineHeight:1.6}}>{txt}</div>
+            </div>
+          ))}
+        </div>
+      </Modal>
     </div>
   );
 }

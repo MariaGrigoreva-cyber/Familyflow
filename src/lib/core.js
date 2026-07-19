@@ -1,17 +1,21 @@
 // FamilyFlow — ядро: константы, утилиты дат, НДФЛ, расчёты, демо-данные
+// Палитра «Тёплый гроссбух»: терракота — единственный акцент, зелёный — доход/копилка/done, янтарь — предупреждения.
 const C = {
-  orange:'#E03A22', orangeL:'#FEF2F2', orangeB:'#FCA5A5',
-  dark:'#1a1a2e', white:'#FFFFFF', bg:'#F8FAFC',
-  border:'#E2E8F0', borderS:'#CBD5E1',
-  text:'#1E293B', text2:'#475569', muted:'#94A3B8',
-  green:'#16A34A', greenL:'#F0FDF4', greenB:'#BBF7D0',
-  red:'#DC2626', redL:'#FEF2F2', redB:'#FECACA',
-  yellow:'#92400E', yellowL:'#FEF9C3', yellowB:'#FDE68A',
-  blue:'#1D4ED8', blueL:'#EFF6FF', blueB:'#BFDBFE',
-  purple:'#7C3AED',
+  orange:'oklch(0.62 0.13 40)', orangeD:'oklch(0.5 0.12 40)', orangeL:'oklch(0.96 0.02 40)', orangeB:'oklch(0.9 0.05 40)',
+  dark:'#1C1916', white:'#FFFFFF', bg:'#FCFBF8',
+  border:'#EAE4DA', borderS:'#D8CFC2',
+  text:'#1C1916', text2:'#6B6156', muted:'#A39A8D', faint:'#C9BFB0',
+  green:'oklch(0.55 0.12 150)', greenL:'oklch(0.96 0.02 150)', greenB:'oklch(0.85 0.06 150)',
+  red:'oklch(0.5 0.13 30)', redL:'oklch(0.96 0.02 30)', redB:'oklch(0.9 0.05 30)',
+  yellow:'oklch(0.5 0.11 85)', yellowL:'oklch(0.96 0.02 85)', yellowB:'oklch(0.9 0.05 85)',
+  blue:'oklch(0.65 0.08 250)', blueL:'oklch(0.95 0.02 250)', blueB:'oklch(0.85 0.05 250)',
+  purple:'oklch(0.6 0.1 300)',
+  track:'#EFE9DF', cream:'#F5F0E8',
 };
+const MONO = "'IBM Plex Mono', monospace";
 
-const fmt = n => new Intl.NumberFormat('ru-RU').format(Math.round(Math.abs(n))) + ' ₽';
+const fmt = n => new Intl.NumberFormat('ru-RU').format(Math.round(Math.abs(n))).replace(/\u00A0/g,'\u2009') + ' ₽';
+const fmtN = n => new Intl.NumberFormat('ru-RU').format(Math.round(Math.abs(n))).replace(/\u00A0/g,'\u2009');
 const uid = () => Math.random().toString(36).slice(2);
 
 const isoMondayOf = d => {
@@ -232,16 +236,24 @@ const generateAllWeeks=planned=>{
   return items;
 };
 
-const DEFAULT_CATS=[{id:'food',name:'Еда',emoji:'🍽️',color:'#FEF3C7'},{id:'beauty',name:'Красота',emoji:'💄',color:'#FCE7F3'},{id:'clothes',name:'Одежда',emoji:'👗',color:'#E0E7FF'},{id:'home',name:'Дом',emoji:'🏠',color:'#DBEAFE'},{id:'edu',name:'Образование',emoji:'🎓',color:'#EDE9FE'},{id:'mortgage',name:'Ипотека',emoji:'🏦',color:'#FEE2E2'},{id:'credit',name:'Кредит',emoji:'💳',color:'#FEF3C7'},{id:'transport',name:'Транспорт',emoji:'🚌',color:'#D1FAE5'},{id:'fun',name:'Развлечения',emoji:'🎬',color:'#FEE2E2'},{id:'gifts',name:'Подарки',emoji:'🎁',color:'#FEF9C3'},{id:'health',name:'Здоровье',emoji:'💊',color:'#D1FAE5'},{id:'sport',name:'Спорт',emoji:'🏋️',color:'#DCFCE7'},{id:'pets',name:'Питомцы',emoji:'🐾',color:'#FEF9C3'},{id:'piggy',name:'Копилка',emoji:'🐷',color:'#F5F3FF'},{id:'travel',name:'Путешествия',emoji:'✈️',color:'#E0F2FE'},{id:'other',name:'Прочее',emoji:'📦',color:'#F3F4F6'}];
+// Плашки эмодзи-категорий: oklch(0.94 0.0x H) по фонду — Защита 40 (терракота), Жизнь 85 (янтарь), Копилка 150 (зелёный), Комфорт 250 (голубой)
+const H_DEFENSE='oklch(0.94 0.03 40)', H_LIFE='oklch(0.94 0.03 85)', H_PIGGY='oklch(0.94 0.02 150)', H_COMFORT='oklch(0.94 0.02 250)';
+const DEFAULT_CATS=[{id:'food',name:'Еда',emoji:'🍽️',color:H_LIFE},{id:'beauty',name:'Красота',emoji:'💄',color:H_COMFORT},{id:'clothes',name:'Одежда',emoji:'👗',color:H_COMFORT},{id:'home',name:'Дом',emoji:'🏠',color:H_COMFORT},{id:'edu',name:'Образование',emoji:'🎓',color:H_COMFORT},{id:'mortgage',name:'Ипотека',emoji:'🏦',color:H_DEFENSE},{id:'credit',name:'Кредит',emoji:'💳',color:H_DEFENSE},{id:'transport',name:'Транспорт',emoji:'🚌',color:H_LIFE},{id:'fun',name:'Развлечения',emoji:'🎬',color:H_LIFE},{id:'gifts',name:'Подарки',emoji:'🎁',color:H_COMFORT},{id:'health',name:'Здоровье',emoji:'💊',color:H_LIFE},{id:'sport',name:'Спорт',emoji:'🏋️',color:H_COMFORT},{id:'pets',name:'Питомцы',emoji:'🐾',color:H_COMFORT},{id:'piggy',name:'Копилка',emoji:'🐷',color:H_PIGGY},{id:'travel',name:'Путешествия',emoji:'✈️',color:H_COMFORT},{id:'other',name:'Прочее',emoji:'📦',color:H_COMFORT}];
 const REPEAT_OPTS=[{id:'weekly',label:'Каждую нед.'},{id:'biweekly',label:'Раз в 2 нед.'},{id:'monthly',label:'По числам'},{id:'once',label:'Разовый'}];
 // Месячный и годовой эквиваленты плановой категории (once не размазывается по году)
 const monthlyOf=p=>p.repeat==='weekly'?p.amount*4.3:p.repeat==='biweekly'?p.amount*2.15:p.repeat==='once'?p.amount/12:p.amount;
 const yearlyOf=p=>p.repeat==='weekly'?Math.round(p.amount*52.14):p.repeat==='biweekly'?Math.round(p.amount*26.07):p.repeat==='once'?p.amount:p.amount*12;
 const getCat=(id,custom=[])=>[...DEFAULT_CATS,...custom].find(c=>c.id===id);
-const PIE_COLORS=['#E03A22','#3B82F6','#16A34A','#F59E0B','#8B5CF6','#EC4899','#14B8A6','#F97316','#6366F1','#84CC16'];
+// Политика конфиденциальности — общий источник для стартового экрана и формы регистрации
+const POLICY_ITEMS=[['Какие данные мы обрабатываем','Приложение обрабатывает данные, которые вы вводите: имена членов семьи, сведения о доходах и расходах. Эти данные относятся к персональным данным в соответствии с ФЗ № 152-ФЗ.'],['Где хранятся данные','По умолчанию все данные хранятся на вашем устройстве. Если вы включите синхронизацию, данные также сохраняются в облаке для доступа с других устройств.'],['Цель обработки','Данные используются только для формирования семейного бюджета. Не передаются третьим лицам и не используются в коммерческих целях.'],['Информационный характер','FamilyFlow — инструмент планирования. Расчёты и рекомендации не являются финансовой консультацией.'],['Удаление данных','Вы можете удалить все данные, очистив данные приложения или аккаунт. После удаления данные полностью уничтожаются.']];
+const PIE_COLORS=['oklch(0.62 0.13 40)','oklch(0.72 0.11 60)','oklch(0.55 0.12 150)','oklch(0.75 0.12 85)','oklch(0.65 0.08 250)','oklch(0.5 0.12 40)','oklch(0.6 0.1 300)','oklch(0.45 0.11 150)','oklch(0.55 0.09 250)','oklch(0.6 0.11 85)'];
+// Эмодзи-лица для аватара участника семьи (выбор в онбординге и настройках)
+const FACE_EMOJIS=['👩','👨','🧑','👵','👴','🧓','👧','👦','👶','👩‍🦰','👨‍🦰','👩‍🦱','👨‍🦱','👩‍🦳','👨‍🦳','👩‍🦲','👨‍🦲','🧔','👩‍🦽','👨‍🦽','😀','😎','🤓','🥳','🙂','😇','🐱','🐶'];
+const MEMBER_TINTS=['oklch(0.9 0.04 40)','oklch(0.9 0.04 85)','oklch(0.9 0.04 150)','oklch(0.9 0.04 250)','oklch(0.9 0.04 300)'];
+const nextMemberTint=idx=>MEMBER_TINTS[idx%MEMBER_TINTS.length];
 // ═══ ДЕМО-РЕЖИМ: готовое состояние семьи Ивановых ═══════════════════════════
 const buildDemoState=()=>{
-  const members=[{id:'m1',name:'Мария',avatar:'👩',color:'#E03A22'},{id:'m2',name:'Сергей',avatar:'👨',color:'#1a1a2e'}];
+  const members=[{id:'m1',name:'Мария',avatar:'👩',color:'oklch(0.9 0.04 40)'},{id:'m2',name:'Сергей',avatar:'👨',color:'oklch(0.9 0.04 85)'}];
   const incomes=[
     {id:'i1',memberId:'m1',gross:220000,salaryDays:[10],advanceDays:[25],advancePct:'40',advanceMode:'pct'},
     {id:'i2',memberId:'m2',gross:214000,salaryDays:[5],advanceDays:[20],advancePct:'40',advanceMode:'pct'},
@@ -290,8 +302,8 @@ const buildDemoState=()=>{
   };
 };
 
-const DEMO_MEMBERS=[{id:'m1',name:'Мария',avatar:'👩',color:C.orange},{id:'m2',name:'Антон',avatar:'👨',color:C.dark}];
+const DEMO_MEMBERS=[{id:'m1',name:'Мария',avatar:'👩',color:'oklch(0.9 0.04 40)'},{id:'m2',name:'Антон',avatar:'👨',color:'oklch(0.9 0.04 85)'}];
 const DEMO_PLANNED=[{id:'p1',catId:'mortgage',name:'Ипотека',amount:55000,memberId:'m1',repeat:'monthly',days:[20]},{id:'p2',catId:'food',name:'Еда',amount:10000,memberId:'m1',repeat:'weekly',days:[]},{id:'p3',catId:'food',name:'Еда',amount:10000,memberId:'m2',repeat:'weekly',days:[]},{id:'p4',catId:'beauty',name:'Красота',amount:15000,memberId:'m1',repeat:'biweekly',days:[]},{id:'p5',catId:'edu',name:'Образование',amount:20000,memberId:'m2',repeat:'monthly',days:[1]},{id:'p6',catId:'piggy',name:'Копилка',amount:10000,memberId:'m1',repeat:'weekly',days:[]}];
 
 
-export {C,monthlyOf,yearlyOf,fmt,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED};
+export {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,FACE_EMOJIS,MEMBER_TINTS,nextMemberTint,POLICY_ITEMS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED};

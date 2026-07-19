@@ -1,7 +1,7 @@
 // FamilyFlow — экран Здоровье бюджета
 import React, { useState, useEffect } from 'react';
-import {C,monthlyOf,yearlyOf,fmt,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
-import {s,merge,Btn,Card,PBar,SecTitle,Modal,DayPicker,Numpad} from '../lib/ui';
+import {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
+import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad} from '../lib/ui';
 
 export function HealthScreen({state}){
   const{incomes,planned,weekItems={},customCats=[],startBalance=0,extraPayments=[]}=state;
@@ -52,19 +52,26 @@ export function HealthScreen({state}){
   })();
   const hasCashGapDeficit=projectedRiskyWeeks.some(r=>r.pct<=0);
   // Расходы % от дохода — теперь чисто информационная строка (см. ниже), не даёт очков.
-  // Прогноз кассовых разрывов заменил и её, и старый критерий "копилка в месяцах расходов",
-  // объединив их вес (30+20) в одну более точную forward-looking метрику
-  const cashGapScore=projectedRiskyWeeks.length===0?50:hasCashGapDeficit?0:25;
+  const cashGapScore=projectedRiskyWeeks.length===0?30:hasCashGapDeficit?0:15;
+  const cushionMonths=monthlyExp>0?cushion/monthlyExp:0;
+  const cushionScore=cushionMonths>=3?20:cushionMonths>=1?10:0;
   const healthScore=Math.max(0,Math.min(100,
     (isDeficit?0:savingsRate>=20?30:savingsRate>=10?15:0)+
     cashGapScore+
-    (freeCash>0&&!isDeficit?20:0)
+    (freeCash>0&&!isDeficit?20:0)+
+    cushionScore
   ));
-  const healthColor=healthScore>=80?C.green:healthScore>=60?'#CA8A04':healthScore>=40?C.orange:C.red;
-  const healthLabel=healthScore>=80?'Отлично 🟢':healthScore>=60?'Хорошо 🟡':healthScore>=40?'Внимание 🟠':'Риск 🔴';
+  const healthLabel=healthScore>=80?'Отлично':healthScore>=60?'Хорошо':healthScore>=40?'Внимание':'Риск';
+  const nextStepText=projectedRiskyWeeks.length>0?`устранить риск разрыва на нед. ${parseWeekKey(projectedRiskyWeeks[0].nextWk).week}`:cushionScore<20?'нарастить копилку до 3 мес. расходов':'увеличить норму сбережений';
+  const healthSubtitle=healthScore>=80?'Отличный результат — продолжайте в том же духе':`до «Отлично» — ${nextStepText}`;
+  const criteria=[
+    [savingsRate>=20?30:savingsRate>=10?15:0,30,`Норма сбережений ${savingsRate}%`],
+    [cashGapScore,30,projectedRiskyWeeks.length===0?'Кассовых разрывов не прогнозируется':`Риск разрыва — ${projectedRiskyWeeks.length} нед. вперёд`],
+    [freeCash>0?20:0,20,freeCash>0?'Есть свободные средства':'Нет свободных средств'],
+    [cushionScore,20,`Копилка — ${Math.round(cushionMonths*10)/10} мес. расходов`],
+  ];
   const catData=allCats.map((cat,i)=>({label:cat.name,emoji:cat.emoji,value:planned.filter(p=>p.catId===cat.id).reduce((s,p)=>s+monthlyOf(p),0),color:PIE_COLORS[i%PIE_COLORS.length]})).filter(c=>c.value>0).sort((a,b)=>b.value-a.value);
   const totalExp=catData.reduce((s,c)=>s+c.value,0);
-  const conicStops=catData.reduce((acc,d)=>{const pct=totalExp>0?d.value/totalExp*100:0;acc.stops.push(`${d.color} ${acc.prev}% ${acc.prev+pct}%`);acc.prev+=pct;return acc;},{stops:[],prev:0}).stops.join(', ');
   const risks=[];
   if(freeCash<0)risks.push({icon:'🚨',text:`Расходы превышают доходы на ${fmt(Math.abs(freeCash))}/мес`,level:'red'});
   if(savingsRate<10&&freeCash>=0)risks.push({icon:'⚠️',text:`Норма сбережений низкая — всего ${savingsRate}%`,level:'yellow'});
@@ -72,186 +79,116 @@ export function HealthScreen({state}){
   const obligations=planned.filter(p=>['mortgage','credit'].includes(p.catId)).reduce((s,p)=>s+monthlyOf(p),0);
   if(obligations/totalNet>.4)risks.push({icon:'🔴',text:`Кредитная нагрузка высокая — ${Math.round(obligations/totalNet*100)}% дохода`,level:'red'});
   if(risks.length===0)risks.push({icon:'✅',text:'Видимых рисков кассового разрыва нет',level:'green'});
-  const pad={padding:'14px 14px 80px'};
+  const recs=[
+    savingsRate<20&&freeCash>0?{text:`Откладывайте в копилку хотя бы ${fmt(Math.round(totalNet*.2))}/мес — это 20% дохода`,level:'yellow'}:null,
+    cushion<monthlyExp*3?{text:`Цель копилки — ${fmt(monthlyExp*3)} (3 мес. расходов), сейчас ${fmt(cushion)}`,level:'yellow'}:null,
+    obligations/totalNet>.3?{text:`Кредитная нагрузка ${Math.round(obligations/totalNet*100)}% — постарайтесь снизить до 30%`,level:'red'}:null,
+    freeCash>0?{text:`Свободные средства ${fmt(freeCash)}/мес можно инвестировать`,level:'green'}:null,
+  ].filter(Boolean).slice(0,3);
+  const recDot={yellow:C.yellow,red:C.red,green:C.green};
+  const pad={padding:'16px 20px 90px'};
   return(
     <div style={{overflowY:'auto',flex:1,WebkitOverflowScrolling:'touch'}}><div style={pad}>
-      <div style={{...s.hero,padding:'16px 14px'}}>
-        <div style={{textAlign:'center',marginBottom:12}}>
-          <div style={{fontSize:11,color:'rgba(255,255,255,0.45)',marginBottom:6}}>ФИНАНСОВОЕ ЗДОРОВЬЕ</div>
-          <div style={{fontSize:48,fontWeight:800,color:healthColor}}>{healthScore}</div>
-          <div style={{fontSize:16,color:'#fff',fontWeight:600,marginTop:4}}>{healthLabel}</div>
-          <div style={{marginTop:10}}><PBar pct={healthScore} color={healthColor} h={8}/></div>
+      <div style={{background:C.orange,color:'#fff',borderRadius:18,padding:20,marginBottom:16}}>
+        <div style={{display:'flex',alignItems:'center',gap:18}}>
+          <div style={{fontFamily:MONO,fontSize:52,fontWeight:500,letterSpacing:-2,lineHeight:1,flexShrink:0}}>{healthScore}</div>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:15,fontWeight:600}}>{healthLabel}</div>
+            <div style={{fontSize:11.5,color:'rgba(255,255,255,.6)',marginTop:2}}>{healthSubtitle}</div>
+          </div>
         </div>
-        <div style={{borderTop:'0.5px solid rgba(255,255,255,0.1)',paddingTop:12}}>
-          <div style={{fontSize:10,color:'rgba(255,255,255,0.3)',letterSpacing:.5,marginBottom:8}}>КАК СЧИТАЕТСЯ БАЛЛ</div>
-          {[
-            [savingsRate>=20?C.green:savingsRate>=10?C.yellow:C.red, `Норма сбережений ${savingsRate}%`, savingsRate>=20?30:15, 30],
-            [projectedRiskyWeeks.length===0?C.green:hasCashGapDeficit?C.red:C.yellow, projectedRiskyWeeks.length===0?'Кассовых разрывов не прогнозируется':`Риск разрыва — ${projectedRiskyWeeks.length} нед. вперёд`, cashGapScore, 50],
-            [freeCash>0?C.green:C.red, freeCash>0?'Есть свободные средства':'Нет свободных средств', freeCash>0?20:0, 20],
-          ].map(([col,label,got,max],i)=>(
-            <div key={i} style={{display:'flex',alignItems:'center',gap:8,marginBottom:6}}>
-              <div style={{width:18,height:18,borderRadius:9,background:col==='#16A34A'?'rgba(22,163,74,0.2)':col===C.yellow?'rgba(146,64,14,0.2)':'rgba(220,38,38,0.2)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-                <span style={{fontSize:10,color:col}}>{got===max?'✓':got>0?'~':'✗'}</span>
-              </div>
-              <span style={{flex:1,fontSize:11,color:'rgba(255,255,255,0.6)'}}>{label}</span>
-              <span style={{fontSize:11,fontWeight:600,color:col}}>{got}/{max}</span>
+        <div style={{height:6,background:'rgba(255,255,255,.2)',borderRadius:3,marginTop:14,overflow:'hidden'}}><div style={{height:6,width:`${healthScore}%`,background:'#fff',borderRadius:3,transition:'width .3s'}}/></div>
+        <div style={{marginTop:14,display:'flex',flexDirection:'column',gap:7,fontFamily:MONO,fontSize:11}}>
+          {criteria.map(([got,max,label],i)=>(
+            <div key={i} style={{display:'flex',gap:8}}>
+              <span>{got===max?'✓':got>0?'~':'✗'}</span>
+              <span style={{flex:1,color:'rgba(255,255,255,.75)'}}>{label}</span>
+              <span>{got}/{max}</span>
             </div>
           ))}
-          {/* Расходы % от дохода — справочная строка, в балл не входит */}
-          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:6,opacity:.6}}>
-            <div style={{width:18,height:18,borderRadius:9,background:'rgba(255,255,255,0.08)',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-              <span style={{fontSize:9,color:'rgba(255,255,255,0.5)'}}>ℹ️</span>
-            </div>
-            <span style={{flex:1,fontSize:11,color:'rgba(255,255,255,0.45)'}}>Расходы {expenseRatio}% от дохода</span>
-            <span style={{fontSize:10,color:'rgba(255,255,255,0.35)'}}>справочно</span>
-          </div>
-          <div style={{borderTop:'0.5px solid rgba(255,255,255,0.1)',paddingTop:8,marginTop:4}}>
-            <div style={{fontSize:11,color:'rgba(255,255,255,0.35)',lineHeight:'16px'}}>
-              {healthScore<80?`Чтобы достичь 80: ${projectedRiskyWeeks.length>0?'устранить риск кассового разрыва в ближайших неделях':'увеличить норму сбережений'}`:
-              'Отличный результат — продолжай в том же духе!'}
-            </div>
-          </div>
         </div>
       </div>
-      <div style={{display:'flex',gap:6,marginBottom:10}}>
-        <div style={{...s.card,flex:1,background:freeCash>=0?C.greenL:C.redL,border:`.5px solid ${freeCash>=0?C.greenB:C.redB}`,marginBottom:0}}>
-          <div style={{fontSize:9,color:freeCash>=0?C.green:C.red,marginBottom:2}}>💰 Остаток/мес</div>
-          <div style={{fontSize:14,fontWeight:700,color:freeCash>=0?C.green:C.red}}>{freeCash>=0?'+':''}{fmt(freeCash)}</div>
-          <div style={{fontSize:9,color:C.muted,marginTop:2}}>после расходов</div>
-        </div>
-        <div style={{...s.card,flex:1,background:savingsRate>=20?C.greenL:savingsRate>=10?C.yellowL:C.redL,border:`.5px solid ${savingsRate>=20?C.greenB:savingsRate>=10?C.yellowB:C.redB}`,marginBottom:0}}>
-          <div style={{fontSize:9,color:C.muted,marginBottom:2}}>📈 Норма сбережений</div>
-          <div style={{fontSize:14,fontWeight:700,color:savingsRate>=20?C.green:savingsRate>=10?C.yellow:C.red}}>{savingsRate}%</div>
-          <div style={{fontSize:9,color:C.muted,marginTop:2}}>от дохода</div>
-        </div>
-      </div>
-      <div style={{display:'flex',gap:6,marginBottom:10}}>
-        <div style={{...s.card,flex:1,marginBottom:0}}>
-          <div style={{fontSize:9,color:C.muted,marginBottom:2}}>💳 Расходы</div>
-          <div style={{fontSize:14,fontWeight:700,color:expenseRatio>90?C.red:expenseRatio>70?C.yellow:C.text}}>{expenseRatio}%</div>
-          <div style={{fontSize:9,color:C.muted,marginTop:2}}>от дохода</div>
-        </div>
-        <div style={{...s.card,flex:1,background:cushion>=monthlyExp*3?C.greenL:C.yellowL,border:`.5px solid ${cushion>=monthlyExp*3?C.greenB:C.yellowB}`,marginBottom:0}}>
-          <div style={{fontSize:9,color:C.muted,marginBottom:2}}>🐷 Копилка</div>
-          <div style={{fontSize:14,fontWeight:700,color:cushion>=monthlyExp*3?C.green:C.yellow}}>{monthlyExp>0?Math.round(cushion/monthlyExp*10)/10:0} мес</div>
-          <div style={{fontSize:9,color:C.muted,marginTop:2}}>{fmt(cushion)}</div>
-        </div>
+      <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,rowGap:16,paddingBottom:18,borderBottom:`1px solid ${C.border}`,marginBottom:16}}>
+        <Stat label="остаток / мес" value={`${freeCash>=0?'+':'−'}${fmtN(Math.abs(freeCash))}`} color={C.green} valueColor={freeCash>=0?C.green:C.red}/>
+        <Stat label="сбережения" value={`${savingsRate}%`} color={C.green}/>
+        <Stat label="расходы" value={`${expenseRatio}% дохода`} color={C.borderS}/>
+        <Stat label="копилка 🐷" value={`${monthlyExp>0?Math.round(cushion/monthlyExp*10)/10:0} мес`} color={C.yellow}/>
       </div>
       {/* Накопления Piggy Bank */}
       {(piggyActual>0||piggyMonthly>0)&&<>
         <SecTitle>НАКОПЛЕНИЯ</SecTitle>
-        <div style={{...s.card,background:C.greenL,border:`.5px solid ${C.greenB}`,padding:'12px 14px',marginBottom:6}}>
+        <div style={{...s.card,background:C.greenL,border:`1px solid ${C.greenB}`,padding:'14px 16px'}}>
           <div style={{display:'flex',alignItems:'center',gap:10}}>
-            <span style={{fontSize:24}}>🐷</span>
+            <span style={{fontSize:22}}>🐷</span>
             <div style={{flex:1}}>
-              <div style={{fontSize:14,fontWeight:500,color:C.green}}>Копилка (Piggy Bank)</div>
-              <div style={{fontSize:12,color:C.green,opacity:.7,marginTop:1}}>накопительный счёт №2</div>
+              <div style={{fontSize:13.5,fontWeight:500,color:'oklch(0.42 0.09 150)'}}>Копилка (Piggy Bank)</div>
+              <div style={{fontSize:11,color:'oklch(0.5 0.08 150)',marginTop:1}}>накопительный счёт №2</div>
             </div>
             <div style={{textAlign:'right'}}>
-              <div style={{fontSize:16,fontWeight:600,color:C.green}}>+{fmt(piggyActual)}</div>
-              <div style={{fontSize:11,color:C.green,opacity:.7}}>план {fmt(piggyMonthly)}/мес</div>
+              <div style={{fontFamily:MONO,fontSize:15,fontWeight:600,color:'oklch(0.42 0.09 150)'}}>+{fmtN(piggyActual)}</div>
+              <div style={{fontFamily:MONO,fontSize:10.5,color:'oklch(0.5 0.08 150)'}}>план {fmtN(piggyMonthly)}/мес</div>
             </div>
           </div>
           {piggyMonthly>0&&<>
-            <div style={{height:5,background:'rgba(22,163,74,0.2)',borderRadius:3,overflow:'hidden',marginTop:8}}>
+            <div style={{height:5,background:C.greenB,borderRadius:3,overflow:'hidden',marginTop:10}}>
               <div style={{height:5,width:`${Math.min(Math.round(piggyActual/piggyMonthly*100),100)}%`,background:C.green,borderRadius:3}}/>
             </div>
-            <div style={{fontSize:11,color:C.green,marginTop:4,opacity:.7}}>
-              {Math.round(piggyActual/piggyMonthly*100)}% от месячного плана · {fmt(Math.max(piggyMonthly-piggyActual,0))} ещё не отложено
+            <div style={{fontFamily:MONO,fontSize:10.5,color:'oklch(0.5 0.08 150)',marginTop:6}}>
+              {Math.round(piggyActual/piggyMonthly*100)}% от месячного плана · {fmtN(Math.max(piggyMonthly-piggyActual,0))} ещё не отложено
             </div>
           </>}
         </div>
       </>}
       <SecTitle>РАСПРЕДЕЛЕНИЕ РАСХОДОВ</SecTitle>
-      <div style={{...s.card,display:'flex',flexDirection:'column',alignItems:'center',padding:16}}>
-        {catData.length>0&&<div style={{width:160,height:160,borderRadius:'50%',background:`conic-gradient(${conicStops})`,position:'relative',marginBottom:16,flexShrink:0}}>
-          <div style={{position:'absolute',top:'25%',left:'25%',width:'50%',height:'50%',borderRadius:'50%',background:'#fff',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
-            <div style={{fontSize:9,color:C.muted}}>всего</div>
-            <div style={{fontSize:10,fontWeight:700,color:C.text}}>{fmt(totalExp)}</div>
+      {catData.length>0&&<div style={{display:'flex',height:10,borderRadius:5,overflow:'hidden',background:C.track,marginBottom:12}}>
+        {catData.map((d,i)=><div key={i} style={{width:`${totalExp>0?d.value/totalExp*100:0}%`,background:d.color}}/>)}
+      </div>}
+      <div style={{display:'flex',flexDirection:'column',gap:7}}>
+        {catData.slice(0,7).map((d,i)=>(
+          <div key={i} style={{display:'flex',alignItems:'center',gap:10}}>
+            <span style={{width:8,height:8,borderRadius:2,background:d.color,flexShrink:0}}/>
+            <span style={{fontSize:12.5,flex:1,color:C.text}}>{d.emoji} {d.label}</span>
+            <span style={{fontFamily:MONO,fontSize:11.5,color:C.muted}}>{fmtN(d.value)}</span>
+            <span style={{fontFamily:MONO,fontSize:11.5,fontWeight:600,color:C.text,width:36,textAlign:'right'}}>{totalExp>0?Math.round(d.value/totalExp*100):0}%</span>
           </div>
-        </div>}
-        <div style={{width:'100%',display:'flex',flexDirection:'column',gap:4}}>
-          {catData.slice(0,7).map((d,i)=>(
-            <div key={i} style={{display:'flex',alignItems:'center',gap:8}}>
-              <div style={{width:10,height:10,borderRadius:5,background:d.color,flexShrink:0}}/>
-              <span style={{fontSize:10,flex:1,color:C.text}}>{d.emoji} {d.label}</span>
-              <span style={{fontSize:10,color:C.muted}}>{fmt(d.value)}</span>
-              <span style={{fontSize:10,fontWeight:600,color:C.text2,width:35,textAlign:'right'}}>{totalExp>0?Math.round(d.value/totalExp*100):0}%</span>
-            </div>
-          ))}
-        </div>
+        ))}
       </div>
       {/* Рискованные недели (используем прогноз, посчитанный выше для балла здоровья) */}
       {(()=>{
         if(!projectedRiskyWeeks.length)return null;
         return(
           <>
-            <SecTitle>⚠️ РИСКОВАННЫЕ НЕДЕЛИ</SecTitle>
+            <SecTitle>РИСКИ И РЕКОМЕНДАЦИИ</SecTitle>
             {projectedRiskyWeeks.slice(0,3).map((r,i)=>(
-              <div key={i} style={{...s.card,background:r.pct<=0?C.redL:C.yellowL,border:`.5px solid ${r.pct<=0?C.redB:C.yellowB}`,padding:'10px 12px',marginBottom:6}}>
-                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:6}}>
-                  <div>
-                    <div style={{fontSize:13,fontWeight:500,color:r.pct<=0?C.red:C.yellow}}>{weekLabel(r.nextWk)}</div>
-                    <div style={{fontSize:11,color:r.pct<=0?C.red:C.yellow,opacity:.8,marginTop:1}}>{weekRange(r.nextWk)}</div>
-                  </div>
-                  <span style={{fontSize:12,fontWeight:600,color:r.pct<=0?C.red:C.yellow,background:r.pct<=0?'rgba(220,38,38,0.1)':'rgba(146,64,14,0.1)',padding:'3px 8px',borderRadius:20}}>
-                    {r.pct<=0?'дефицит':r.pct+'% покрытия'}
-                  </span>
+              <div key={i} style={{...s.card,background:r.pct<=0?C.redL:C.yellowL,border:`1px solid ${r.pct<=0?C.redB:C.yellowB}`,padding:'12px 14px'}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline'}}>
+                  <span style={{fontSize:13,fontWeight:600,color:r.pct<=0?C.red:'oklch(0.4 0.08 70)'}}>{weekLabel(r.nextWk)} · риск разрыва</span>
+                  <span style={{fontFamily:MONO,fontSize:11,fontWeight:600,color:r.pct<=0?C.red:'oklch(0.45 0.09 70)'}}>{r.pct<=0?'дефицит':r.pct+'% покрытия'}</span>
                 </div>
-                <div style={{fontSize:12,color:r.pct<=0?C.red:C.yellow,lineHeight:'18px'}}>
-                  Остаток после {weekLabel(r.wk)}: <b>{r.runBal>=0?'+':''}{fmt(r.runBal)}</b> · план следующей недели: <b>{fmt(r.nextPlan)}</b>
-                </div>
-                <div style={{height:4,background:'rgba(255,255,255,0.3)',borderRadius:2,overflow:'hidden',marginTop:8}}>
-                  <div style={{height:4,width:`${Math.min(Math.max(r.pct,0),100)}%`,background:r.pct<=0?C.red:C.yellow,borderRadius:2}}/>
-                </div>
-                <div style={{fontSize:11,color:r.pct<=0?C.red:C.yellow,marginTop:4,opacity:.8}}>
-                  {r.pct<=0?'Баланс отрицательный — нужно скорректировать план':r.pct<50?'Меньше 50% от плана — возможен кассовый разрыв':'Меньше 50% покрытия следующей недели'}
+                <div style={{fontSize:11.5,color:r.pct<=0?C.red:'oklch(0.45 0.07 70)',marginTop:4,lineHeight:1.5}}>
+                  Остаток после {weekLabel(r.wk)}: {r.runBal>=0?'+':''}{fmt(r.runBal)} · план недели: {fmt(r.nextPlan)}
                 </div>
               </div>
             ))}
           </>
         );
       })()}
-      <SecTitle>РИСКИ И ПРЕДУПРЕЖДЕНИЯ</SecTitle>
-      {/* Годовой дефицит */}
-      {(()=>{
-        const annualIncome=totalNet*12;
-        const annualExp=monthlyExp*12;
-        const annualDeficit=annualExp-annualIncome;
-        if(annualDeficit<=0)return null;
-        return(
-          <div style={{...s.card,background:C.redL,border:`.5px solid ${C.redB}`,padding:'10px 12px',marginBottom:6}}>
-            <div style={{fontSize:13,fontWeight:600,color:C.red,marginBottom:4}}>🚨 Годовой дефицит</div>
-            <div style={{fontSize:12,color:C.red,marginBottom:6}}>
-              Расходы превышают доходы на <b>{fmt(annualDeficit/12)}/мес</b> ({fmt(annualDeficit)}/год).
-              При текущем плане деньги закончатся.
-            </div>
-            <div style={{fontSize:11,color:C.red,opacity:.8}}>
-              Уменьшите расходы или увеличьте доход. Проверьте копилку — возможно сумма накоплений слишком большая.
-            </div>
-          </div>
-        );
-      })()}
+      {!projectedRiskyWeeks.length&&<SecTitle>РИСКИ И РЕКОМЕНДАЦИИ</SecTitle>}
       {risks.map((r,i)=>(
-        <div key={i} style={{...s.card,display:'flex',alignItems:'flex-start',gap:10,padding:10,marginBottom:6,background:r.level==='red'?C.redL:r.level==='yellow'?C.yellowL:C.greenL,border:`.5px solid ${r.level==='red'?C.redB:r.level==='yellow'?C.yellowB:C.greenB}`}}>
-          <span style={{fontSize:18}}>{r.icon}</span>
-          <span style={{flex:1,fontSize:12,color:r.level==='red'?C.red:r.level==='yellow'?C.yellow:C.green,lineHeight:'18px'}}>{r.text}</span>
+        <div key={i} style={{...s.card,display:'flex',alignItems:'flex-start',gap:10,padding:'10px 12px',background:r.level==='red'?C.redL:r.level==='yellow'?C.yellowL:C.greenL,border:`1px solid ${r.level==='red'?C.redB:r.level==='yellow'?C.yellowB:C.greenB}`}}>
+          <span style={{fontSize:16}}>{r.icon}</span>
+          <span style={{flex:1,fontSize:12,color:r.level==='red'?C.red:r.level==='yellow'?C.yellow:C.green,lineHeight:1.5}}>{r.text}</span>
         </div>
       ))}
-      <SecTitle>РЕКОМЕНДАЦИИ</SecTitle>
-      <div style={s.card}>
-        {[savingsRate<20&&freeCash>0?`Откладывайте в копилку хотя бы ${fmt(Math.round(totalNet*.2))}/мес — это 20% дохода`:null,cushion<monthlyExp*3?`Цель копилки — ${fmt(monthlyExp*3)} (3 мес. расходов), сейчас ${fmt(cushion)}`:null,obligations/totalNet>.3?`Кредитная нагрузка ${Math.round(obligations/totalNet*100)}% — постарайтесь снизить до 30%`:null,freeCash>0?`Свободные средства ${fmt(freeCash)}/мес можно инвестировать`:null].filter(Boolean).slice(0,3).map((rec,i,arr)=>(
-          <div key={i} style={{display:'flex',alignItems:'flex-start',gap:8,padding:'9px 0',borderBottom:i<arr.length-1?`.5px solid ${C.border}`:'none'}}>
-            <span style={{fontSize:16}}>💡</span><span style={{flex:1,fontSize:11,color:C.text,lineHeight:'16px'}}>{rec}</span>
-          </div>
-        ))}
-      </div>
-      <div style={{...s.card,background:'rgba(148,163,184,0.1)',border:`.5px solid ${C.border}`,padding:12,marginBottom:8,marginTop:4,textAlign:'center'}}>
-        <div style={{fontSize:10,color:C.muted,lineHeight:'16px'}}>⚠️ Показатели и рекомендации носят исключительно информационный характер и не являются финансовой консультацией.</div>
+      {recs.map((rec,i)=>(
+        <div key={i} style={{display:'flex',gap:10,alignItems:'flex-start',padding:'8px 0',borderBottom:i<recs.length-1?`1px dashed ${C.border}`:'none'}}>
+          <span style={{width:8,height:8,borderRadius:4,background:recDot[rec.level],marginTop:5,flexShrink:0}}/>
+          <span style={{flex:1,fontSize:12.5,lineHeight:1.5,color:C.text2}}>{rec.text}</span>
+        </div>
+      ))}
+      <div style={{background:C.cream,borderRadius:12,padding:12,marginTop:14,textAlign:'center'}}>
+        <div style={{fontSize:10,color:C.muted,lineHeight:1.5}}>⚠️ Показатели и рекомендации носят исключительно информационный характер и не являются финансовой консультацией.</div>
       </div>
     </div></div>
   );
 }
-
-// ════════════════════════════════════════════════════════════════════════
-// НАСТРОЙКИ
