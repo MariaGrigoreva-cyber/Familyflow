@@ -19,6 +19,9 @@
       body { font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
              background: #FCFBF8; -webkit-tap-highlight-color: transparent; }
       #root { min-height: 100dvh; }
+      /* Разряды в цифрах (моно-шрифт): word-spacing сужает именно пробел-разделитель,
+         не трогая расстояние между самими цифрами — надёжно работает во всех движках. */
+      [style*="IBM Plex Mono"] { word-spacing: -0.3em; }
       /* Видимый фокус для клавиатурной навигации — многие поля отключают outline инлайн-стилем,
          !important здесь оправдан: это единственный способ восстановить фокус-кольцо поверх них. */
       input:focus-visible, textarea:focus-visible, button:focus-visible, [tabindex]:focus-visible {

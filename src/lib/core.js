@@ -14,8 +14,8 @@ const C = {
 };
 const MONO = "'IBM Plex Mono', monospace";
 
-const fmt = n => new Intl.NumberFormat('ru-RU').format(Math.round(Math.abs(n))).replace(/\u00A0/g,'\u2006') + ' ₽';
-const fmtN = n => new Intl.NumberFormat('ru-RU').format(Math.round(Math.abs(n))).replace(/\u00A0/g,'\u2006');
+const fmt = n => new Intl.NumberFormat('ru-RU').format(Math.round(Math.abs(n))) + ' ₽';
+const fmtN = n => new Intl.NumberFormat('ru-RU').format(Math.round(Math.abs(n)));
 const uid = () => Math.random().toString(36).slice(2);
 
 const isoMondayOf = d => {
@@ -54,7 +54,10 @@ const calcAvgMonthlyNet=g=>g?Math.round(g-calcAnnualNDFL(g*12)/12):0;
 const getNDFLDesc=g=>{const a=g*12;if(a<=2_400_000)return '13% весь год';if(a<=5_000_000)return '13% → 15% с превышения 2,4 млн';return '13% → 15% → 20% по шкале';};
 
 const RU_HOLIDAYS=new Set(['2025-12-31','2026-01-01','2026-01-02','2026-01-03','2026-01-04','2026-01-05','2026-01-06','2026-01-07','2026-01-08','2026-01-09','2026-02-23','2026-03-09','2026-05-01','2026-05-04','2026-05-05','2026-05-09','2026-06-12','2026-11-04','2026-12-31','2027-01-01','2027-01-02','2027-01-03','2027-01-04','2027-01-05','2027-01-06','2027-01-07','2027-01-08','2027-02-22','2027-03-08','2027-05-01','2027-05-10','2027-06-12','2027-11-04','2027-11-05']);
-const getActualPayDate=(year,month,day)=>{let d=new Date(year,month-1,day);for(let i=0;i<20;i++){const dow=d.getDay(),ds=d.toISOString().slice(0,10);if(dow!==0&&dow!==6&&!RU_HOLIDAYS.has(ds))break;d=new Date(d.getTime()-86400000);}return d;};
+// Локальная дата в формате YYYY-MM-DD — toISOString() тут не годится: он конвертирует в UTC
+// и на позитивных смещениях (вся Россия) сдвигает дату на день назад, ломая проверку праздников.
+const localDateStr=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const getActualPayDate=(year,month,day)=>{let d=new Date(year,month-1,day);for(let i=0;i<20;i++){const dow=d.getDay(),ds=localDateStr(d);if(dow!==0&&dow!==6&&!RU_HOLIDAYS.has(ds))break;d=new Date(d.getTime()-86400000);}return d;};
 const fmtPayDate=(year,month,day)=>{const actual=getActualPayDate(year,month,day),planned=new Date(year,month-1,day);const fD=d=>`${d.getDate()} ${MONTH_SHORT[d.getMonth()]} (${DAYS_RU[d.getDay()]})`;const shifted=actual.getDate()!==planned.getDate()||actual.getMonth()!==planned.getMonth();return{date:actual,label:fD(actual),shifted,note:shifted?`перенос с ${fD(planned)}`:''};};
 // ═══ Типы дохода: employed (НДФЛ), self (самозанятый/ИП 4-6%), manual (сумма на руки) ═══
 const INCOME_TYPES=[
@@ -106,10 +109,16 @@ const buildPaymentSchedule=(year,salaryDays=[],advanceDays=[],advancePct=40,mont
   for(let m=1;m<=12;m++){
     const cur=calcFor(m);      // заработок текущего месяца → аванс
     const prev=calcFor(m-1);   // заработок прошлого месяца → зарплата-расчёт
-    for(const d of advanceDays){const info=fmtPayDate(year,m,d);result.push({type:'advance',amount:cur.advAmt,month:m,bracket:cur.bracket,...info,displayLabel:`Аванс·${info.label}`,actualAmount:cur.advAmt,isDone:false,note2:''});}
-    for(const d of salaryDays){const info=fmtPayDate(year,m,d);result.push({type:'salary',amount:prev.salAmt,month:m,bracket:prev.bracket,...info,displayLabel:`Зарплата·${info.label}`,actualAmount:prev.salAmt,isDone:false,note2:'',ndfl:prev.monthlyNDFL});}}
+    const daysInM=new Date(year,m,0).getDate(); // напр. 31-е число в феврале не существует — берём последний день месяца
+    for(const d of advanceDays){const info=fmtPayDate(year,m,Math.min(d,daysInM));result.push({type:'advance',amount:cur.advAmt,month:m,bracket:cur.bracket,...info,displayLabel:`Аванс·${info.label}`,actualAmount:cur.advAmt,isDone:false,note2:''});}
+    for(const d of salaryDays){const info=fmtPayDate(year,m,Math.min(d,daysInM));result.push({type:'salary',amount:prev.salAmt,month:m,bracket:prev.bracket,...info,displayLabel:`Зарплата·${info.label}`,actualAmount:prev.salAmt,isDone:false,note2:'',ndfl:prev.monthlyNDFL});}}
   return result.sort((a,b)=>a.date-b.date);
 };
+// Выплата у границы года (напр. 10 января за декабрь) может из-за праздников сдвинуться в предыдущий
+// календарный год — тогда она пропадает из недельного/месячного среза, если считать только по одному году.
+// Поэтому берём соседние года тоже: конкретная выплата всё равно попадёт в диапазон только один раз.
+const buildPaymentScheduleSpan=(year,salaryDays,advanceDays,advancePct,monthlyGross,inc)=>
+  [year-1,year,year+1].flatMap(y=>buildPaymentSchedule(y,salaryDays,advanceDays,advancePct,monthlyGross,inc));
 // Мёрж: регенерирует недели по новому плану, сохраняя отметки isDone и ручные записи
 const regenWeeksKeepDone=(planned,prevWeekItems)=>{
   const fresh=generateAllWeeks(planned);
@@ -138,7 +147,7 @@ const computeBalances=(state)=>{
 
   // Все выплаты года с наложенными правками пользователя
   const allPaymentsActual=incomes.flatMap(inc=>{
-    const sch=buildPaymentSchedule(year,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc);
+    const sch=buildPaymentScheduleSpan(year,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc);
     return sch.map(p=>({...p,...(payments[p.displayLabel]||{})}));
   });
   const budgetStart=new Date(budgetStartDate||new Date()); budgetStart.setHours(0,0,0,0);
@@ -306,4 +315,4 @@ const DEMO_MEMBERS=[{id:'m1',name:'Мария',avatar:'👩',color:'oklch(0.9 0.
 const DEMO_PLANNED=[{id:'p1',catId:'mortgage',name:'Ипотека',amount:55000,memberId:'m1',repeat:'monthly',days:[20]},{id:'p2',catId:'food',name:'Еда',amount:10000,memberId:'m1',repeat:'weekly',days:[]},{id:'p3',catId:'food',name:'Еда',amount:10000,memberId:'m2',repeat:'weekly',days:[]},{id:'p4',catId:'beauty',name:'Красота',amount:15000,memberId:'m1',repeat:'biweekly',days:[]},{id:'p5',catId:'edu',name:'Образование',amount:20000,memberId:'m2',repeat:'monthly',days:[1]},{id:'p6',catId:'piggy',name:'Копилка',amount:10000,memberId:'m1',repeat:'weekly',days:[]}];
 
 
-export {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,FACE_EMOJIS,MEMBER_TINTS,nextMemberTint,POLICY_ITEMS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED};
+export {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,buildPaymentScheduleSpan,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,FACE_EMOJIS,MEMBER_TINTS,nextMemberTint,POLICY_ITEMS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED};

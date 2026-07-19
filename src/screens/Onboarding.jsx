@@ -75,9 +75,9 @@ export function IntroStories({onDone}){
     {icon:'📅',title:'Раз в неделю —\nпо трём потокам',sub:'FamilyFlow сам распределяет деньги по направлениям — один ритуал в понедельник'},
   ];
   const STREAMS=[
-    {e:'🛡️',t:'Защита',s:'копилка · кредиты · страховки',col:C.orangeD,bg:C.orangeL,pct:'55%'},
-    {e:'🍽️',t:'Жизнь',s:'еда · транспорт · здоровье',col:C.yellow,bg:C.yellowL,pct:'25%'},
-    {e:'🛋️',t:'Комфорт',s:'одежда · дом · путешествия',col:C.blue,bg:C.blueL,pct:'20%'},
+    {e:'🛡️',t:'Защита',s:'копилка',col:C.orangeD,bg:C.orangeL,pct:'20%'},
+    {e:'🍽️',t:'Жизнь',s:'еда · транспорт · развлечения',col:C.yellow,bg:C.yellowL,pct:'50%'},
+    {e:'🛋️',t:'Комфорт',s:'одежда · дом · путешествия',col:C.blue,bg:C.blueL,pct:'30%'},
   ];
   const TOTAL=FRAMES.length+1; // + финальный кадр с потоками
   const advance=()=>{if(introPage<TOTAL-1)setIntroPage(p=>p+1);else{setIntroPage(0);onDone();}};
