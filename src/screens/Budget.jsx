@@ -3,8 +3,12 @@ import React, { useState, useEffect } from 'react';
 import {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad} from '../lib/ui';
 
-export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onAddExtra,onWithdrawPiggy}){
+export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onAddExtra,onWithdrawPiggy,onSetGoal,onAddGoalToPlan}){
   const[showVacPlanner,setShowVacPlanner]=useState(false);
+  const[showGoalPlanner,setShowGoalPlanner]=useState(false);
+  const[goalName,setGoalName]=useState('');
+  const[goalAmount,setGoalAmount]=useState('');
+  const[goalDate,setGoalDate]=useState('');
   const[vacStart,setVacStart]=useState('');
   // сброс статуса при смене параметров
   const resetVacAdded=()=>setVacAdded(false);
@@ -36,6 +40,37 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
   const totalYearlyExp=catTotals.reduce((s,c)=>s+c.yearly,0);
   const profit=totalYearlyIncome-totalYearlyExp,maxVal=catTotals[0]?.yearly||1;
   const piggyYearly=catTotals.find(c=>c.cat.id==='piggy')?.yearly||0;
+  // Разбивка расходов по направлениям (цвет плашки категории = направление) — для полосы-бюджета
+  const FUND_META=[
+    {color:'oklch(0.94 0.03 40)',label:'Защита',accent:C.orange},
+    {color:'oklch(0.94 0.03 85)',label:'Жизнь',accent:C.yellow},
+    {color:'oklch(0.94 0.02 250)',label:'Комфорт',accent:C.blue},
+    {color:'oklch(0.94 0.02 150)',label:'Копилка',accent:C.green},
+  ];
+  const fundTotals=FUND_META.map(f=>({...f,yearly:catTotals.filter(c=>c.cat.color===f.color).reduce((s,c)=>s+c.yearly,0)})).filter(f=>f.yearly>0);
+  const fundSum=fundTotals.reduce((s,f)=>s+f.yearly,0);
+  // Свободные средства/мес — та же формула, что и в Здоровье: доход минус план без копилки
+  const{totalSaved}=computeBalances(state);
+  const monthlyExpAll=planned.reduce((s,p)=>s+monthlyOf(p),0);
+  const piggyMonthly=planned.filter(p=>p.catId==='piggy').reduce((s,p)=>s+monthlyOf(p),0);
+  const freeCash=totalNet-(monthlyExpAll-piggyMonthly);
+  // Расчёт цели накопления: сколько откладывать в месяц, чтобы успеть к дате
+  const goal=state.savingsGoal;
+  const goalCalc=goal?(()=>{
+    const targetD=new Date(goal.targetDate);
+    const monthsLeft=Math.max((targetD-now)/(86400000*30.44),0.5);
+    const remaining=Math.max(goal.targetAmount-totalSaved,0);
+    const requiredMonthly=remaining/monthsLeft;
+    const achievable=requiredMonthly<=Math.max(freeCash,0);
+    const comfortCat=catTotals.filter(c=>c.cat.color==='oklch(0.94 0.02 250)').sort((a,b)=>b.monthly-a.monthly)[0];
+    const shortfall=requiredMonthly-Math.max(freeCash,0);
+    const monthsAtFreeCash=freeCash>0?remaining/freeCash:null;
+    const realisticDate=monthsAtFreeCash?new Date(now.getTime()+monthsAtFreeCash*30.44*86400000):null;
+    const weeklyAmount=Math.round(requiredMonthly/4.3/50)*50; // округляем до 50 ₽ для удобства
+    return{targetD,monthsLeft,remaining,requiredMonthly,achievable,comfortCat,shortfall,realisticDate,weeklyAmount};
+  })():null;
+  // Отдельная строка плана для цели — не трогает существующую «Копилку», просто добавляется рядом
+  const goalPlannedItem=goal?planned.find(p=>p.goalId===goal.id):null;
   const yearsInRange=[...new Set([budgetStart.getFullYear(),budgetEnd.getFullYear()])];
   const allPayments=incomes.flatMap(inc=>{const m=members.find(x=>x.id===inc.memberId);return yearsInRange.flatMap(yr=>buildPaymentSchedule(yr,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc)).filter(p=>p.date>=budgetStart&&p.date<=budgetEnd).map(p=>({...p,memberName:m?.name||'',memberAvatar:m?.avatar||'',...(payments[p.displayLabel]||{})}));}).sort((a,b)=>a.date-b.date);
   const upcomingAll=allPayments.filter(p=>p.date>=budgetStart);
@@ -58,9 +93,20 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
           <Stat label="профицит / год" value={`${profit>=0?'+':'−'}${fmtN(Math.abs(profit))}`} color={C.green} valueColor={profit>=0?C.green:C.red}/>
           <Stat label="копилка / год 🐷" value={fmtN(piggyYearly)} color={C.yellow}/>
         </div>
+        {fundSum>0&&<div style={{marginTop:16}}>
+          <div style={{display:'flex',height:10,borderRadius:5,overflow:'hidden'}}>
+            {fundTotals.map(f=><div key={f.label} style={{width:`${(f.yearly/fundSum)*100}%`,background:f.accent}}/>)}
+          </div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:'6px 14px',marginTop:8}}>
+            {fundTotals.map(f=>(
+              <span key={f.label} style={{display:'flex',alignItems:'center',gap:5,fontFamily:MONO,fontSize:10,color:C.muted}}>
+                <span style={{width:7,height:7,borderRadius:2,background:f.accent}}/>{f.label} {Math.round(f.yearly/fundSum*100)}%
+              </span>
+            ))}
+          </div>
+        </div>}
       </div>
       {(()=>{
-        const{totalSaved}=computeBalances(state);
         if(totalSaved<=0)return null;
         return(
           <button onClick={onWithdrawPiggy} style={{...s.card,display:'flex',alignItems:'center',gap:9,width:'100%',textAlign:'left',cursor:'pointer',background:C.greenL,border:`1px solid ${C.greenB}`,fontFamily:'inherit',boxSizing:'border-box'}}>
@@ -119,6 +165,68 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
         <button onClick={()=>setShowVacPlanner(p=>!p)} style={{flex:1,textAlign:'center',border:`1px solid ${C.border}`,borderRadius:12,padding:11,fontSize:12.5,fontWeight:600,color:C.orangeD,background:'#fff',cursor:'pointer',fontFamily:'inherit'}}>✈️ Отпуск</button>
         <button onClick={onAddExtra} style={{flex:1,textAlign:'center',border:`1px solid ${C.border}`,borderRadius:12,padding:11,fontSize:12.5,fontWeight:600,color:C.orangeD,background:'#fff',cursor:'pointer',fontFamily:'inherit'}}>+ Доп. выплата</button>
       </div>
+      <button onClick={()=>setShowGoalPlanner(p=>!p)} style={{width:'100%',textAlign:'center',border:`1px solid ${C.border}`,borderRadius:12,padding:11,fontSize:12.5,fontWeight:600,color:C.orangeD,background:'#fff',cursor:'pointer',fontFamily:'inherit',marginTop:8}}>🎯 {goal?goal.name||'Цель накопления':'Цель накопления'}</button>
+      {/* Цель накопления */}
+      {showGoalPlanner&&(
+        <div style={{...s.card,marginTop:10}}>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
+            <div style={{fontSize:15,fontWeight:600,color:C.text}}>🎯 {goal?goal.name||'Цель накопления':'Новая цель накопления'}</div>
+            <button onClick={()=>setShowGoalPlanner(false)} style={{position:'relative',background:'none',border:'none',cursor:'pointer',fontSize:18,color:C.muted}}><span style={{position:'absolute',inset:-13}}/>×</button>
+          </div>
+          {!goal?(
+            <div style={{display:'flex',flexDirection:'column',gap:8}}>
+              <input type="text" value={goalName} onChange={e=>setGoalName(e.target.value)} placeholder="Название цели (напр. Отпуск в Сочи)" style={{...s.input,padding:'10px 12px'}}/>
+              <input type="text" inputMode="numeric" value={goalAmount} onChange={e=>setGoalAmount(e.target.value.replace(/\D/g,''))} placeholder="Нужная сумма, ₽" style={{...s.input,padding:'10px 12px'}}/>
+              <div style={{display:'flex',alignItems:'center',gap:8}}>
+                <span style={{fontSize:13,color:C.muted,flex:1}}>Хочу накопить к</span>
+                <input type="date" value={goalDate} onChange={e=>setGoalDate(e.target.value)}
+                  style={{border:`1px solid ${C.border}`,borderRadius:8,padding:'5px 8px',fontSize:13,outline:'none',fontFamily:'inherit',background:'#fff',color:C.text}}/>
+              </div>
+              <button disabled={!goalAmount||!goalDate} onClick={()=>{
+                  onSetGoal({id:uid(),name:goalName||'Цель накопления',targetAmount:parseInt(goalAmount)||0,targetDate:goalDate});
+                }} style={{width:'100%',padding:13,borderRadius:12,border:'none',background:(!goalAmount||!goalDate)?C.track:C.green,color:(!goalAmount||!goalDate)?C.muted:'#fff',fontSize:14,fontWeight:600,cursor:(!goalAmount||!goalDate)?'default':'pointer',fontFamily:'inherit',marginTop:4}}>
+                Рассчитать и сохранить
+              </button>
+            </div>
+          ):(
+            <div style={{display:'flex',flexDirection:'column',gap:10}}>
+              <div>
+                <PBar pct={goal.targetAmount>0?(totalSaved/goal.targetAmount)*100:0} color={C.green} h={8}/>
+                <div style={{display:'flex',justifyContent:'space-between',marginTop:6,fontFamily:MONO,fontSize:10.5,color:C.muted}}>
+                  <span>НАКОПЛЕНО {fmtN(totalSaved)}</span>
+                  <span>ЦЕЛЬ {fmtN(goal.targetAmount)}</span>
+                </div>
+              </div>
+              <div style={{background:goalCalc.achievable?C.greenL:C.yellowL,border:`1px solid ${goalCalc.achievable?C.greenB:C.yellowB}`,borderRadius:12,padding:'10px 12px'}}>
+                {goalCalc.achievable?(
+                  <div style={{fontSize:12.5,color:C.green,lineHeight:1.6}}>
+                    ✓ Хватает свободных средств: откладывайте <b>{fmtN(Math.round(goalCalc.requiredMonthly))} ₽/мес</b> — при свободном остатке {fmtN(Math.round(Math.max(freeCash,0)))} ₽/мес успеете к {goalCalc.targetD.toLocaleDateString('ru-RU')}.
+                  </div>
+                ):(
+                  <div style={{fontSize:12.5,color:C.yellow,lineHeight:1.6}}>
+                    ⚠ Нужно {fmtN(Math.round(goalCalc.requiredMonthly))} ₽/мес, а свободно только {fmtN(Math.round(Math.max(freeCash,0)))} ₽/мес. Варианты:
+                    <div style={{marginTop:6,paddingLeft:14}}>
+                      {goalCalc.realisticDate&&<div>• при текущем темпе цель будет достигнута к {goalCalc.realisticDate.toLocaleDateString('ru-RU')}</div>}
+                      {goalCalc.comfortCat&&<div style={{marginTop:4}}>• либо сократите «{goalCalc.comfortCat.cat.name}» ({fmtN(Math.round(goalCalc.comfortCat.monthly))} ₽/мес) на {fmtN(Math.round(Math.min(goalCalc.shortfall,goalCalc.comfortCat.monthly)))} ₽/мес</div>}
+                    </div>
+                  </div>
+                )}
+              </div>
+              {goalPlannedItem?(
+                <div style={{display:'flex',alignItems:'center',gap:8,fontSize:12,color:C.green,background:C.greenL,border:`1px solid ${C.greenB}`,borderRadius:12,padding:'9px 12px'}}>
+                  <span>✓</span><span>В плане недели: {fmtN(goalPlannedItem.amount)} ₽/нед на «{goal.name}»</span>
+                </div>
+              ):(
+                <button onClick={()=>onAddGoalToPlan({id:uid(),catId:'piggy',name:goal.name,amount:goalCalc.weeklyAmount,memberId:members[0]?.id||'m1',repeat:'weekly',days:[],goalId:goal.id})}
+                  style={{width:'100%',padding:12,borderRadius:12,border:'none',background:C.orange,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>
+                  + Добавить в план недели: {fmtN(goalCalc.weeklyAmount)} ₽/нед
+                </button>
+              )}
+              <button onClick={()=>{onSetGoal(null);setGoalName('');setGoalAmount('');setGoalDate('');}} style={{textAlign:'center',border:`1px solid ${C.border}`,borderRadius:12,padding:9,fontSize:12,fontWeight:600,color:C.muted,background:'none',cursor:'pointer',fontFamily:'inherit'}}>Удалить цель</button>
+            </div>
+          )}
+        </div>
+      )}
       {/* Планировщик отпуска */}
       {showVacPlanner&&(
         <div style={{...s.card,marginTop:10}}>
