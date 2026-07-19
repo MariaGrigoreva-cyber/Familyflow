@@ -71,8 +71,8 @@ const FRAME_BG=['oklch(0.95 0.03 40)','oklch(0.95 0.03 85)'];
 export function IntroStories({onDone}){
   const[introPage,setIntroPage]=useState(0);
   const FRAMES=[
-    {icon:'🏦',title:'Один счёт\nдля всех денег',sub:'Зарплата, аванс, подработки — всё собирается в одном месте'},
-    {icon:'📅',title:'Раз в неделю —\nпо трём потокам',sub:'FamilyFlow сам распределяет деньги по направлениям — один ритуал в понедельник'},
+    {icon:'😌',eyebrow:'ЗАЧЕМ FAMILYFLOW',title:'Деньги не закончатся\nдо зарплаты',sub:'Спланируйте бюджет один раз в начале — и больше не считайте дни до аванса'},
+    {icon:'📅',eyebrow:'МЕТОДИКА',title:'Раз в неделю —\nпо трём потокам',sub:'Спланировали один раз — дальше FamilyFlow сам раскладывает деньги по направлениям каждую неделю'},
   ];
   const STREAMS=[
     {e:'🛡️',t:'Защита',s:'копилка',col:C.orangeD,bg:C.orangeL,pct:'20%'},
@@ -98,7 +98,7 @@ export function IntroStories({onDone}){
         <>
           <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',textAlign:'center',position:'relative',zIndex:1}}>
             <div style={{width:96,height:96,borderRadius:28,background:FRAME_BG[introPage],display:'flex',alignItems:'center',justifyContent:'center',fontSize:46}}>{FRAMES[introPage].icon}</div>
-            <div style={{fontFamily:MONO,fontSize:10.5,letterSpacing:1.5,color:C.muted,textTransform:'uppercase',marginTop:30}}>МЕТОДИКА · {introPage+1} / {TOTAL}</div>
+            <div style={{fontFamily:MONO,fontSize:10.5,letterSpacing:1.5,color:C.muted,textTransform:'uppercase',marginTop:30}}>{FRAMES[introPage].eyebrow} · {introPage+1} / {TOTAL}</div>
             <div style={{fontSize:30,fontWeight:600,letterSpacing:-.5,lineHeight:1.2,color:C.text,marginTop:10,whiteSpace:'pre-line'}}>{FRAMES[introPage].title}</div>
             <div style={{fontSize:14,color:'#8B8175',lineHeight:1.55,marginTop:14,maxWidth:270}}>{FRAMES[introPage].sub}</div>
           </div>
