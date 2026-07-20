@@ -56,10 +56,17 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
   const freeCash=totalNet-(monthlyExpAll-piggyMonthly);
   // Расчёт цели накопления: сколько откладывать в месяц, чтобы успеть к дате
   const goal=state.savingsGoal;
+  // Отдельная строка плана для цели — не трогает существующую «Копилку», просто добавляется рядом
+  const goalPlannedItem=goal?planned.find(p=>p.goalId===goal.id):null;
+  // Накоплено именно на цель — только отмеченные взносы по её собственной строке плана,
+  // общий остаток копилки сюда не входит: это чужие деньги, отложенные до цели
+  const goalSaved=goalPlannedItem
+    ?Object.values(state.weekItems||{}).flat().filter(i=>i.plannedId===goalPlannedItem.id&&i.isDone).reduce((s,i)=>s+i.amount,0)
+    :0;
   const goalCalc=goal?(()=>{
     const targetD=new Date(goal.targetDate);
     const monthsLeft=Math.max((targetD-now)/(86400000*30.44),0.5);
-    const remaining=Math.max(goal.targetAmount-totalSaved,0);
+    const remaining=Math.max(goal.targetAmount-goalSaved,0);
     const requiredMonthly=remaining/monthsLeft;
     const achievable=requiredMonthly<=Math.max(freeCash,0);
     const comfortCat=catTotals.filter(c=>c.cat.color==='oklch(0.94 0.02 250)').sort((a,b)=>b.monthly-a.monthly)[0];
@@ -69,8 +76,6 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
     const weeklyAmount=Math.round(requiredMonthly/4.3/50)*50; // округляем до 50 ₽ для удобства
     return{targetD,monthsLeft,remaining,requiredMonthly,achievable,comfortCat,shortfall,realisticDate,weeklyAmount};
   })():null;
-  // Отдельная строка плана для цели — не трогает существующую «Копилку», просто добавляется рядом
-  const goalPlannedItem=goal?planned.find(p=>p.goalId===goal.id):null;
   const yearsInRange=[...new Set([budgetStart.getFullYear(),budgetEnd.getFullYear()])];
   const allPayments=incomes.flatMap(inc=>{const m=members.find(x=>x.id===inc.memberId);return yearsInRange.flatMap(yr=>buildPaymentSchedule(yr,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc)).filter(p=>p.date>=budgetStart&&p.date<=budgetEnd).map(p=>({...p,memberName:m?.name||'',memberAvatar:m?.avatar||'',...(payments[p.displayLabel]||{})}));}).sort((a,b)=>a.date-b.date);
   const upcomingAll=allPayments.filter(p=>p.date>=budgetStart);
@@ -191,9 +196,9 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
           ):(
             <div style={{display:'flex',flexDirection:'column',gap:10}}>
               <div>
-                <PBar pct={goal.targetAmount>0?(totalSaved/goal.targetAmount)*100:0} color={C.green} h={8}/>
+                <PBar pct={goal.targetAmount>0?(goalSaved/goal.targetAmount)*100:0} color={C.green} h={8}/>
                 <div style={{display:'flex',justifyContent:'space-between',marginTop:6,fontFamily:MONO,fontSize:10.5,color:C.muted}}>
-                  <span>НАКОПЛЕНО {fmtN(totalSaved)}</span>
+                  <span>НАКОПЛЕНО {fmtN(goalSaved)}</span>
                   <span>ЦЕЛЬ {fmtN(goal.targetAmount)}</span>
                 </div>
               </div>
