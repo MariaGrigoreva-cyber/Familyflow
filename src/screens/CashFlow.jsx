@@ -1,6 +1,6 @@
 // FamilyFlow — экран Денежный поток
 import React, { useState, useEffect, useMemo } from 'react';
-import {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,buildPaymentScheduleSpan,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
+import {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,buildPaymentScheduleSpan,regenWeeksKeepDone,computeBalances,computeBudgetMetrics,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad} from '../lib/ui';
 
 const Chip=({active,onClick,children})=>(
@@ -135,13 +135,8 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx}){
       {viewMode==='weeks'&&<>
         <SecTitle>СВОДКА ПО НЕДЕЛЯМ</SecTitle>
         {(()=>{
-          const monthlyNet=state.incomes?.reduce((s,i)=>s+calcNetFor(i),0)||0;
-          // Копилка — добровольное сбережение, а не обязательный расход: план, где
-          // не хватает только на копилку сверх дохода, это не дефицит, а просто
-          // слишком щедрая цель накопления — не пугаем таким банером.
-          const piggyMonthlyAll=(state.planned||[]).filter(p=>p.catId==='piggy').reduce((s,p)=>s+monthlyOf(p),0);
-          const monthlyExp=(state.planned||[]).reduce((s,p)=>s+monthlyOf(p),0)-piggyMonthlyAll;
-          if(monthlyExp<=monthlyNet)return null;
+          const{totalNet:monthlyNet,expWithoutPiggy:monthlyExp,isDeficit}=computeBudgetMetrics(state);
+          if(!isDeficit)return null;
           return(
             <div style={{...s.card,background:C.redL,border:`1px solid ${C.redB}`,padding:'10px 12px',marginBottom:12}}>
               <div style={{fontSize:13,fontWeight:600,color:C.red,marginBottom:3}}>🚨 Плановый дефицит {fmt(monthlyExp-monthlyNet)}/мес</div>

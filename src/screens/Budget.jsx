@@ -1,6 +1,6 @@
 // FamilyFlow — экран Бюджет
 import React, { useState, useEffect, useMemo } from 'react';
-import {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentScheduleSpan,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
+import {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentScheduleSpan,regenWeeksKeepDone,computeBalances,computeBudgetMetrics,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad} from '../lib/ui';
 
 export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onAddExtra,onWithdrawPiggy,onSetGoal,onAddGoalToPlan}){
@@ -48,11 +48,9 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
   ];
   const fundTotals=FUND_META.map(f=>({...f,yearly:catTotals.filter(c=>f.colors.includes(c.cat.color)).reduce((s,c)=>s+c.yearly,0)})).filter(f=>f.yearly>0);
   const fundSum=fundTotals.reduce((s,f)=>s+f.yearly,0);
-  // Свободные средства/мес — та же формула, что и в Здоровье: доход минус план без копилки
+  // Свободные средства/мес — единая формула из core.js, та же, что и в Здоровье/Потоке
   const{totalSaved}=computeBalances(state);
-  const monthlyExpAll=planned.reduce((s,p)=>s+monthlyOf(p),0);
-  const piggyMonthly=planned.filter(p=>p.catId==='piggy').reduce((s,p)=>s+monthlyOf(p),0);
-  const freeCash=totalNet-(monthlyExpAll-piggyMonthly);
+  const{freeCash}=computeBudgetMetrics(state);
   // Расчёт цели накопления: сколько откладывать в месяц, чтобы успеть к дате
   const goal=state.savingsGoal;
   // Отдельная строка плана для цели — не трогает существующую «Копилку», просто добавляется рядом

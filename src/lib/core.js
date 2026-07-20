@@ -212,6 +212,27 @@ const computeBalances=(state)=>{
     savingStart,unmarkedPayments:[...unmarkedPayments,...unmarkedExtra].sort((a,b)=>b.date-a.date),week,wItems};
 };
 
+// ═══════════════════════════════════════════════════════════════════════════
+// ЕДИНАЯ ФОРМУЛА ДЕФИЦИТА/СВОБОДНЫХ СРЕДСТВ — раньше Здоровье, Поток и Бюджет
+// каждый считали её у себя заново, и один раз это разошлось: копилка (добровольное
+// сбережение) на Здоровье и в банере Потока учитывалась как обязательный расход,
+// из-за чего семья с явным профицитом получала заниженный балл и банер «дефицит».
+// ═══════════════════════════════════════════════════════════════════════════
+const computeBudgetMetrics=state=>{
+  const{incomes=[],planned=[]}=state;
+  const totalNet=incomes.reduce((s,i)=>s+calcNetFor(i),0);
+  const monthlyExp=planned.reduce((s,p)=>s+monthlyOf(p),0);
+  const piggyMonthly=planned.filter(p=>p.catId==='piggy').reduce((s,p)=>s+monthlyOf(p),0);
+  const expWithoutPiggy=monthlyExp-piggyMonthly;
+  const freeCash=totalNet-expWithoutPiggy;
+  const totalSavings=piggyMonthly+Math.max(freeCash,0);
+  const savingsRate=totalNet>0?Math.round(totalSavings/totalNet*100):0;
+  // Дефицит — это когда дохода не хватает даже на обязательные (не-копилка) траты.
+  // Слишком щедрая цель копилки сверх свободного остатка — не дефицит, а выбор.
+  const isDeficit=freeCash<0;
+  return{totalNet,monthlyExp,piggyMonthly,expWithoutPiggy,freeCash,totalSavings,savingsRate,isDeficit};
+};
+
 const generateAllWeeks=planned=>{
   const items={},start=isoMondayOf(new Date());
   for(let i=0;i<104;i++){
@@ -322,4 +343,4 @@ const DEMO_MEMBERS=[{id:'m1',name:'Мария',avatar:'👩',color:'oklch(0.9 0.
 const DEMO_PLANNED=[{id:'p1',catId:'mortgage',name:'Ипотека',amount:55000,memberId:'m1',repeat:'monthly',days:[20]},{id:'p2',catId:'food',name:'Еда',amount:10000,memberId:'m1',repeat:'weekly',days:[]},{id:'p3',catId:'food',name:'Еда',amount:10000,memberId:'m2',repeat:'weekly',days:[]},{id:'p4',catId:'beauty',name:'Красота',amount:15000,memberId:'m1',repeat:'biweekly',days:[]},{id:'p5',catId:'edu',name:'Образование',amount:20000,memberId:'m2',repeat:'monthly',days:[1]},{id:'p6',catId:'piggy',name:'Копилка',amount:10000,memberId:'m1',repeat:'weekly',days:[]}];
 
 
-export {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,buildPaymentScheduleSpan,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,FACE_EMOJIS,MEMBER_TINTS,nextMemberTint,POLICY_ITEMS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED};
+export {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,buildPaymentScheduleSpan,regenWeeksKeepDone,computeBalances,computeBudgetMetrics,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,FACE_EMOJIS,MEMBER_TINTS,nextMemberTint,POLICY_ITEMS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED};

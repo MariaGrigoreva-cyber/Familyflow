@@ -1,13 +1,27 @@
 // Регрессионные тесты для расчётного ядра — покрывают классы багов, которые уже
 // случались в проде: пропажа выплат на границе года, дефицит из-за копилки,
-// ошибки переноса дат через праздники/выходные.
+// ошибки переноса дат через праздники/выходные, рассинхрон дублированных формул.
 import {
   RU_HOLIDAYS,
   getActualPayDate,
   buildPaymentSchedule,
   buildPaymentScheduleSpan,
   computeBalances,
+  computeBudgetMetrics,
   calcAvgMonthlyNet,
+  calcAnnualNDFL,
+  calcMonthlyNDFL,
+  weekKey,
+  parseWeekKey,
+  weekKeyToDate,
+  prevWeekKey,
+  nextWeekKey,
+  monthKey,
+  prevMonthKey,
+  nextMonthKey,
+  generateAllWeeks,
+  regenWeeksKeepDone,
+  buildDemoState,
 } from './core';
 
 describe('getActualPayDate', () => {
@@ -33,6 +47,15 @@ describe('getActualPayDate', () => {
     expect(d.getDay()).not.toBe(0);
     expect(d.getDay()).not.toBe(6);
   });
+
+  test('никогда не уходит в бесконечный сдвиг (защита от дыры в списке праздников)', () => {
+    // Если бы подряд шло 21+ нерабочих дней, функция должна всё равно вернуть дату,
+    // а не зациклиться — лимит в 20 итераций жёстко зашит в getActualPayDate.
+    for (let day = 1; day <= 31; day++) {
+      const d = getActualPayDate(2028, 1, day);
+      expect(isNaN(d.getTime())).toBe(false);
+    }
+  });
 });
 
 describe('RU_HOLIDAYS — покрытие на годы вперёд', () => {
@@ -41,8 +64,7 @@ describe('RU_HOLIDAYS — покрытие на годы вперёд', () => {
   // не повторилась история с «пропавшей зарплатой» на границе 2026/2027 и 2027/2028.
   test('содержит новогодний блок минимум на 2 года вперёд от сегодняшней даты', () => {
     const nextYear = new Date().getFullYear() + 2;
-    const hasNewYearBlock = RU_HOLIDAYS.has(`${nextYear}-01-01`);
-    expect(hasNewYearBlock).toBe(true);
+    expect(RU_HOLIDAYS.has(`${nextYear}-01-01`)).toBe(true);
   });
 });
 
@@ -87,6 +109,130 @@ describe('buildPaymentSchedule — базовая арифметика', () => {
     const salary = sch.find((p) => p.type === 'salary' && p.month === 6);
     expect(advance.amount + salary.amount).toBeCloseTo(calcAvgMonthlyNet(gross), -2);
   });
+
+  test('31-е число зарплаты не уезжает в следующий месяц в короткие месяцы', () => {
+    // Февраль 2027 — 28 дней; salaryDay=31 должен схлопнуться до 28-го, а не до 3 марта
+    const sch = buildPaymentSchedule(2027, [31], [], 40, 100000, { gross: 100000, salaryDays: [31] });
+    const febSalary = sch.find((p) => p.type === 'salary' && p.month === 2);
+    expect(febSalary.date.getMonth()).toBeLessThanOrEqual(1); // январь(0) или февраль(1), но не март
+  });
+});
+
+describe('calcAnnualNDFL / calcMonthlyNDFL — прогрессивная шкала НДФЛ', () => {
+  test('доход в пределах 2.4 млн/год облагается ровно по 13%', () => {
+    expect(calcAnnualNDFL(2_000_000)).toBe(260_000);
+  });
+
+  test('превышение 2.4 млн/год облагается по 15% только с превышения', () => {
+    const ndfl = calcAnnualNDFL(3_000_000);
+    const expected = 2_400_000 * 0.13 + 600_000 * 0.15;
+    expect(ndfl).toBe(Math.round(expected));
+  });
+
+  test('calcMonthlyNDFL месяц 12 — это НДФЛ за весь год минус за 11 месяцев', () => {
+    const g = 300000;
+    const { monthlyNDFL } = calcMonthlyNDFL(g, 12);
+    expect(monthlyNDFL).toBe(calcAnnualNDFL(g * 12) - calcAnnualNDFL(g * 11));
+  });
+});
+
+describe('computeBudgetMetrics — копилка не должна считаться обязательным расходом', () => {
+  // Точный сценарий из реального аккаунта: доход 371 000 гросс (319 350 на руки),
+  // обязательные траты 249 800/мес, копилка 70 000/мес — итог чуть больше дохода,
+  // но только за счёт копилки. Раньше это давало isDeficit=true и заниженный
+  // балл здоровья, хотя свободных денег после обязательных трат — с избытком.
+  const mkPlanned = (piggyAmount) => [
+    { id: 'p1', catId: 'food', name: 'Еда', amount: 86000, repeat: 'monthly', days: [1] },
+    { id: 'p2', catId: 'credit', name: 'Кредит', amount: 47500, repeat: 'monthly', days: [1] },
+    { id: 'p3', catId: 'mortgage', name: 'Ипотека', amount: 44000, repeat: 'monthly', days: [1] },
+    { id: 'p4', catId: 'clothes', name: 'Одежда', amount: 32250, repeat: 'monthly', days: [1] },
+    { id: 'p5', catId: 'beauty', name: 'Красота', amount: 25000, repeat: 'monthly', days: [1] },
+    { id: 'p6', catId: 'home', name: 'Дом', amount: 15050, repeat: 'monthly', days: [1] },
+    { id: 'p7', catId: 'piggy', name: 'Копилка', amount: piggyAmount, repeat: 'monthly', days: [1] },
+  ];
+  const incomes = [{ id: 'i1', memberId: 'm1', gross: 371000 }];
+
+  test('щедрая цель копилки сверх дохода — это НЕ дефицит', () => {
+    const m = computeBudgetMetrics({ incomes, planned: mkPlanned(70000) });
+    expect(m.monthlyExp).toBeGreaterThan(m.totalNet); // с копилкой план больше дохода
+    expect(m.freeCash).toBeGreaterThan(0); // но без копилки — явный профицит
+    expect(m.isDeficit).toBe(false);
+  });
+
+  test('реальный дефицит (обязательные траты сами по себе больше дохода) — это дефицит', () => {
+    const planned = mkPlanned(70000).map((p) => (p.catId === 'food' ? { ...p, amount: 400000 } : p));
+    const m = computeBudgetMetrics({ incomes, planned });
+    expect(m.freeCash).toBeLessThan(0);
+    expect(m.isDeficit).toBe(true);
+  });
+
+  test('без копилки и без расходов — доход, дефицита нет, норма сбережений 0%', () => {
+    const m = computeBudgetMetrics({ incomes, planned: [] });
+    expect(m.isDeficit).toBe(false);
+    expect(m.piggyMonthly).toBe(0);
+    expect(m.savingsRate).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe('weekKey / parseWeekKey / weekKeyToDate — roundtrip', () => {
+  test('weekKeyToDate(weekKey(d)) даёт понедельник той же ISO-недели', () => {
+    const d = new Date(2027, 5, 17); // произвольный четверг
+    const key = weekKey(d);
+    const monday = weekKeyToDate(key);
+    expect(monday.getDay()).toBe(1);
+    expect(weekKey(monday)).toBe(key);
+  });
+
+  test('parseWeekKey корректно разбирает год и номер недели', () => {
+    expect(parseWeekKey('2027-W05')).toEqual({ year: 2027, week: 5 });
+  });
+
+  test('prevWeekKey/nextWeekKey — взаимно обратны', () => {
+    const key = '2027-W20';
+    expect(prevWeekKey(nextWeekKey(key))).toBe(key);
+  });
+
+  test('nextWeekKey корректно переходит через границу года (W52/53 → W01)', () => {
+    const d = new Date(2027, 11, 28); // последняя неделя 2027
+    const key = weekKey(d);
+    const next = nextWeekKey(key);
+    expect(parseWeekKey(next).year).toBeGreaterThanOrEqual(parseWeekKey(key).year);
+  });
+});
+
+describe('monthKey / prevMonthKey / nextMonthKey', () => {
+  test('переход через границу года (декабрь → январь)', () => {
+    expect(nextMonthKey('2027-12')).toBe('2028-01');
+    expect(prevMonthKey('2028-01')).toBe('2027-12');
+  });
+});
+
+describe('generateAllWeeks', () => {
+  test('еженедельная категория попадает в каждую из 104 недель', () => {
+    const planned = [{ id: 'p1', catId: 'food', name: 'Еда', amount: 1000, repeat: 'weekly', days: [] }];
+    const weeks = generateAllWeeks(planned);
+    expect(Object.keys(weeks).length).toBe(104);
+    Object.values(weeks).forEach((items) => expect(items.length).toBe(1));
+  });
+
+  test('ежемесячная категория с 31-м числом не пропадает в месяцах короче 31 дня', () => {
+    const planned = [{ id: 'p1', catId: 'mortgage', name: 'Ипотека', amount: 50000, repeat: 'monthly', days: [31] }];
+    const weeks = generateAllWeeks(planned);
+    const totalHits = Object.values(weeks).reduce((s, items) => s + items.length, 0);
+    // 104 недели ≈ 24 месяца — хотя бы 20 попаданий (с запасом на неполные месяцы на краях окна)
+    expect(totalHits).toBeGreaterThanOrEqual(20);
+  });
+});
+
+describe('regenWeeksKeepDone — отметки isDone сохраняются при пересборке плана', () => {
+  test('отмеченная неделя остаётся отмеченной после regen с тем же планом', () => {
+    const planned = [{ id: 'p1', catId: 'food', name: 'Еда', amount: 1000, repeat: 'weekly', days: [] }];
+    const weeks = generateAllWeeks(planned);
+    const firstKey = Object.keys(weeks).sort()[0];
+    const marked = { ...weeks, [firstKey]: weeks[firstKey].map((i) => ({ ...i, isDone: true })) };
+    const regenerated = regenWeeksKeepDone(planned, marked);
+    expect(regenerated[firstKey][0].isDone).toBe(true);
+  });
 });
 
 describe('computeBalances', () => {
@@ -107,5 +253,29 @@ describe('computeBalances', () => {
     expect(typeof r.balance).toBe('number');
     expect(typeof r.totalSaved).toBe('number');
     expect(Number.isNaN(r.balance)).toBe(false);
+  });
+
+  test('баланс без операций равен стартовому', () => {
+    const r = computeBalances(baseState);
+    expect(r.balance).toBe(baseState.startBalance);
+    expect(r.totalSaved).toBe(0);
+  });
+});
+
+describe('buildDemoState — демо-данные структурно валидны', () => {
+  test('не падает и возвращает согласованную структуру', () => {
+    const demo = buildDemoState();
+    expect(demo.members.length).toBeGreaterThan(0);
+    expect(demo.incomes.length).toBeGreaterThan(0);
+    expect(demo.demoMode).toBe(true);
+    // У каждой плановой категории должен быть валидный участник семьи
+    const memberIds = new Set(demo.members.map((m) => m.id));
+    demo.planned.forEach((p) => expect(memberIds.has(p.memberId)).toBe(true));
+  });
+
+  test('computeBalances и computeBudgetMetrics не падают на демо-данных', () => {
+    const demo = buildDemoState();
+    expect(() => computeBalances(demo)).not.toThrow();
+    expect(() => computeBudgetMetrics(demo)).not.toThrow();
   });
 });

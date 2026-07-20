@@ -1,19 +1,13 @@
 // FamilyFlow — экран Здоровье бюджета
 import React, { useState, useEffect, useMemo } from 'react';
-import {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,buildPaymentScheduleSpan,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
+import {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,buildPaymentScheduleSpan,regenWeeksKeepDone,computeBalances,computeBudgetMetrics,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad} from '../lib/ui';
 
 export function HealthScreen({state}){
   const{incomes,planned,weekItems={},customCats=[],startBalance=0,extraPayments=[]}=state;
   const extraIncomeInRange=(start,end)=>(extraPayments||[]).filter(p=>{const d=new Date(p.date);return d>=start&&d<=end;}).reduce((s,p)=>s+(p.actualAmount||p.amount),0);
   const allCats=[...DEFAULT_CATS,...customCats];
-  const totalNet=incomes.reduce((s,i)=>s+calcNetFor(i),0);
-  const monthlyExp=planned.reduce((s,p)=>s+monthlyOf(p),0);
-  const piggyMonthly=planned.filter(p=>p.catId==='piggy').reduce((s,p)=>s+monthlyOf(p),0);
-  const expWithoutPiggy=monthlyExp-piggyMonthly;
-  const freeCash=totalNet-expWithoutPiggy;
-  const totalSavings=piggyMonthly+Math.max(freeCash,0);
-  const savingsRate=totalNet>0?Math.round(totalSavings/totalNet*100):0;
+  const{totalNet,monthlyExp,piggyMonthly,expWithoutPiggy,freeCash,savingsRate,isDeficit}=computeBudgetMetrics(state);
   const expenseRatio=totalNet>0?Math.round(expWithoutPiggy/totalNet*100):0;
   // transactions piggy попадает в weekItems через handleAddTx, не считаем дважды
   // Piggy Bank: из weekItems (плановые галочки) + из transactions (ручные записи)
@@ -27,11 +21,6 @@ export function HealthScreen({state}){
     return total+items.filter(i=>i.catId==='piggy'&&i.isDone).reduce((s,i)=>s+i.amount,0);
   },0)+Object.entries(txPiggyMap).filter(([wk])=>!weekItems[wk]).reduce((s,[,v])=>s+v,0);
   const cushion=piggyActual>0?piggyActual:Math.round(piggyMonthly/4.3*4);
-  // Копилка — добровольное сбережение, а не обязательный расход: если дохода не хватает
-  // только на неё сверх остальных категорий, это не дефицит, а слишком щедрая цель
-  // накопления. Дефицит — это когда не хватает даже на обязательные (не-копилка) траты,
-  // та же логика, что и у freeCash/рисков ниже.
-  const isDeficit=freeCash<0;
   // Прогноз кассовых разрывов на ближайшие недели: считаем накопительный баланс вперёд
   // и сравниваем с планом следующей недели — если баланс покрывает меньше половины плана, неделя "рискованная"
   const projectedRiskyWeeks=useMemo(()=>{
