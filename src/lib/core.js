@@ -118,7 +118,7 @@ const buildPaymentSchedule=(year,salaryDays=[],advanceDays=[],advancePct=40,mont
     const prev=calcFor(m-1);   // заработок прошлого месяца → зарплата-расчёт
     const daysInM=new Date(year,m,0).getDate(); // напр. 31-е число в феврале не существует — берём последний день месяца
     for(const d of advanceDays){const info=fmtPayDate(year,m,Math.min(d,daysInM));result.push({type:'advance',amount:cur.advAmt,month:m,bracket:cur.bracket,...info,displayLabel:`Аванс·${info.label}`,actualAmount:cur.advAmt,isDone:false,note2:''});}
-    for(const d of salaryDays){const info=fmtPayDate(year,m,Math.min(d,daysInM));result.push({type:'salary',amount:prev.salAmt,month:m,bracket:prev.bracket,...info,displayLabel:`Зарплата·${info.label}`,actualAmount:prev.salAmt,isDone:false,note2:'',ndfl:prev.monthlyNDFL});}}
+    for(const d of salaryDays){const info=fmtPayDate(year,m,Math.min(d,daysInM));result.push({type:'salary',amount:prev.salAmt,month:m,bracket:prev.bracket,...info,displayLabel:`Зарплата·${info.label}`,actualAmount:prev.salAmt,isDone:false,note2:'',ndfl:prev.monthlyNDFL,workMonth:m===1?12:m-1,workYear:m===1?year-1:year});}}
   return result.sort((a,b)=>a.date-b.date);
 };
 // Выплата у границы года (напр. 10 января за декабрь) может из-за праздников сдвинуться в предыдущий
