@@ -68,7 +68,9 @@ const getActualPayDate=(year,month,day)=>{let d=new Date(year,month-1,day);for(l
 const fmtPayDate=(year,month,day)=>{const actual=getActualPayDate(year,month,day),planned=new Date(year,month-1,day);const fD=d=>`${d.getDate()} ${MONTH_SHORT[d.getMonth()]} (${DAYS_RU[d.getDay()]})`;const shifted=actual.getDate()!==planned.getDate()||actual.getMonth()!==planned.getMonth();return{date:actual,label:fD(actual),shifted,note:shifted?`перенос с ${fD(planned)}`:''};};
 // Зарплата месяца M платится в M+1 — подписываем явно «за месяц», чтобы не путали
 // с пропажей выплаты (реальный случай: зарплата за декабрь приходит в январе).
-const paymentTypeLabel=p=>p.type==='salary'?`Зарплата за ${MONTH_SHORT[(p.workMonth||p.month)-1]}`:'Аванс';
+// Аванс месяца M платится в самом M — тут «за месяц» просто совпадает с датой,
+// но подпись всё равно единообразная и явная.
+const paymentTypeLabel=p=>p.type==='salary'?`Зарплата за ${MONTH_SHORT[(p.workMonth||p.month)-1]}`:`Аванс за ${MONTH_SHORT[p.month-1]}`;
 // ═══ Типы дохода: employed (НДФЛ), self (самозанятый/ИП 4-6%), manual (сумма на руки) ═══
 const INCOME_TYPES=[
   {id:'employed',emoji:'💼',name:'Наёмный сотрудник',desc:'НДФЛ, аванс и зарплата — считаем сами'},

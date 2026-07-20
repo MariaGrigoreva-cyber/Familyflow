@@ -175,7 +175,7 @@ describe('computeBudgetMetrics — копилка не должна считат
   });
 });
 
-describe('paymentTypeLabel — подпись "за какой месяц" у зарплаты', () => {
+describe('paymentTypeLabel — подпись "за какой месяц" у выплаты', () => {
   // Именно отсутствие этой подписи путало с пропажей выплаты: зарплата за декабрь,
   // выплаченная в январе, выглядела как «просто январская зарплата» без контекста.
   test('зарплата в январе подписана как «за декабрь»', () => {
@@ -184,10 +184,10 @@ describe('paymentTypeLabel — подпись "за какой месяц" у з
     expect(paymentTypeLabel(janSalary)).toBe('Зарплата за дек');
   });
 
-  test('аванс всегда подписан просто «Аванс»', () => {
+  test('аванс подписан месяцем, за который он платится (совпадает с датой)', () => {
     const sch = buildPaymentSchedule(2027, [], [20], 40, 200000, { gross: 200000, advanceDays: [20] });
-    const advance = sch.find((p) => p.type === 'advance');
-    expect(paymentTypeLabel(advance)).toBe('Аванс');
+    const juneAdvance = sch.find((p) => p.type === 'advance' && p.month === 6);
+    expect(paymentTypeLabel(juneAdvance)).toBe('Аванс за июн');
   });
 });
 
