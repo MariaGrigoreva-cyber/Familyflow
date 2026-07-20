@@ -1,9 +1,14 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import { ErrorBoundary } from './ErrorBoundary';
 
 const root = createRoot(document.getElementById('root'));
-root.render(<App />);
+root.render(
+  <ErrorBoundary>
+    <App />
+  </ErrorBoundary>
+);
 
 // Снимаем ранее установленный service worker у всех пользователей:
 // он кешировал старые сборки, из-за чего деплои не доезжали до браузера.
