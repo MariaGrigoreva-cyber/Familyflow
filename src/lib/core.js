@@ -131,15 +131,22 @@ const buildPaymentSchedule=(year,salaryDays=[],advanceDays=[],advancePct=40,mont
 // Поэтому берём соседние года тоже: конкретная выплата всё равно попадёт в диапазон только один раз.
 const buildPaymentScheduleSpan=(year,salaryDays,advanceDays,advancePct,monthlyGross,inc)=>
   [year-1,year,year+1].flatMap(y=>buildPaymentSchedule(y,salaryDays,advanceDays,advancePct,monthlyGross,inc));
-// Мёрж: регенерирует недели по новому плану, сохраняя отметки isDone и ручные записи
+// Мёрж: регенерирует недели по новому плану, сохраняя отметки isDone и ручные записи.
+// Если позиция была отредактирована (edited:true — напр. заранее поменяли сумму через
+// ✏️, ещё не отметив выполненной), берём её целиком, а не только isDone — иначе правка
+// молча терялась при каждой перезагрузке, даже если и попала в localStorage.
 const regenWeeksKeepDone=(planned,prevWeekItems)=>{
   const fresh=generateAllWeeks(planned);
   const merged={...fresh};
   Object.keys(prevWeekItems||{}).forEach(wk=>{
     if(prevWeekItems[wk]&&merged[wk]){
       const savedMap={};
-      prevWeekItems[wk].forEach(i=>{savedMap[i.plannedId||i.id]=i.isDone;});
-      merged[wk]=merged[wk].map(i=>({...i,isDone:savedMap[i.plannedId||i.id]??i.isDone}));
+      prevWeekItems[wk].forEach(i=>{savedMap[i.plannedId||i.id]=i;});
+      merged[wk]=merged[wk].map(i=>{
+        const saved=savedMap[i.plannedId||i.id];
+        if(!saved)return i;
+        return saved.edited?{...i,...saved}:{...i,isDone:saved.isDone??i.isDone};
+      });
       // Ручные записи живут в transactions — в weekItems их больше не дублируем
     } else if(prevWeekItems[wk]&&!merged[wk]){
       merged[wk]=prevWeekItems[wk];
@@ -236,6 +243,24 @@ const computeBudgetMetrics=state=>{
   // Слишком щедрая цель копилки сверх свободного остатка — не дефицит, а выбор.
   const isDeficit=freeCash<0;
   return{totalNet,monthlyExp,piggyMonthly,expWithoutPiggy,freeCash,totalSavings,savingsRate,isDeficit};
+};
+
+// Старый формат ключей weekItems был просто числом (напр. '12'), текущий — 'YYYY-Www'.
+// НЕ проверять через parseInt(key) — parseInt('2026-W30')===2026 (не NaN!), т.к. парсит
+// только ведущие цифры. Нужна проверка, что вся строка целиком состоит из цифр.
+const isLegacyWeekKeyFormat=key=>/^\d+$/.test(key);
+
+// Для localStorage сохраняем не все 104 недели weekItems, а только те, где есть
+// отметка isDone ИЛИ ручная правка (edited) — иначе переполняем хранилище. Раньше
+// критерием было только isDone, из-за чего правка суммы/названия у ещё не отмеченной
+// позиции (напр. заранее указали другую сумму ипотеки) молча терялась при перезагрузке,
+// т.к. вся неделя целиком выпадала из сохранения.
+const compactWeekItemsForSave=weekItems=>{
+  const compact={};
+  Object.entries(weekItems||{}).forEach(([wk,items])=>{
+    if((items||[]).some(i=>i.isDone||i.edited)) compact[wk]=items;
+  });
+  return compact;
 };
 
 const generateAllWeeks=planned=>{
@@ -348,4 +373,4 @@ const DEMO_MEMBERS=[{id:'m1',name:'Мария',avatar:'👩',color:'oklch(0.9 0.
 const DEMO_PLANNED=[{id:'p1',catId:'mortgage',name:'Ипотека',amount:55000,memberId:'m1',repeat:'monthly',days:[20]},{id:'p2',catId:'food',name:'Еда',amount:10000,memberId:'m1',repeat:'weekly',days:[]},{id:'p3',catId:'food',name:'Еда',amount:10000,memberId:'m2',repeat:'weekly',days:[]},{id:'p4',catId:'beauty',name:'Красота',amount:15000,memberId:'m1',repeat:'biweekly',days:[]},{id:'p5',catId:'edu',name:'Образование',amount:20000,memberId:'m2',repeat:'monthly',days:[1]},{id:'p6',catId:'piggy',name:'Копилка',amount:10000,memberId:'m1',repeat:'weekly',days:[]}];
 
 
-export {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,paymentTypeLabel,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,buildPaymentScheduleSpan,regenWeeksKeepDone,computeBalances,computeBudgetMetrics,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,FACE_EMOJIS,MEMBER_TINTS,nextMemberTint,POLICY_ITEMS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED};
+export {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,paymentTypeLabel,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,buildPaymentScheduleSpan,regenWeeksKeepDone,computeBalances,computeBudgetMetrics,compactWeekItemsForSave,isLegacyWeekKeyFormat,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,FACE_EMOJIS,MEMBER_TINTS,nextMemberTint,POLICY_ITEMS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED};

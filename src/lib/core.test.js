@@ -23,6 +23,8 @@ import {
   regenWeeksKeepDone,
   buildDemoState,
   paymentTypeLabel,
+  compactWeekItemsForSave,
+  isLegacyWeekKeyFormat,
 } from './core';
 
 describe('getActualPayDate', () => {
@@ -249,6 +251,71 @@ describe('regenWeeksKeepDone — отметки isDone сохраняются п
     const marked = { ...weeks, [firstKey]: weeks[firstKey].map((i) => ({ ...i, isDone: true })) };
     const regenerated = regenWeeksKeepDone(planned, marked);
     expect(regenerated[firstKey][0].isDone).toBe(true);
+  });
+
+  // Регресс: ✏️-правка суммы у ещё не отмеченной позиции откатывалась к значению
+  // плана при каждой перезагрузке/пересборке — только isDone переживал regen.
+  test('отредактированная (edited:true) сумма не отмеченной позиции переживает regen', () => {
+    const planned = [{ id: 'p1', catId: 'food', name: 'Еда', amount: 7000, repeat: 'weekly', days: [] }];
+    const weeks = generateAllWeeks(planned);
+    const firstKey = Object.keys(weeks).sort()[0];
+    const edited = {
+      ...weeks,
+      [firstKey]: weeks[firstKey].map((i) => ({ ...i, amount: 9999, isDone: false, edited: true })),
+    };
+    const regenerated = regenWeeksKeepDone(planned, edited);
+    expect(regenerated[firstKey][0].amount).toBe(9999);
+    expect(regenerated[firstKey][0].isDone).toBe(false);
+  });
+
+  test('без edited — правка суммы НЕ переживает regen (только isDone), как и раньше', () => {
+    const planned = [{ id: 'p1', catId: 'food', name: 'Еда', amount: 7000, repeat: 'weekly', days: [] }];
+    const weeks = generateAllWeeks(planned);
+    const firstKey = Object.keys(weeks).sort()[0];
+    const notEdited = { ...weeks, [firstKey]: weeks[firstKey].map((i) => ({ ...i, amount: 9999, isDone: true })) };
+    const regenerated = regenWeeksKeepDone(planned, notEdited);
+    expect(regenerated[firstKey][0].amount).toBe(7000);
+    expect(regenerated[firstKey][0].isDone).toBe(true);
+  });
+});
+
+describe('compactWeekItemsForSave — не терять правки без отметки isDone', () => {
+  // Раньше критерием сохранения недели в localStorage было только isDone —
+  // правка суммы/названия у ещё не отмеченной позиции (напр. заранее изменили
+  // сумму ипотеки) молча терялась при перезагрузке, потому что вся неделя
+  // целиком выпадала из компактного сохранения.
+  test('неделя без отметок, но с edited-позицией — сохраняется', () => {
+    const weekItems = { '2027-W01': [{ id: 'a', amount: 5000, isDone: false, edited: true }] };
+    const compact = compactWeekItemsForSave(weekItems);
+    expect(compact['2027-W01']).toBeDefined();
+    expect(compact['2027-W01'][0].amount).toBe(5000);
+  });
+
+  test('неделя без отметок и без правок — не сохраняется', () => {
+    const weekItems = { '2027-W01': [{ id: 'a', amount: 5000, isDone: false }] };
+    const compact = compactWeekItemsForSave(weekItems);
+    expect(compact['2027-W01']).toBeUndefined();
+  });
+
+  test('неделя с isDone — сохраняется, как и раньше', () => {
+    const weekItems = { '2027-W01': [{ id: 'a', amount: 5000, isDone: true }] };
+    const compact = compactWeekItemsForSave(weekItems);
+    expect(compact['2027-W01']).toBeDefined();
+  });
+});
+
+describe('isLegacyWeekKeyFormat — не путать нормальный ключ со старым числовым', () => {
+  // Реальный найденный баг: parseInt('2026-W30') === 2026 (не NaN), поэтому старая
+  // проверка через parseInt ложно принимала ЛЮБОЙ нормальный ключ за "старый формат"
+  // и сбрасывала весь weekItems (включая все отметки isDone) при каждой загрузке.
+  test('нормальный ISO-ключ — не старый формат', () => {
+    expect(isLegacyWeekKeyFormat('2026-W30')).toBe(false);
+    expect(isLegacyWeekKeyFormat('2027-W01')).toBe(false);
+  });
+
+  test('чисто числовой ключ — старый формат', () => {
+    expect(isLegacyWeekKeyFormat('12')).toBe(true);
+    expect(isLegacyWeekKeyFormat('202630')).toBe(true);
   });
 });
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
-import {C,MONO,uid,weekKey,todayKey,getISOWeek,calcAvgMonthlyNet,calcNetFor,generateAllWeeks,regenWeeksKeepDone,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED,DEFAULT_CATS,nextMemberTint,POLICY_ITEMS,computeBalances} from './lib/core';
+import {C,MONO,uid,weekKey,todayKey,getISOWeek,calcAvgMonthlyNet,calcNetFor,generateAllWeeks,regenWeeksKeepDone,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED,DEFAULT_CATS,nextMemberTint,POLICY_ITEMS,computeBalances,compactWeekItemsForSave,isLegacyWeekKeyFormat} from './lib/core';
 import {Modal} from './lib/ui';
 import {TodayScreen} from './screens/Today';
 // Экран сплэша нужен мгновенно каждому пользователю — держим его прямо здесь,
@@ -42,11 +42,14 @@ export default function App(){
       const saved = localStorage.getItem('ff_state');
       if (!saved) return null;
       const parsed = JSON.parse(saved);
-      // Проверяем совместимость данных — ключи weekItems должны быть строками "YYYY-Www"
+      // Проверяем совместимость данных — ключи weekItems должны быть строками "YYYY-Www".
+      // ВАЖНО: parseInt('2026-W30') === 2026 (не NaN!) — им нельзя проверять "старый числовой
+      // формат", иначе он ложно сработает на ЛЮБОМ нормальном ключе и будет сбрасывать
+      // weekItems (включая все отметки isDone) при каждой загрузке приложения.
       if (parsed?.appState?.weekItems) {
         const keys = Object.keys(parsed.appState.weekItems);
-        // Если ключи числовые (старый формат) — сбрасываем weekItems
-        if (keys.length > 0 && !isNaN(parseInt(keys[0]))) {
+        // Если ключи целиком числовые (старый формат) — сбрасываем weekItems
+        if (keys.length > 0 && isLegacyWeekKeyFormat(keys[0])) {
           parsed.appState.weekItems = {};
         }
       }
@@ -177,13 +180,8 @@ useEffect(() => {
   useEffect(()=>{
     if(!onboarded) return;
     try {
-      // Сохраняем только те недели где есть отмеченные позиции или транзакции
-      // Это сильно уменьшает размер и не даёт переполнить localStorage
-      const weekItemsCompact = {};
-      Object.entries(appState.weekItems||{}).forEach(([wk,items])=>{
-        const changed = items.filter(i=>i.isDone); // только отмеченные
-        if(changed.length>0) weekItemsCompact[wk]=items; // сохраняем всю неделю если есть отметки
-      });
+      // Сохраняем только те недели, где есть отметки или правки — иначе переполняем localStorage
+      const weekItemsCompact = compactWeekItemsForSave(appState.weekItems);
       const toSave = {
         consented:true,
         onboarded:true,
@@ -460,10 +458,12 @@ useEffect(() => {
     setAppState(prev=>{
       // Обновляем в transactions (доп. записи)
       const newTx=(prev.transactions||[]).map(t=>t.id===updated.id?updated:t);
-      // Обновляем в weekItems (плановые позиции)
+      // Обновляем в weekItems (плановые позиции). Помечаем edited:true — иначе
+      // правку (напр. заранее изменённую сумму) без отметки isDone молча
+      // выкидывало компактное сохранение в localStorage (только отмеченные недели).
       const newWeekItems={};
       Object.keys(prev.weekItems).forEach(wk=>{
-        newWeekItems[wk]=(prev.weekItems[wk]||[]).map(i=>i.id===updated.id?updated:i);
+        newWeekItems[wk]=(prev.weekItems[wk]||[]).map(i=>i.id===updated.id?{...updated,edited:true}:i);
       });
       return{...prev,transactions:newTx,weekItems:newWeekItems};
     });
