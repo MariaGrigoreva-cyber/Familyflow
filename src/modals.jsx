@@ -1,6 +1,6 @@
 // FamilyFlow — модальные окна и таб-бар
 import React, { useState, useEffect } from 'react';
-import {C,MONO,fmt,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from './lib/core';
+import {C,MONO,fmt,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,paymentTypeLabel,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from './lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Modal,DayPicker,Numpad} from './lib/ui';
 
 export function EditPaymentModal({visible,payment,onClose,onSave,onDelete}){
@@ -11,7 +11,7 @@ export function EditPaymentModal({visible,payment,onClose,onSave,onDelete}){
   if(!payment)return null;
   const diff=parseInt(actual)-payment.amount;
   return(
-    <Modal visible={visible} onClose={onClose} title={payment.type==='salary'?'💰 Зарплата':'💸 Аванс'}
+    <Modal visible={visible} onClose={onClose} title={`${payment.type==='salary'?'💰':'💸'} ${paymentTypeLabel(payment)}`}
       onSave={()=>{onSave({...payment,actualAmount:parseInt(actual)||payment.amount,isDone:done,note2:note});onClose();}}>
       <div style={{padding:16,paddingBottom:40}}>
         <div style={s.card}>

@@ -22,6 +22,7 @@ import {
   generateAllWeeks,
   regenWeeksKeepDone,
   buildDemoState,
+  paymentTypeLabel,
 } from './core';
 
 describe('getActualPayDate', () => {
@@ -171,6 +172,22 @@ describe('computeBudgetMetrics — копилка не должна считат
     expect(m.isDeficit).toBe(false);
     expect(m.piggyMonthly).toBe(0);
     expect(m.savingsRate).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe('paymentTypeLabel — подпись "за какой месяц" у зарплаты', () => {
+  // Именно отсутствие этой подписи путало с пропажей выплаты: зарплата за декабрь,
+  // выплаченная в январе, выглядела как «просто январская зарплата» без контекста.
+  test('зарплата в январе подписана как «за декабрь»', () => {
+    const sch = buildPaymentSchedule(2028, [10], [], 40, 200000, { gross: 200000, salaryDays: [10] });
+    const janSalary = sch.find((p) => p.type === 'salary' && p.month === 1);
+    expect(paymentTypeLabel(janSalary)).toBe('Зарплата за дек');
+  });
+
+  test('аванс всегда подписан просто «Аванс»', () => {
+    const sch = buildPaymentSchedule(2027, [], [20], 40, 200000, { gross: 200000, advanceDays: [20] });
+    const advance = sch.find((p) => p.type === 'advance');
+    expect(paymentTypeLabel(advance)).toBe('Аванс');
   });
 });
 
