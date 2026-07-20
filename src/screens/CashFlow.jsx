@@ -136,7 +136,11 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx}){
         <SecTitle>СВОДКА ПО НЕДЕЛЯМ</SecTitle>
         {(()=>{
           const monthlyNet=state.incomes?.reduce((s,i)=>s+calcNetFor(i),0)||0;
-          const monthlyExp=(state.planned||[]).reduce((s,p)=>s+monthlyOf(p),0);
+          // Копилка — добровольное сбережение, а не обязательный расход: план, где
+          // не хватает только на копилку сверх дохода, это не дефицит, а просто
+          // слишком щедрая цель накопления — не пугаем таким банером.
+          const piggyMonthlyAll=(state.planned||[]).filter(p=>p.catId==='piggy').reduce((s,p)=>s+monthlyOf(p),0);
+          const monthlyExp=(state.planned||[]).reduce((s,p)=>s+monthlyOf(p),0)-piggyMonthlyAll;
           if(monthlyExp<=monthlyNet)return null;
           return(
             <div style={{...s.card,background:C.redL,border:`1px solid ${C.redB}`,padding:'10px 12px',marginBottom:12}}>

@@ -27,7 +27,11 @@ export function HealthScreen({state}){
     return total+items.filter(i=>i.catId==='piggy'&&i.isDone).reduce((s,i)=>s+i.amount,0);
   },0)+Object.entries(txPiggyMap).filter(([wk])=>!weekItems[wk]).reduce((s,[,v])=>s+v,0);
   const cushion=piggyActual>0?piggyActual:Math.round(piggyMonthly/4.3*4);
-  const isDeficit=monthlyExp>totalNet; // годовой дефицит
+  // Копилка — добровольное сбережение, а не обязательный расход: если дохода не хватает
+  // только на неё сверх остальных категорий, это не дефицит, а слишком щедрая цель
+  // накопления. Дефицит — это когда не хватает даже на обязательные (не-копилка) траты,
+  // та же логика, что и у freeCash/рисков ниже.
+  const isDeficit=freeCash<0;
   // Прогноз кассовых разрывов на ближайшие недели: считаем накопительный баланс вперёд
   // и сравниваем с планом следующей недели — если баланс покрывает меньше половины плана, неделя "рискованная"
   const projectedRiskyWeeks=useMemo(()=>{
