@@ -1,12 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import {C,MONO,uid,weekKey,todayKey,getISOWeek,calcAvgMonthlyNet,calcNetFor,generateAllWeeks,regenWeeksKeepDone,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED,DEFAULT_CATS,nextMemberTint,POLICY_ITEMS,computeBalances} from './lib/core';
 import {Modal} from './lib/ui';
-import {SplashScreen,IntroStories,EntryScreen,Onboarding} from './screens/Onboarding';
 import {TodayScreen} from './screens/Today';
-import {PlanScreen} from './screens/CashFlow';
-import {BudgetScreen} from './screens/Budget';
-import {HealthScreen} from './screens/Health';
-import {SettingsScreen} from './screens/Settings';
+// Экран сплэша нужен мгновенно каждому пользователю — держим его прямо здесь,
+// а не тянем весь Onboarding.jsx (со сторис/формой/анкетой) в основной бандл.
+const EntryScreen=lazy(()=>import('./screens/Onboarding').then(m=>({default:m.EntryScreen})));
+const IntroStories=lazy(()=>import('./screens/Onboarding').then(m=>({default:m.IntroStories})));
+const Onboarding=lazy(()=>import('./screens/Onboarding').then(m=>({default:m.Onboarding})));
+const PlanScreen=lazy(()=>import('./screens/CashFlow').then(m=>({default:m.PlanScreen})));
+const BudgetScreen=lazy(()=>import('./screens/Budget').then(m=>({default:m.BudgetScreen})));
+const HealthScreen=lazy(()=>import('./screens/Health').then(m=>({default:m.HealthScreen})));
+const SettingsScreen=lazy(()=>import('./screens/Settings').then(m=>({default:m.SettingsScreen})));
 import {EditPaymentModal,AddExtraModal,AddTxModal,EditCatModal,EditTxModal,EditIncomeModal,WithdrawPiggyModal,TabBar} from './modals';
 import {
   isLoggedIn,
@@ -18,6 +22,19 @@ import {
   resetRequest,
   resetConfirm,
 } from './api';
+function SplashScreen(){
+  return(
+    <div style={{height:'100%',maxWidth:480,margin:'0 auto',width:'100%',boxSizing:'border-box',background:C.orange,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
+      <div style={{width:88,height:88,borderRadius:26,background:'rgba(255,255,255,.14)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:44}}>🐷</div>
+      <div style={{fontSize:32,fontWeight:600,letterSpacing:-.5,color:'#fff',marginTop:22}}>FamilyFlow</div>
+      <div style={{fontFamily:MONO,fontSize:11,letterSpacing:2.5,color:'rgba(255,255,255,.6)',marginTop:8}}>ФИНАНСОВЫЙ ДИРЕКТОР СЕМЬИ</div>
+      <div style={{width:120,height:3,borderRadius:2,background:'rgba(255,255,255,.25)',marginTop:48,overflow:'hidden'}}>
+        <div style={{width:'40%',height:3,background:'#fff',borderRadius:2,animation:'ffSplashBar 1.1s ease-in-out infinite'}}/>
+      </div>
+      <style>{'@keyframes ffSplashBar{0%{margin-left:-40%}100%{margin-left:100%}}'}</style>
+    </div>
+  );
+}
 export default function App(){
   // ── localStorage: загружаем сохранённые данные при старте ──────────────
   const loadFromStorage = () => {
@@ -473,7 +490,7 @@ useEffect(() => {
   const TAB_TITLES={today:'Сегодня',plan:'Денежный поток',budget:'Годовой бюджет',health:'Здоровье бюджета',settings:'Настройки'};
   const shell={maxWidth:480,margin:'0 auto',height:'100dvh',overflow:'hidden',background:C.bg,display:'flex',flexDirection:'column',fontFamily:"'IBM Plex Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",position:'relative'};
   if(showSplash)return<div style={shell}><SplashScreen/></div>;
-  if(!consented&&!introSeen)return<div style={shell}><IntroStories onDone={()=>setIntroSeen(true)}/></div>;
+  if(!consented&&!introSeen)return<div style={shell}><Suspense fallback={null}><IntroStories onDone={()=>setIntroSeen(true)}/></Suspense></div>;
   const startDemo=()=>{
     const demo=buildDemoState();
     setAppState(demo);
@@ -493,17 +510,21 @@ useEffect(() => {
   };
   if(!consented)return(
     <div style={shell}>
-      <EntryScreen
-        onDemo={()=>{setConsented(true);startDemo();}}
-        onSetup={()=>setConsented(true)}
-        onLoginClick={()=>setStartLogin(true)}
-      />
+      <Suspense fallback={null}>
+        <EntryScreen
+          onDemo={()=>{setConsented(true);startDemo();}}
+          onSetup={()=>setConsented(true)}
+          onLoginClick={()=>setStartLogin(true)}
+        />
+      </Suspense>
       {startLogin&&<StartLoginForm onClose={()=>setStartLogin(false)}/>}
     </div>
   );
   if(!onboarded)return(
     <div style={shell}>
-      <Onboarding onDone={handleOnboardingDone}/>
+      <Suspense fallback={null}>
+        <Onboarding onDone={handleOnboardingDone}/>
+      </Suspense>
     </div>
   );
   return(
@@ -525,10 +546,12 @@ useEffect(() => {
       </div>
       <div style={{flex:1,display:'flex',flexDirection:'column',minHeight:0}}>
         {tab==='today'&&<TodayScreen state={appState} onToggle={handleToggle} onAdd={()=>setShowAdd(true)} onEditPayment={handleEditPayment} onEditTx={handleEditTx} onQuickMark={handleQuickMark} onWithdrawPiggy={()=>setShowWithdrawPiggy(true)} tourStep={tourStep}/>}
-        {tab==='plan'&&<PlanScreen state={appState} onToggle={handleToggle} onAdd={(wk)=>{setAddWeek(wk);setShowAdd(true);}} onEditTx={handleEditTx}/>}
-        {tab==='budget'&&<BudgetScreen state={appState} onEditPlanned={item=>{setEditItem(item);setShowEdit(true);}} onAddPlanned={handleAddPlanned} onEditPayment={handleEditPayment} onAddExtra={(data)=>{if(data&&data.amount){handleAddExtra(data);}else{setShowAddExtra(true);}}} onWithdrawPiggy={()=>setShowWithdrawPiggy(true)} onSetGoal={handleSetGoal} onAddGoalToPlan={handleEditPlanned}/>}
-        {tab==='health'&&<HealthScreen state={appState}/>}
-        {tab==='settings'&&<SettingsScreen state={appState} onEditCat={item=>{setEditItem(item||null);setShowEdit(true);}} onAddCat={handleAddPlanned} onEditIncome={handleEditIncome} onAddIncome={handleAddIncomeSource} onUpdateMember={handleUpdateMember} onAddMember={handleAddMember} onRemoveMember={handleRemoveMember}/>}
+        <Suspense fallback={null}>
+          {tab==='plan'&&<PlanScreen state={appState} onToggle={handleToggle} onAdd={(wk)=>{setAddWeek(wk);setShowAdd(true);}} onEditTx={handleEditTx}/>}
+          {tab==='budget'&&<BudgetScreen state={appState} onEditPlanned={item=>{setEditItem(item);setShowEdit(true);}} onAddPlanned={handleAddPlanned} onEditPayment={handleEditPayment} onAddExtra={(data)=>{if(data&&data.amount){handleAddExtra(data);}else{setShowAddExtra(true);}}} onWithdrawPiggy={()=>setShowWithdrawPiggy(true)} onSetGoal={handleSetGoal} onAddGoalToPlan={handleEditPlanned}/>}
+          {tab==='health'&&<HealthScreen state={appState}/>}
+          {tab==='settings'&&<SettingsScreen state={appState} onEditCat={item=>{setEditItem(item||null);setShowEdit(true);}} onAddCat={handleAddPlanned} onEditIncome={handleEditIncome} onAddIncome={handleAddIncomeSource} onUpdateMember={handleUpdateMember} onAddMember={handleAddMember} onRemoveMember={handleRemoveMember}/>}
+        </Suspense>
       </div>
       <TabBar active={tab} onPress={setTab}/>
       <AddTxModal visible={showAdd} onClose={()=>setShowAdd(false)} onSave={handleAddTx} members={appState.members} planned={appState.planned} customCats={appState.customCats}/>

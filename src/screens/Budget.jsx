@@ -1,5 +1,5 @@
 // FamilyFlow — экран Бюджет
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad} from '../lib/ui';
 
@@ -77,7 +77,9 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
     return{targetD,monthsLeft,remaining,requiredMonthly,achievable,comfortCat,shortfall,realisticDate,weeklyAmount};
   })():null;
   const yearsInRange=[...new Set([budgetStart.getFullYear(),budgetEnd.getFullYear()])];
-  const allPayments=incomes.flatMap(inc=>{const m=members.find(x=>x.id===inc.memberId);return yearsInRange.flatMap(yr=>buildPaymentSchedule(yr,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc)).filter(p=>p.date>=budgetStart&&p.date<=budgetEnd).map(p=>({...p,memberName:m?.name||'',memberAvatar:m?.avatar||'',...(payments[p.displayLabel]||{})}));}).sort((a,b)=>a.date-b.date);
+  // Мемоизируем: иначе пересчитывался бы на каждый кейстрок в планировщике отпуска/цели
+  const allPayments=useMemo(()=>incomes.flatMap(inc=>{const m=members.find(x=>x.id===inc.memberId);return yearsInRange.flatMap(yr=>buildPaymentSchedule(yr,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc)).filter(p=>p.date>=budgetStart&&p.date<=budgetEnd).map(p=>({...p,memberName:m?.name||'',memberAvatar:m?.avatar||'',...(payments[p.displayLabel]||{})}));}).sort((a,b)=>a.date-b.date),
+    [incomes,members,payments,yearsInRange.join(',')]);
   const upcomingAll=allPayments.filter(p=>p.date>=budgetStart);
   const upcoming=showAllUpcoming?upcomingAll:upcomingAll.slice(0,6);
   const shiftedCnt=allPayments.filter(p=>p.date>=budgetStart&&p.shifted).length;

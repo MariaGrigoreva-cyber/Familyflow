@@ -1,5 +1,5 @@
 // FamilyFlow — экран Денежный поток
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,buildPaymentScheduleSpan,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad} from '../lib/ui';
 
@@ -36,7 +36,11 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx}){
   const totalWeekIncome=weekIncome+weekTxIncome+weekExtraIncome;
   const filtered=wItems.filter(i=>filter==='pending'?!i.isDone:filter==='done'?i.isDone:true);
   const allWeekKeys=Object.keys(weekItems).sort();
-  const getWData=wk=>{
+  // Раньше пересчитывался график выплат на каждую неделю заново при каждом рендере
+  // (и до 3 раз за один рендер для месяцев/годов) — тяжело, раз schedule теперь строится
+  // на 3 года вперёд/назад. Считаем недельные суммы один раз и мемоизируем,
+  // а месяцы/годы просто агрегируют уже готовые недельные данные, не трогая расписание заново.
+  const weeksSummary=useMemo(()=>allWeekKeys.map(wk=>{
     const items=weekItems[wk]||[];
     // Копилка входит в план и факт: это распределённые деньги бюджета
     const txExp=(transactions||[]).filter(t=>t.week===wk&&(t.type==='expense'||t.catId==='piggy')).reduce((s,t)=>s+t.amount,0);
@@ -49,11 +53,10 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx}){
     const txInc=(transactions||[]).filter(t=>t.week===wk&&t.type==='income').reduce((s,t)=>s+t.amount,0);
     const exInc=extraIncomeInRange(wS,wE);
     return{wk,wSp,wTot,wInc:wInc+txInc+exInc,bal:(wInc+txInc+exInc)-wTot,wPiggy};
-  };
-  const weeksSummary=allWeekKeys.map(getWData);
-  const monthsSummary=()=>{const curWk2=todayKey();const map={};allWeekKeys.forEach(wk=>{const wS=weekKeyToDate(wk);const mk=monthKey(wS);if(!map[mk])map[mk]={mk,wTot:0,wSp:0,wInc:0,wDeduct:0};const d=getWData(wk);map[mk].wTot+=d.wTot;map[mk].wSp+=d.wSp;map[mk].wInc+=d.wInc;map[mk].wDeduct+=(wk>curWk2?d.wTot:d.wSp);});return Object.values(map).sort((a,b)=>a.mk.localeCompare(b.mk));};
-  const yearsSummary=()=>{const curWk3=todayKey();const map={};allWeekKeys.forEach(wk=>{const yr=weekKeyToDate(wk).getFullYear(); // календарный год по дате начала недели
-    if(!map[yr])map[yr]={yr,wTot:0,wSp:0,wInc:0,wDeduct:0};const d=getWData(wk);map[yr].wTot+=d.wTot;map[yr].wSp+=d.wSp;map[yr].wInc+=d.wInc;map[yr].wDeduct+=(wk>curWk3?d.wTot:d.wSp);});return Object.values(map).sort((a,b)=>a.yr-b.yr);};
+  }),[allWeekKeys.join(','),weekItems,incomes,payments,transactions,extraPayments]);
+  const monthsSummary=useMemo(()=>{const curWk2=todayKey();const map={};weeksSummary.forEach(d=>{const wS=weekKeyToDate(d.wk);const mk=monthKey(wS);if(!map[mk])map[mk]={mk,wTot:0,wSp:0,wInc:0,wDeduct:0};map[mk].wTot+=d.wTot;map[mk].wSp+=d.wSp;map[mk].wInc+=d.wInc;map[mk].wDeduct+=(d.wk>curWk2?d.wTot:d.wSp);});return Object.values(map).sort((a,b)=>a.mk.localeCompare(b.mk));},[weeksSummary]);
+  const yearsSummary=useMemo(()=>{const curWk3=todayKey();const map={};weeksSummary.forEach(d=>{const yr=weekKeyToDate(d.wk).getFullYear(); // календарный год по дате начала недели
+    if(!map[yr])map[yr]={yr,wTot:0,wSp:0,wInc:0,wDeduct:0};map[yr].wTot+=d.wTot;map[yr].wSp+=d.wSp;map[yr].wInc+=d.wInc;map[yr].wDeduct+=(d.wk>curWk3?d.wTot:d.wSp);});return Object.values(map).sort((a,b)=>a.yr-b.yr);},[weeksSummary]);
   const TABS=[{id:'detail',label:'Неделя'},{id:'weeks',label:'Недели'},{id:'months',label:'Месяцы'},{id:'year',label:'Годы'}];
   const pad={padding:'16px 20px 90px'};
   const navBtn={width:30,height:30,borderRadius:9,border:`1px solid ${C.border}`,background:'#fff',color:'#8B8175',fontSize:13,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0};
@@ -159,11 +162,11 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx}){
           <button onClick={()=>setCurMonth(nextMonthKey(curMonth))} style={navBtn}>→</button>
         </div>
         <SecTitle>ВСЕ МЕСЯЦЫ</SecTitle>
-        {monthsSummary().length===0?<div style={{textAlign:'center',padding:20,color:C.muted,fontSize:13}}>Нет данных</div>
+        {monthsSummary.length===0?<div style={{textAlign:'center',padding:20,color:C.muted,fontSize:13}}>Нет данных</div>
         :(()=>{
           let runBal=computeBalances(state).savingStart;
           const curMk=todayMonthKey();
-          return monthsSummary().map(({mk,wTot,wSp,wInc,wDeduct})=>{
+          return monthsSummary.map(({mk,wTot,wSp,wInc,wDeduct})=>{
           const isCur=mk===curMk;
           const bal=wInc-wDeduct,inPlus=bal>=0,pctD=wTot>0?Math.round(wSp/wTot*100):0;
           runBal=runBal+wInc-wDeduct;
@@ -190,7 +193,7 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx}){
         <SecTitle>ИТОГИ ПО ГОДАМ</SecTitle>
         {(()=>{
           let runBalYr=computeBalances(state).savingStart;
-          return yearsSummary().map(({yr,wTot,wSp,wInc,wDeduct})=>{
+          return yearsSummary.map(({yr,wTot,wSp,wInc,wDeduct})=>{
           const curYr=new Date().getFullYear();
           const isCur=yr===curYr;
           const bal=wInc-wDeduct,inPlus=bal>=0,pctD=wTot>0?Math.round(wSp/wTot*100):0;
@@ -214,8 +217,8 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx}){
             </div>
           );
         });})()}
-        {yearsSummary().length>1&&(()=>{
-          const all=yearsSummary();
+        {yearsSummary.length>1&&(()=>{
+          const all=yearsSummary;
           const totInc=all.reduce((s,y)=>s+y.wInc,0),totExp=all.reduce((s,y)=>s+y.wTot,0),totSp=all.reduce((s,y)=>s+y.wSp,0);
           return(
             <div style={{...s.hero,marginTop:14}}>

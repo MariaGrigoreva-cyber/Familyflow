@@ -1,5 +1,5 @@
 // FamilyFlow — экран Здоровье бюджета
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,buildPaymentScheduleSpan,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad} from '../lib/ui';
 
@@ -30,7 +30,7 @@ export function HealthScreen({state}){
   const isDeficit=monthlyExp>totalNet; // годовой дефицит
   // Прогноз кассовых разрывов на ближайшие недели: считаем накопительный баланс вперёд
   // и сравниваем с планом следующей недели — если баланс покрывает меньше половины плана, неделя "рискованная"
-  const projectedRiskyWeeks=(()=>{
+  const projectedRiskyWeeks=useMemo(()=>{
     const allWeekKeys=Object.keys(weekItems).sort();
     const risky=[];
     let runBal=computeBalances(state).savingStart;
@@ -49,7 +49,7 @@ export function HealthScreen({state}){
       }
     }
     return risky;
-  })();
+  },[weekItems,incomes,state.startBalance,state.transactions,state.payments,extraPayments]);
   const hasCashGapDeficit=projectedRiskyWeeks.some(r=>r.pct<=0);
   // Расходы % от дохода — теперь чисто информационная строка (см. ниже), не даёт очков.
   const cashGapScore=projectedRiskyWeeks.length===0?30:hasCashGapDeficit?0:15;
