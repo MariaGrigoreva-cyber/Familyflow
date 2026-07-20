@@ -42,12 +42,11 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
   const piggyYearly=catTotals.find(c=>c.cat.id==='piggy')?.yearly||0;
   // Разбивка расходов по направлениям (цвет плашки категории = направление) — для полосы-бюджета
   const FUND_META=[
-    {color:'oklch(0.94 0.03 40)',label:'Защита',accent:C.orange},
-    {color:'oklch(0.94 0.03 85)',label:'Жизнь',accent:C.yellow},
-    {color:'oklch(0.94 0.02 250)',label:'Комфорт',accent:C.blue},
-    {color:'oklch(0.94 0.02 150)',label:'Копилка',accent:C.green},
+    {colors:['oklch(0.94 0.03 40)','oklch(0.94 0.02 150)'],label:'Защита',accent:C.orange}, // копилка — тоже Защита, не отдельный фонд
+    {colors:['oklch(0.94 0.03 85)'],label:'Жизнь',accent:C.yellow},
+    {colors:['oklch(0.94 0.02 250)'],label:'Комфорт',accent:C.blue},
   ];
-  const fundTotals=FUND_META.map(f=>({...f,yearly:catTotals.filter(c=>c.cat.color===f.color).reduce((s,c)=>s+c.yearly,0)})).filter(f=>f.yearly>0);
+  const fundTotals=FUND_META.map(f=>({...f,yearly:catTotals.filter(c=>f.colors.includes(c.cat.color)).reduce((s,c)=>s+c.yearly,0)})).filter(f=>f.yearly>0);
   const fundSum=fundTotals.reduce((s,f)=>s+f.yearly,0);
   // Свободные средства/мес — та же формула, что и в Здоровье: доход минус план без копилки
   const{totalSaved}=computeBalances(state);

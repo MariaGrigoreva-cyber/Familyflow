@@ -65,9 +65,9 @@ export function HealthScreen({state}){
   const nextStepText=projectedRiskyWeeks.length>0?`устранить риск разрыва на нед. ${parseWeekKey(projectedRiskyWeeks[0].nextWk).week}`:cushionScore<20?'нарастить копилку до 3 мес. расходов':'увеличить норму сбережений';
   const healthSubtitle=healthScore>=80?'Отличный результат — продолжайте в том же духе':`до «Отлично» — ${nextStepText}`;
   const criteria=[
-    [savingsRate>=20?30:savingsRate>=10?15:0,30,`Норма сбережений ${savingsRate}%`],
+    [isDeficit?0:savingsRate>=20?30:savingsRate>=10?15:0,30,isDeficit?`Норма сбережений ${savingsRate}% — не считается, годовой план в минусе`:`Норма сбережений ${savingsRate}%`],
     [cashGapScore,30,projectedRiskyWeeks.length===0?'Кассовых разрывов не прогнозируется':`Риск разрыва — ${projectedRiskyWeeks.length} нед. вперёд`],
-    [freeCash>0?20:0,20,freeCash>0?'Есть свободные средства':'Нет свободных средств'],
+    [freeCash>0&&!isDeficit?20:0,20,isDeficit?'Свободные средства не в счёт — годовой план в минусе':freeCash>0?'Есть свободные средства':'Нет свободных средств'],
     [cushionScore,20,`Копилка — ${Math.round(cushionMonths*10)/10} мес. расходов`],
   ];
   const catData=allCats.map((cat,i)=>({label:cat.name,emoji:cat.emoji,value:planned.filter(p=>p.catId===cat.id).reduce((s,p)=>s+monthlyOf(p),0),color:PIE_COLORS[i%PIE_COLORS.length]})).filter(c=>c.value>0).sort((a,b)=>b.value-a.value);

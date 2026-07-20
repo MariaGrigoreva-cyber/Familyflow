@@ -56,7 +56,26 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx}){
   }),[allWeekKeys.join(','),weekItems,incomes,payments,transactions,extraPayments]);
   const monthsSummary=useMemo(()=>{const curWk2=todayKey();const map={};weeksSummary.forEach(d=>{const wS=weekKeyToDate(d.wk);const mk=monthKey(wS);if(!map[mk])map[mk]={mk,wTot:0,wSp:0,wInc:0,wDeduct:0};map[mk].wTot+=d.wTot;map[mk].wSp+=d.wSp;map[mk].wInc+=d.wInc;map[mk].wDeduct+=(d.wk>curWk2?d.wTot:d.wSp);});return Object.values(map).sort((a,b)=>a.mk.localeCompare(b.mk));},[weeksSummary]);
   const yearsSummary=useMemo(()=>{const curWk3=todayKey();const map={};weeksSummary.forEach(d=>{const yr=weekKeyToDate(d.wk).getFullYear(); // календарный год по дате начала недели
-    if(!map[yr])map[yr]={yr,wTot:0,wSp:0,wInc:0,wDeduct:0};map[yr].wTot+=d.wTot;map[yr].wSp+=d.wSp;map[yr].wInc+=d.wInc;map[yr].wDeduct+=(d.wk>curWk3?d.wTot:d.wSp);});return Object.values(map).sort((a,b)=>a.yr-b.yr);},[weeksSummary]);
+    if(!map[yr])map[yr]={yr,wTot:0,wSp:0,wInc:0,wDeduct:0,weeks:0};map[yr].wTot+=d.wTot;map[yr].wSp+=d.wSp;map[yr].wInc+=d.wInc;map[yr].wDeduct+=(d.wk>curWk3?d.wTot:d.wSp);map[yr].weeks+=1;});return Object.values(map).sort((a,b)=>a.yr-b.yr);},[weeksSummary]);
+  // Когда накопительный баланс уйдёт в минус при текущем плане — та же логика прогноза,
+  // что и в списке недель ниже, только идём вперёд до первого отрицательного значения
+  const negativeWeek=useMemo(()=>{
+    let bal=computeBalances(state).savingStart;
+    const curWk2=todayKey();
+    for(const d of weeksSummary){
+      const isFuture=d.wk>curWk2;
+      bal=bal+d.wInc-(isFuture?d.wTot:d.wSp);
+      if(bal<0)return{wk:d.wk,bal};
+    }
+    return null;
+  },[weeksSummary,state]);
+  // Крупнейшая необязательная категория (фонд «Комфорт») — куда в первую очередь стоит урезать
+  const trimCat=useMemo(()=>{
+    const allCats2=[...DEFAULT_CATS,...(state.customCats||[])];
+    const totals=allCats2.map(cat=>({cat,monthly:(state.planned||[]).filter(p=>p.catId===cat.id).reduce((s,p)=>s+monthlyOf(p),0)})).filter(c=>c.monthly>0);
+    const comfort=totals.filter(c=>c.cat.color==='oklch(0.94 0.02 250)').sort((a,b)=>b.monthly-a.monthly)[0];
+    return comfort||totals.sort((a,b)=>b.monthly-a.monthly)[0]||null;
+  },[state.planned,state.customCats]);
   const TABS=[{id:'detail',label:'Неделя'},{id:'weeks',label:'Недели'},{id:'months',label:'Месяцы'},{id:'year',label:'Годы'}];
   const pad={padding:'16px 20px 90px'};
   const navBtn={width:30,height:30,borderRadius:9,border:`1px solid ${C.border}`,background:'var(--c-surface)',color:'var(--c-muted2)',fontSize:13,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0};
@@ -122,7 +141,12 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx}){
           return(
             <div style={{...s.card,background:C.redL,border:`1px solid ${C.redB}`,padding:'10px 12px',marginBottom:12}}>
               <div style={{fontSize:13,fontWeight:600,color:C.red,marginBottom:3}}>🚨 Плановый дефицит {fmt(monthlyExp-monthlyNet)}/мес</div>
-              <div style={{fontSize:12,color:C.red}}>Расходы превышают доходы. Скорректируйте план в Настройках.</div>
+              <div style={{fontSize:12,color:C.red,lineHeight:1.5}}>
+                {negativeWeek
+                  ?<>Накопительный баланс уйдёт в минус на нед. {parseWeekKey(negativeWeek.wk).week} · {parseWeekKey(negativeWeek.wk).year} ({weekRange(negativeWeek.wk)}).</>
+                  :'При текущем буфере разрыв не наступит в ближайшие 2 года, но план стоит поправить.'}
+                {trimCat&&<> Например, сократить «{trimCat.cat.name}» ({fmtN(Math.round(trimCat.monthly))} ₽/мес) хотя бы на {fmtN(Math.round(Math.min(monthlyExp-monthlyNet,trimCat.monthly)))} ₽/мес.</>}
+              </div>
             </div>
           );
         })()}
@@ -193,16 +217,17 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx}){
         <SecTitle>ИТОГИ ПО ГОДАМ</SecTitle>
         {(()=>{
           let runBalYr=computeBalances(state).savingStart;
-          return yearsSummary.map(({yr,wTot,wSp,wInc,wDeduct})=>{
+          return yearsSummary.map(({yr,wTot,wSp,wInc,wDeduct,weeks})=>{
           const curYr=new Date().getFullYear();
           const isCur=yr===curYr;
+          const isPartial=weeks<52;
           const bal=wInc-wDeduct,inPlus=bal>=0,pctD=wTot>0?Math.round(wSp/wTot*100):0;
           runBalYr=runBalYr+wInc-wDeduct;
           const runPlusYr=runBalYr>=0;
           return(
             <div key={yr} style={{padding:'14px 0',borderBottom:`1px dashed ${C.border}`}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:10}}>
-                <span style={{fontFamily:MONO,fontSize:18,fontWeight:600,color:isCur?C.orange:C.text}}>{isCur?'▶ ':''}{yr}</span>
+                <span style={{fontFamily:MONO,fontSize:18,fontWeight:600,color:isCur?C.orange:C.text}}>{isCur?'▶ ':''}{yr}{isPartial&&<span style={{fontFamily:MONO,fontSize:10,fontWeight:600,color:C.muted,marginLeft:8,textTransform:'uppercase'}}>неполный год · {weeks} нед.</span>}</span>
                 <span style={{fontFamily:MONO,fontSize:13,fontWeight:600,color:inPlus?C.green:C.red}}>{inPlus?'+':'−'}{fmtN(bal)}</span>
               </div>
               <div style={{marginBottom:4}}><PBar pct={wInc>0?(wTot/wInc*100):0} color={C.orange} h={5}/></div>
@@ -211,7 +236,7 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx}){
                 <Stat label="доходы" value={wInc>0?fmtN(wInc):'—'} color={C.green} valueColor={wInc>0?C.green:C.muted}/>
                 <Stat label="расходы" value={wTot>0?fmtN(wTot):'—'} color={C.red} valueColor={wTot>0?C.red:C.muted}/>
                 <Stat label="оплачено" value={wSp>0?fmtN(wSp):'—'} color={C.orange} valueColor={wSp>0?C.orangeD:C.muted}/>
-                <Stat label="накоплено" value={bal>0?fmtN(bal):'—'} color={C.green} valueColor={bal>0?C.green:C.muted}/>
+                <Stat label="профицит" value={bal>0?fmtN(bal):'—'} color={C.green} valueColor={bal>0?C.green:C.muted}/>
               </div>
               <div style={{fontFamily:MONO,fontSize:11.5,fontWeight:600,color:runPlusYr?C.green:C.red,marginTop:10}}>Накопительный баланс: {runPlusYr?'+':'−'}{fmtN(runBalYr)}</div>
             </div>
