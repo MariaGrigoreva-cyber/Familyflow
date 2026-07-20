@@ -119,18 +119,18 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
           <button onClick={onWithdrawPiggy} style={{...s.card,display:'flex',alignItems:'center',gap:9,width:'100%',textAlign:'left',cursor:'pointer',background:C.greenL,border:`1px solid ${C.greenB}`,fontFamily:'inherit',boxSizing:'border-box'}}>
             <span style={{fontSize:18}}>🐷</span>
             <div style={{flex:1}}>
-              <div style={{fontSize:12,fontWeight:600,color:'oklch(0.42 0.09 150)'}}>В копилке {fmt(totalSaved)}</div>
-              <div style={{fontSize:10,color:'oklch(0.5 0.09 150)'}}>Нажмите, чтобы снять и потратить</div>
+              <div style={{fontSize:12,fontWeight:600,color:C.greenD}}>В копилке {fmt(totalSaved)}</div>
+              <div style={{fontSize:10,color:C.greenD}}>Нажмите, чтобы снять и потратить</div>
             </div>
-            <span style={{fontSize:14,color:'oklch(0.5 0.09 150)'}}>›</span>
+            <span style={{fontSize:14,color:C.greenD}}>›</span>
           </button>
         );
       })()}
       {txExtraIncome>0&&(
         <div style={{...s.card,background:C.greenL,border:`1px solid ${C.greenB}`}}>
-          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}><span style={{fontSize:11,fontWeight:600,color:'oklch(0.42 0.09 150)'}}>💰 Доп. доходы (факт)</span><span style={{fontFamily:MONO,fontSize:13,fontWeight:600,color:'oklch(0.45 0.11 150)'}}>+{fmtN(txExtraIncome)}</span></div>
+          <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:4}}><span style={{fontSize:11,fontWeight:600,color:C.greenD}}>💰 Доп. доходы (факт)</span><span style={{fontFamily:MONO,fontSize:13,fontWeight:600,color:C.greenD}}>+{fmtN(txExtraIncome)}</span></div>
           {(transactions||[]).filter(t=>t.type==='income').map((tx,i)=>(
-            <div key={i} style={{display:'flex',justifyContent:'space-between',paddingTop:4,borderTop:i===0?'none':`1px dashed ${C.greenB}`}}><span style={{fontSize:11,color:'oklch(0.45 0.08 150)'}}>{tx.name||'Доход'}</span><span style={{fontFamily:MONO,fontSize:11,fontWeight:600,color:'oklch(0.45 0.08 150)'}}>+{fmtN(tx.amount)}</span></div>
+            <div key={i} style={{display:'flex',justifyContent:'space-between',paddingTop:4,borderTop:i===0?'none':`1px dashed ${C.greenB}`}}><span style={{fontSize:11,color:C.greenD}}>{tx.name||'Доход'}</span><span style={{fontFamily:MONO,fontSize:11,fontWeight:600,color:C.greenD}}>+{fmtN(tx.amount)}</span></div>
           ))}
         </div>
       )}
@@ -140,14 +140,14 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
       </div>
       {extraUpcoming.map((p,i)=>(
         <button key={i} onClick={()=>onEditPayment(p)} style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'8px 0',border:'none',background:'none',borderBottom:`1px dashed ${C.border}`,cursor:'pointer',fontFamily:'inherit',textAlign:'left'}}>
-          <span style={{fontFamily:MONO,fontSize:10.5,fontWeight:600,color:'oklch(0.45 0.11 150)',background:C.greenL,borderRadius:6,padding:'3px 7px',flexShrink:0}}>{p.isDone?'✓':'🏆'}</span>
+          <span style={{fontFamily:MONO,fontSize:10.5,fontWeight:600,color:C.greenD,background:C.greenL,borderRadius:6,padding:'3px 7px',flexShrink:0}}>{p.isDone?'✓':'🏆'}</span>
           <div style={{flex:1}}><div style={{fontSize:13.5,fontWeight:500,color:C.text}}>{p.label}</div><div style={{fontFamily:MONO,fontSize:10,color:C.muted}}>{p.displayLabel}</div></div>
-          <span style={{fontFamily:MONO,fontSize:13,fontWeight:600,color:'oklch(0.45 0.11 150)'}}>{fmtN(p.actualAmount||p.amount)}</span>
+          <span style={{fontFamily:MONO,fontSize:13,fontWeight:600,color:C.greenD}}>{fmtN(p.actualAmount||p.amount)}</span>
         </button>
       ))}
       {upcoming.map((p,idx)=>{
         const chipBg=p.isDone?C.track:p.shifted?C.yellowL:C.orangeL;
-        const chipColor=p.isDone?'#8B8175':p.shifted?C.yellow:C.orangeD;
+        const chipColor=p.isDone?'var(--c-muted2)':p.shifted?C.yellow:C.orangeD;
         return(
           <button key={idx} onClick={()=>onEditPayment(p)} style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'8px 0',border:'none',background:'none',borderBottom:idx<upcoming.length-1?`1px dashed ${C.border}`:'none',cursor:'pointer',fontFamily:'inherit',textAlign:'left'}}>
             <span style={{fontFamily:MONO,fontSize:10.5,fontWeight:600,color:chipColor,background:chipBg,borderRadius:6,padding:'3px 7px',flexShrink:0}}>{bday(p.date)}</span>
@@ -164,15 +164,15 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
         );
       })}
       {upcomingAll.length>6&&(
-        <button onClick={()=>setShowAllUpcoming(p=>!p)} style={{width:'100%',padding:10,marginTop:10,borderRadius:12,border:`1px solid ${C.border}`,background:'#fff',color:C.orangeD,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>
+        <button onClick={()=>setShowAllUpcoming(p=>!p)} style={{width:'100%',padding:10,marginTop:10,borderRadius:12,border:`1px solid ${C.border}`,background:'var(--c-surface)',color:C.orangeD,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>
           {showAllUpcoming?'Свернуть список':`Показать все выплаты (${upcomingAll.length})`}
         </button>
       )}
       <div style={{display:'flex',gap:8,marginTop:10}}>
-        <button onClick={()=>setShowVacPlanner(p=>!p)} style={{flex:1,textAlign:'center',border:`1px solid ${C.border}`,borderRadius:12,padding:11,fontSize:12.5,fontWeight:600,color:C.orangeD,background:'#fff',cursor:'pointer',fontFamily:'inherit'}}>✈️ Отпуск</button>
-        <button onClick={onAddExtra} style={{flex:1,textAlign:'center',border:`1px solid ${C.border}`,borderRadius:12,padding:11,fontSize:12.5,fontWeight:600,color:C.orangeD,background:'#fff',cursor:'pointer',fontFamily:'inherit'}}>+ Доп. выплата</button>
+        <button onClick={()=>setShowVacPlanner(p=>!p)} style={{flex:1,textAlign:'center',border:`1px solid ${C.border}`,borderRadius:12,padding:11,fontSize:12.5,fontWeight:600,color:C.orangeD,background:'var(--c-surface)',cursor:'pointer',fontFamily:'inherit'}}>✈️ Отпуск</button>
+        <button onClick={onAddExtra} style={{flex:1,textAlign:'center',border:`1px solid ${C.border}`,borderRadius:12,padding:11,fontSize:12.5,fontWeight:600,color:C.orangeD,background:'var(--c-surface)',cursor:'pointer',fontFamily:'inherit'}}>+ Доп. выплата</button>
       </div>
-      <button onClick={()=>setShowGoalPlanner(p=>!p)} style={{width:'100%',textAlign:'center',border:`1px solid ${C.border}`,borderRadius:12,padding:11,fontSize:12.5,fontWeight:600,color:C.orangeD,background:'#fff',cursor:'pointer',fontFamily:'inherit',marginTop:8}}>🎯 {goal?goal.name||'Цель накопления':'Цель накопления'}</button>
+      <button onClick={()=>setShowGoalPlanner(p=>!p)} style={{width:'100%',textAlign:'center',border:`1px solid ${C.border}`,borderRadius:12,padding:11,fontSize:12.5,fontWeight:600,color:C.orangeD,background:'var(--c-surface)',cursor:'pointer',fontFamily:'inherit',marginTop:8}}>🎯 {goal?goal.name||'Цель накопления':'Цель накопления'}</button>
       {/* Цель накопления */}
       {showGoalPlanner&&(
         <div style={{...s.card,marginTop:10}}>
@@ -187,7 +187,7 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
               <div style={{display:'flex',alignItems:'center',gap:8}}>
                 <span style={{fontSize:13,color:C.muted,flex:1}}>Хочу накопить к</span>
                 <input type="date" value={goalDate} onChange={e=>setGoalDate(e.target.value)}
-                  style={{border:`1px solid ${C.border}`,borderRadius:8,padding:'5px 8px',fontSize:13,outline:'none',fontFamily:'inherit',background:'#fff',color:C.text}}/>
+                  style={{border:`1px solid ${C.border}`,borderRadius:8,padding:'5px 8px',fontSize:13,outline:'none',fontFamily:'inherit',background:'var(--c-surface)',color:C.text}}/>
               </div>
               <button disabled={!goalAmount||!goalDate} onClick={()=>{
                   onSetGoal({id:uid(),name:goalName||'Цель накопления',targetAmount:parseInt(goalAmount)||0,targetDate:goalDate});
@@ -251,7 +251,7 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
               <div style={{display:'flex',alignItems:'center',gap:6}}>
                 <input type="text" inputMode="numeric" value={vacActual12||''} onChange={e=>setVacActual12(e.target.value)}
                   placeholder={`~${fmt(Math.round(vacBasis12))} (годовая сумма)`}
-                  style={{width:110,border:`1px solid ${vacActual12?C.greenB:C.yellowB}`,borderRadius:8,padding:'4px 8px',fontSize:13,outline:'none',fontFamily:'inherit',background:'#fff'}}/>
+                  style={{width:110,border:`1px solid ${vacActual12?C.greenB:C.yellowB}`,borderRadius:8,padding:'4px 8px',fontSize:13,outline:'none',fontFamily:'inherit',background:'var(--c-surface)'}}/>
                 <span style={{fontSize:12,color:C.muted}}>₽</span>
               </div>
               {!vacActual12&&<span style={{fontSize:11,color:C.muted}}>← годовая сумма (~gross × 12)</span>}
@@ -267,14 +267,14 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
             <div style={{display:'flex',alignItems:'center',gap:8}}>
               <span style={{fontSize:13,color:C.muted,flex:1}}>Дата начала</span>
               <input type="date" value={vacStart} onChange={e=>{setVacStart(e.target.value);setVacAdded(false);}}
-                style={{border:`1px solid ${C.border}`,borderRadius:8,padding:'5px 8px',fontSize:13,outline:'none',fontFamily:'inherit',background:'#fff',color:C.text}}/>
+                style={{border:`1px solid ${C.border}`,borderRadius:8,padding:'5px 8px',fontSize:13,outline:'none',fontFamily:'inherit',background:'var(--c-surface)',color:C.text}}/>
             </div>
             <div style={{display:'flex',alignItems:'center',gap:8}}>
               <span style={{fontSize:13,color:C.muted,flex:1}}>Количество дней</span>
               <div style={{display:'flex',gap:4}}>
                 {[7,14,21,28].map(d=>(
                   <button key={d} onClick={()=>{setVacDays(d);setVacAdded(false);}}
-                    style={{padding:'5px 10px',borderRadius:8,border:`1px solid ${vacDays===d?C.orangeB:C.border}`,background:vacDays===d?C.orangeL:'#fff',color:vacDays===d?C.orangeD:C.text,fontSize:12,cursor:'pointer',fontFamily:'inherit'}}>
+                    style={{padding:'5px 10px',borderRadius:8,border:`1px solid ${vacDays===d?C.orangeB:C.border}`,background:vacDays===d?C.orangeL:'var(--c-surface)',color:vacDays===d?C.orangeD:C.text,fontSize:12,cursor:'pointer',fontFamily:'inherit'}}>
                     {d}
                   </button>
                 ))}

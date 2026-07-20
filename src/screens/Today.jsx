@@ -67,8 +67,8 @@ const HOW_SLIDES=[
       </div>
       <div style={{display:'flex',justifyContent:'center',marginBottom:8}}>
         <div style={{background:C.greenL,border:`1px solid ${C.greenB}`,borderRadius:12,padding:'10px 24px',textAlign:'center'}}>
-          <div style={{fontFamily:MONO,fontSize:9.5,color:'oklch(0.5 0.09 150)',letterSpacing:1,fontWeight:600,marginBottom:2}}>ДОХОД</div>
-          <div style={{fontSize:14,fontWeight:600,color:'oklch(0.4 0.09 150)'}}>💰 Зарплата семьи</div>
+          <div style={{fontFamily:MONO,fontSize:9.5,color:C.greenD,letterSpacing:1,fontWeight:600,marginBottom:2}}>ДОХОД</div>
+          <div style={{fontSize:14,fontWeight:600,color:C.greenD}}>💰 Зарплата семьи</div>
         </div>
       </div>
       <div style={{display:'flex',justifyContent:'center',marginBottom:8}}>
@@ -77,7 +77,7 @@ const HOW_SLIDES=[
           <div style={{width:0,height:0,borderLeft:'5px solid transparent',borderRight:'5px solid transparent',borderTop:`7px solid ${C.greenB}`}}/>
         </div>
       </div>
-      <div style={{background:'#fff',border:`1.5px solid ${C.orange}`,borderRadius:14,padding:'14px 16px',marginBottom:6,textAlign:'center',position:'relative'}}>
+      <div style={{background:'var(--c-surface)',border:`1.5px solid ${C.orange}`,borderRadius:14,padding:'14px 16px',marginBottom:6,textAlign:'center',position:'relative'}}>
         <div style={{position:'absolute',top:-9,left:'50%',transform:'translateX(-50%)',background:C.bg,padding:'0 8px'}}>
           <span style={{fontFamily:MONO,fontSize:9,color:C.orangeD,fontWeight:600,letterSpacing:1.5}}>ГЛАВНЫЙ СЧЁТ</span>
         </div>
@@ -144,9 +144,9 @@ const HOW_SLIDES=[
         ].map((b,i)=>(
           <div key={i} style={{background:b.bg,borderRadius:16,border:`1px solid ${b.bdr}`,padding:16,marginBottom:14}}>
             <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:10}}>
-              <div style={{width:48,height:48,borderRadius:14,background:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,flexShrink:0}}>{b.e}</div>
+              <div style={{width:48,height:48,borderRadius:14,background:'var(--c-surface)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,flexShrink:0}}>{b.e}</div>
               <div style={{flex:1}}><div style={{fontSize:18,fontWeight:600,color:b.textCol}}>{b.t}</div><div style={{fontSize:11,color:C.text2,marginTop:1}}>{b.s}</div></div>
-              <span style={{fontFamily:MONO,fontSize:11,color:b.textCol,fontWeight:600,background:'#fff',padding:'4px 8px',borderRadius:8,border:`1px solid ${b.bdr}`,flexShrink:0}}>{b.pct}</span>
+              <span style={{fontFamily:MONO,fontSize:11,color:b.textCol,fontWeight:600,background:'var(--c-surface)',padding:'4px 8px',borderRadius:8,border:`1px solid ${b.bdr}`,flexShrink:0}}>{b.pct}</span>
             </div>
             <div style={{fontSize:12,color:C.text2,lineHeight:1.5,marginBottom:10}}>{b.d}</div>
             <div style={{display:'flex',flexDirection:'column',gap:5}}>{b.items.map((item,j)=><div key={j} style={{display:'flex',alignItems:'center',gap:8}}><div style={{width:4,height:4,borderRadius:2,background:b.textCol,flexShrink:0}}/><span style={{fontSize:12,color:C.text2}}>{item}</span></div>)}</div>
@@ -204,7 +204,7 @@ export function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx,onQuick
 
   if(showHow) return(
     <div style={{flex:1,display:'flex',flexDirection:'column',overflow:'hidden'}}>
-      <div style={{display:'flex',alignItems:'center',padding:'10px 16px',background:'#fff',borderBottom:`1px solid ${C.border}`,flexShrink:0,justifyContent:'space-between'}}>
+      <div style={{display:'flex',alignItems:'center',padding:'10px 16px',background:'var(--c-surface)',borderBottom:`1px solid ${C.border}`,flexShrink:0,justifyContent:'space-between'}}>
         <button onClick={()=>{setShowHow(false);setHowSlide(0);}} style={{background:'none',border:'none',cursor:'pointer',fontSize:13,color:C.muted,fontFamily:'inherit'}}>← Назад</button>
         <div style={{display:'flex',gap:5}}>
           {HOW_SLIDES.map((_,i)=><div key={i} onClick={()=>setHowSlide(i)} style={{width:i===howSlide?20:6,height:6,borderRadius:3,background:i===howSlide?C.orange:C.border,transition:'width .2s',cursor:'pointer'}}/>)}

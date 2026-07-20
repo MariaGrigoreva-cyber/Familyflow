@@ -121,19 +121,19 @@ export function HealthScreen({state}){
           <div style={{display:'flex',alignItems:'center',gap:10}}>
             <span style={{fontSize:22}}>🐷</span>
             <div style={{flex:1}}>
-              <div style={{fontSize:13.5,fontWeight:500,color:'oklch(0.42 0.09 150)'}}>Копилка (Piggy Bank)</div>
-              <div style={{fontSize:11,color:'oklch(0.5 0.08 150)',marginTop:1}}>накопительный счёт №2</div>
+              <div style={{fontSize:13.5,fontWeight:500,color:C.greenD}}>Копилка (Piggy Bank)</div>
+              <div style={{fontSize:11,color:C.greenD,marginTop:1}}>накопительный счёт №2</div>
             </div>
             <div style={{textAlign:'right'}}>
-              <div style={{fontFamily:MONO,fontSize:15,fontWeight:600,color:'oklch(0.42 0.09 150)'}}>+{fmtN(piggyActual)}</div>
-              <div style={{fontFamily:MONO,fontSize:10.5,color:'oklch(0.5 0.08 150)'}}>план {fmtN(piggyMonthly)}/мес</div>
+              <div style={{fontFamily:MONO,fontSize:15,fontWeight:600,color:C.greenD}}>+{fmtN(piggyActual)}</div>
+              <div style={{fontFamily:MONO,fontSize:10.5,color:C.greenD}}>план {fmtN(piggyMonthly)}/мес</div>
             </div>
           </div>
           {piggyMonthly>0&&<>
             <div style={{height:5,background:C.greenB,borderRadius:3,overflow:'hidden',marginTop:10}}>
               <div style={{height:5,width:`${Math.min(Math.round(piggyActual/piggyMonthly*100),100)}%`,background:C.green,borderRadius:3}}/>
             </div>
-            <div style={{fontFamily:MONO,fontSize:10.5,color:'oklch(0.5 0.08 150)',marginTop:6}}>
+            <div style={{fontFamily:MONO,fontSize:10.5,color:C.greenD,marginTop:6}}>
               {Math.round(piggyActual/piggyMonthly*100)}% от месячного плана · {fmtN(Math.max(piggyMonthly-piggyActual,0))} ещё не отложено
             </div>
           </>}

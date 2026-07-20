@@ -61,6 +61,13 @@ export default function App(){
 
   const[consented,setConsentedRaw]=useState(()=>savedState?.consented||false);
   const[onboarded,setOnboardedRaw]=useState(()=>savedState?.onboarded||false);
+  // Тема: 'auto' следует системной, 'light'/'dark' — ручной выбор, запоминается отдельно от бюджета
+  const[theme,setThemeRaw]=useState(()=>{try{return localStorage.getItem('ff_theme')||'auto';}catch{return 'auto';}});
+  useEffect(()=>{
+    if(theme==='auto') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme',theme);
+  },[theme]);
+  const setTheme=v=>{setThemeRaw(v);try{localStorage.setItem('ff_theme',v);}catch{}};
   const[tab,setTab]=useState('today');
   const[tourStep,setTourStep]=useState(-1); // -1 = тур выключен
   const[showSplash,setShowSplash]=useState(true); // загрузочный экран при старте приложения
@@ -529,7 +536,7 @@ useEffect(() => {
   );
   return(
     <div style={shell}>
-      <div style={{background:'#fff',flexShrink:0,position:'sticky',top:0,zIndex:50}}>
+      <div style={{background:'var(--c-surface)',flexShrink:0,position:'sticky',top:0,zIndex:50}}>
         <div style={{padding:'14px 20px 12px',display:'flex',justifyContent:'space-between',alignItems:'baseline'}}>
           <span style={{fontSize:20,fontWeight:600,letterSpacing:-.2,color:C.text}}>{TAB_TITLES[tab]}</span>
           <span style={{fontFamily:MONO,fontSize:11,color:C.muted}}>{(appState.familyName||'').toUpperCase()}{appState.familyName?' · НЕД ':''}{getISOWeek(new Date()).week}</span>
@@ -538,8 +545,8 @@ useEffect(() => {
           <div style={{display:'flex',alignItems:'center',gap:8,background:C.orangeL,borderTop:`1px solid ${C.orangeB}`,borderBottom:`1px solid ${C.orangeB}`,padding:'7px 14px'}}>
             <span style={{fontSize:13}}>👁</span>
             <span style={{flex:1,fontFamily:MONO,fontSize:11,color:C.orangeD}}>ДЕМО · СЕМЬЯ ИВАНОВЫХ</span>
-            <button onClick={()=>{setTab('today');setTourStep(0);}} style={{fontFamily:MONO,fontSize:10.5,fontWeight:600,color:C.orangeD,background:'#fff',border:`1px solid ${C.orangeB}`,padding:'4px 10px',borderRadius:20,cursor:'pointer'}}>▶ ТУР</button>
-            <button onClick={()=>setStartLogin(true)} style={{fontFamily:MONO,fontSize:10.5,fontWeight:600,color:C.orangeD,background:'#fff',border:`1px solid ${C.orangeB}`,padding:'4px 10px',borderRadius:20,cursor:'pointer'}}>АККАУНТ</button>
+            <button onClick={()=>{setTab('today');setTourStep(0);}} style={{fontFamily:MONO,fontSize:10.5,fontWeight:600,color:C.orangeD,background:'var(--c-surface)',border:`1px solid ${C.orangeB}`,padding:'4px 10px',borderRadius:20,cursor:'pointer'}}>▶ ТУР</button>
+            <button onClick={()=>setStartLogin(true)} style={{fontFamily:MONO,fontSize:10.5,fontWeight:600,color:C.orangeD,background:'var(--c-surface)',border:`1px solid ${C.orangeB}`,padding:'4px 10px',borderRadius:20,cursor:'pointer'}}>АККАУНТ</button>
             <button onClick={exitDemo} style={{fontFamily:MONO,fontSize:10.5,fontWeight:600,color:'#fff',background:C.orange,border:'none',padding:'4px 10px',borderRadius:20,cursor:'pointer'}}>СВОИ ДАННЫЕ</button>
           </div>
         )}
@@ -550,7 +557,7 @@ useEffect(() => {
           {tab==='plan'&&<PlanScreen state={appState} onToggle={handleToggle} onAdd={(wk)=>{setAddWeek(wk);setShowAdd(true);}} onEditTx={handleEditTx}/>}
           {tab==='budget'&&<BudgetScreen state={appState} onEditPlanned={item=>{setEditItem(item);setShowEdit(true);}} onAddPlanned={handleAddPlanned} onEditPayment={handleEditPayment} onAddExtra={(data)=>{if(data&&data.amount){handleAddExtra(data);}else{setShowAddExtra(true);}}} onWithdrawPiggy={()=>setShowWithdrawPiggy(true)} onSetGoal={handleSetGoal} onAddGoalToPlan={handleEditPlanned}/>}
           {tab==='health'&&<HealthScreen state={appState}/>}
-          {tab==='settings'&&<SettingsScreen state={appState} onEditCat={item=>{setEditItem(item||null);setShowEdit(true);}} onAddCat={handleAddPlanned} onEditIncome={handleEditIncome} onAddIncome={handleAddIncomeSource} onUpdateMember={handleUpdateMember} onAddMember={handleAddMember} onRemoveMember={handleRemoveMember}/>}
+          {tab==='settings'&&<SettingsScreen state={appState} onEditCat={item=>{setEditItem(item||null);setShowEdit(true);}} onAddCat={handleAddPlanned} onEditIncome={handleEditIncome} onAddIncome={handleAddIncomeSource} onUpdateMember={handleUpdateMember} onAddMember={handleAddMember} onRemoveMember={handleRemoveMember} theme={theme} onSetTheme={setTheme}/>}
         </Suspense>
       </div>
       <TabBar active={tab} onPress={setTab}/>
@@ -652,7 +659,7 @@ function StartLoginForm({onClose}){
         {step==='login'&&<div style={{display:'flex',gap:6,marginTop:10,marginBottom:2}}>
           {[['register','Регистрация'],['login','Вход']].map(([id,l])=>(
             <button key={id} onClick={()=>{setMode(id);setErr('');}}
-              style={{flex:1,textAlign:'center',fontFamily:MONO,fontSize:11,fontWeight:600,padding:9,borderRadius:10,border:`1px solid ${mode===id?C.orange:C.border}`,background:mode===id?C.orange:'#fff',color:mode===id?'#fff':C.muted,cursor:'pointer'}}>{l.toUpperCase()}</button>
+              style={{flex:1,textAlign:'center',fontFamily:MONO,fontSize:11,fontWeight:600,padding:9,borderRadius:10,border:`1px solid ${mode===id?C.orange:C.border}`,background:mode===id?C.orange:'var(--c-surface)',color:mode===id?'#fff':C.muted,cursor:'pointer'}}>{l.toUpperCase()}</button>
           ))}
         </div>}
         {step==='reset2'&&<div style={{fontSize:12,color:C.text2,marginBottom:8,lineHeight:'17px'}}>
@@ -660,12 +667,12 @@ function StartLoginForm({onClose}){
         </div>}
         <div style={{marginTop:8}}/>
         <input type="email" placeholder="email" value={email} onChange={e=>setEmail(e.target.value)} autoFocus disabled={step==='reset2'}
-          style={{width:'100%',boxSizing:'border-box',background:'#fff',border:`1px solid ${C.border}`,borderRadius:12,padding:'13px 15px',fontSize:14,color:step==='reset2'?C.muted:C.text,outline:'none',fontFamily:'inherit',marginBottom:8}}/>
+          style={{width:'100%',boxSizing:'border-box',background:'var(--c-surface)',border:`1px solid ${C.border}`,borderRadius:12,padding:'13px 15px',fontSize:14,color:step==='reset2'?C.muted:C.text,outline:'none',fontFamily:'inherit',marginBottom:8}}/>
         {step==='reset2'&&<input inputMode="numeric" placeholder="код из письма (6 цифр)" value={code} onChange={e=>setCode(e.target.value)}
-          style={{width:'100%',boxSizing:'border-box',background:'#fff',border:`1px solid ${C.border}`,borderRadius:12,padding:'13px 15px',fontSize:14,color:C.text,outline:'none',fontFamily:'inherit',marginBottom:8,letterSpacing:4}}/>}
+          style={{width:'100%',boxSizing:'border-box',background:'var(--c-surface)',border:`1px solid ${C.border}`,borderRadius:12,padding:'13px 15px',fontSize:14,color:C.text,outline:'none',fontFamily:'inherit',marginBottom:8,letterSpacing:4}}/>}
         {step!=='reset1'&&<input type="password" placeholder={step==='reset2'?'новый пароль (мин. 6)':'пароль'} value={pass} onChange={e=>setPass(e.target.value)}
           onKeyDown={e=>e.key==='Enter'&&(step==='login'?submit():confirmReset())}
-          style={{width:'100%',boxSizing:'border-box',background:'#fff',border:`1px solid ${C.border}`,borderRadius:12,padding:'13px 15px',fontSize:14,color:C.text,outline:'none',fontFamily:'inherit',marginBottom:10}}/>}
+          style={{width:'100%',boxSizing:'border-box',background:'var(--c-surface)',border:`1px solid ${C.border}`,borderRadius:12,padding:'13px 15px',fontSize:14,color:C.text,outline:'none',fontFamily:'inherit',marginBottom:10}}/>}
         {err&&<div style={{fontSize:12,color:C.red,marginBottom:10}}>{err}</div>}
         {step==='login'&&mode==='register'&&<div style={{fontSize:10.5,lineHeight:1.5,color:C.muted,marginBottom:10}}>
           Регистрируясь, вы принимаете <span onClick={()=>setShowPolicy(true)} style={{color:C.orangeD,textDecoration:'underline',cursor:'pointer'}}>условия использования</span> и даёте согласие на обработку персональных данных (152-ФЗ).

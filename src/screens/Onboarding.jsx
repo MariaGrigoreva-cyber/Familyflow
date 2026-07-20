@@ -21,7 +21,7 @@ export function EntryScreen({onDemo,onSetup,onLoginClick}){
   const[policy,setPolicy]=useState(false);
   if(policy)return(
     <div style={{height:'100%',maxWidth:480,margin:'0 auto',width:'100%',boxSizing:'border-box',background:C.bg,display:'flex',flexDirection:'column'}}>
-      <div style={{display:'flex',alignItems:'center',gap:12,padding:'14px 16px',background:'#fff',borderBottom:`1px solid ${C.border}`,position:'sticky',top:0,zIndex:10}}>
+      <div style={{display:'flex',alignItems:'center',gap:12,padding:'14px 16px',background:'var(--c-surface)',borderBottom:`1px solid ${C.border}`,position:'sticky',top:0,zIndex:10}}>
         <button onClick={()=>setPolicy(false)} style={{background:'none',border:'none',cursor:'pointer',fontSize:13,color:C.orangeD,fontFamily:'inherit'}}>← Назад</button>
         <span style={{fontSize:15,fontWeight:600,color:C.text}}>Политика конфиденциальности</span>
       </div>
@@ -44,14 +44,14 @@ export function EntryScreen({onDemo,onSetup,onLoginClick}){
       <div style={{fontFamily:MONO,fontSize:10.5,letterSpacing:1.5,color:C.muted,margin:'30px 0 12px',textTransform:'uppercase'}}>КАК ХОТИТЕ НАЧАТЬ?</div>
       <div style={{display:'flex',flexDirection:'column',gap:8}}>
         <button onClick={onDemo} style={{width:'100%',display:'flex',alignItems:'center',gap:13,border:`1.5px solid ${C.orange}`,background:C.orangeL,borderRadius:14,padding:'14px 16px',cursor:'pointer',textAlign:'left',fontFamily:'inherit',boxSizing:'border-box'}}>
-          <span style={{width:38,height:38,borderRadius:11,background:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>▶</span>
+          <span style={{width:38,height:38,borderRadius:11,background:'var(--c-surface)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>▶</span>
           <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:C.orangeD}}>Демо-данные</div><div style={{fontSize:11.5,color:C.orangeD,opacity:.8,marginTop:1}}>семья Ивановых · 30 секунд</div></div>
         </button>
-        <button onClick={onSetup} style={{width:'100%',display:'flex',alignItems:'center',gap:13,border:`1px solid ${C.border}`,background:'#fff',borderRadius:14,padding:'14px 16px',cursor:'pointer',textAlign:'left',fontFamily:'inherit',boxSizing:'border-box'}}>
+        <button onClick={onSetup} style={{width:'100%',display:'flex',alignItems:'center',gap:13,border:`1px solid ${C.border}`,background:'var(--c-surface)',borderRadius:14,padding:'14px 16px',cursor:'pointer',textAlign:'left',fontFamily:'inherit',boxSizing:'border-box'}}>
           <span style={{width:38,height:38,borderRadius:11,background:C.cream,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>⚙️</span>
           <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:C.text}}>Настроить свой бюджет</div><div style={{fontSize:11.5,color:C.muted,marginTop:1}}>5 минут · доход, платежи, категории</div></div>
         </button>
-        <button onClick={onLoginClick} style={{width:'100%',display:'flex',alignItems:'center',gap:13,border:`1px solid ${C.border}`,background:'#fff',borderRadius:14,padding:'14px 16px',cursor:'pointer',textAlign:'left',fontFamily:'inherit',boxSizing:'border-box'}}>
+        <button onClick={onLoginClick} style={{width:'100%',display:'flex',alignItems:'center',gap:13,border:`1px solid ${C.border}`,background:'var(--c-surface)',borderRadius:14,padding:'14px 16px',cursor:'pointer',textAlign:'left',fontFamily:'inherit',boxSizing:'border-box'}}>
           <span style={{width:38,height:38,borderRadius:11,background:C.cream,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>🔑</span>
           <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:C.text}}>Есть аккаунт / хочу зарегистрироваться</div><div style={{fontSize:11.5,color:C.muted,marginTop:1}}>войти или создать аккаунт — бюджет синхронизируется с облаком</div></div>
         </button>
@@ -100,7 +100,7 @@ export function IntroStories({onDone}){
             <div style={{width:96,height:96,borderRadius:28,background:FRAME_BG[introPage],display:'flex',alignItems:'center',justifyContent:'center',fontSize:46}}>{FRAMES[introPage].icon}</div>
             <div style={{fontFamily:MONO,fontSize:10.5,letterSpacing:1.5,color:C.muted,textTransform:'uppercase',marginTop:30}}>{FRAMES[introPage].eyebrow} · {introPage+1} / {TOTAL}</div>
             <div style={{fontSize:30,fontWeight:600,letterSpacing:-.5,lineHeight:1.2,color:C.text,marginTop:10,whiteSpace:'pre-line'}}>{FRAMES[introPage].title}</div>
-            <div style={{fontSize:14,color:'#8B8175',lineHeight:1.55,marginTop:14,maxWidth:270}}>{FRAMES[introPage].sub}</div>
+            <div style={{fontSize:14,color:'var(--c-muted2)',lineHeight:1.55,marginTop:14,maxWidth:270}}>{FRAMES[introPage].sub}</div>
           </div>
           <div style={{textAlign:'center',fontFamily:MONO,fontSize:10,color:C.faint,position:'relative',zIndex:1}}>ТАП — ДАЛЬШЕ · ЛЕВЫЙ КРАЙ — НАЗАД</div>
         </>
@@ -109,11 +109,11 @@ export function IntroStories({onDone}){
           {introPage>0&&<button onClick={retreat} style={{alignSelf:'flex-start',background:'none',border:'none',cursor:'pointer',fontSize:13,color:C.muted,fontFamily:'inherit',padding:0,marginBottom:8}}>← Назад</button>}
           <div style={{fontFamily:MONO,fontSize:10.5,letterSpacing:1.5,color:C.muted,textTransform:'uppercase',marginTop:8}}>МЕТОДИКА · {TOTAL} / {TOTAL}</div>
           <div style={{fontSize:30,fontWeight:600,letterSpacing:-.5,lineHeight:1.15,color:C.text,marginTop:10}}>Раз в неделю —<br/>по трём потокам</div>
-          <div style={{fontSize:14,color:'#8B8175',lineHeight:1.55,marginTop:12}}>Все деньги приходят на один счёт. FamilyFlow распределяет их по направлениям — вы просто переводите по плану.</div>
+          <div style={{fontSize:14,color:'var(--c-muted2)',lineHeight:1.55,marginTop:12}}>Все деньги приходят на один счёт. FamilyFlow распределяет их по направлениям — вы просто переводите по плану.</div>
           <div style={{display:'flex',flexDirection:'column',gap:10,marginTop:26}}>
             {STREAMS.map((b,i)=>(
               <div key={i} style={{display:'flex',alignItems:'center',gap:14,background:b.bg,borderRadius:16,padding:'16px 18px'}}>
-                <span style={{width:44,height:44,borderRadius:13,background:'#fff',display:'flex',alignItems:'center',justifyContent:'center',fontSize:21,flexShrink:0}}>{b.e}</span>
+                <span style={{width:44,height:44,borderRadius:13,background:'var(--c-surface)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:21,flexShrink:0}}>{b.e}</span>
                 <div style={{flex:1}}><div style={{fontSize:15,fontWeight:600,color:b.col}}>{b.t}</div><div style={{fontSize:11.5,color:b.col,opacity:.85,marginTop:1}}>{b.s}</div></div>
                 <span style={{fontFamily:MONO,fontSize:16,fontWeight:600,color:b.col}}>{b.pct}</span>
               </div>
@@ -165,7 +165,7 @@ export function Onboarding({onDone}){
     onDone({familyName:familyName||'Моя семья',startBalance:parseInt(startBalance)||0,members:finalMembers,incomes:bi,planned:bp,customCats:[],payments:{},extraPayments:[],transactions:[]});
   };
   const OSteps=({current})=>(
-    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'16px 24px',background:'#fff',borderBottom:`1px solid ${C.border}`}}>
+    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',padding:'16px 24px',background:'var(--c-surface)',borderBottom:`1px solid ${C.border}`}}>
       {current>0?<button onClick={goBack} style={{background:'none',border:'none',cursor:'pointer',fontSize:13,color:C.muted,fontFamily:'inherit'}}>← Назад</button>:<div style={{width:50}}/>}
       <div style={{display:'flex',gap:5,alignItems:'center'}}>{[0,1,2,3].map(i=><div key={i} style={{width:i===current?20:8,height:5,borderRadius:3,background:i===current?C.orange:i<current?C.green:C.border,transition:'all .2s'}}/>)}</div>
       <span style={{fontFamily:MONO,fontSize:10.5,color:C.muted}}>{current+1} / 4</span>
@@ -180,7 +180,7 @@ export function Onboarding({onDone}){
       <div style={{overflowY:'auto',flex:1,minHeight:0}}><div style={pad}>
         <h2 style={{fontSize:24,fontWeight:600,letterSpacing:-.3,color:C.text,margin:'0 0 20px'}}>Семья и стартовый баланс</h2>
         <div style={{fontFamily:MONO,fontSize:10.5,letterSpacing:1.5,color:C.muted,textTransform:'uppercase',marginBottom:8}}>СКОЛЬКО СЕЙЧАС НА СЧЕТАХ?</div>
-        <div style={{border:`1.5px solid ${C.orange}`,background:'#fff',borderRadius:14,padding:'16px 18px',display:'flex',alignItems:'baseline',justifyContent:'space-between',boxSizing:'border-box'}}>
+        <div style={{border:`1.5px solid ${C.orange}`,background:'var(--c-surface)',borderRadius:14,padding:'16px 18px',display:'flex',alignItems:'baseline',justifyContent:'space-between',boxSizing:'border-box'}}>
           <input type="text" inputMode="numeric" value={startBalance} onChange={e=>setStartBalance(e.target.value)} placeholder="0"
             style={{border:'none',outline:'none',fontFamily:MONO,fontSize:28,fontWeight:500,letterSpacing:-.5,color:C.text,width:'70%',background:'transparent'}}/>
           <span style={{fontFamily:MONO,fontSize:18,color:C.muted}}>₽</span>
@@ -193,7 +193,7 @@ export function Onboarding({onDone}){
             <div key={m.id} style={{display:'flex',alignItems:'center',gap:10}}>
               <button onClick={()=>setEmojiPickerFor(m.id)} style={{width:42,height:42,borderRadius:'50%',background:m.color,border:'none',display:'flex',alignItems:'center',justifyContent:'center',fontSize:19,flexShrink:0,cursor:'pointer'}}>{m.avatar}</button>
               <input type="text" value={m.name} onChange={e=>setMembers(p=>p.map(x=>x.id===m.id?{...x,name:e.target.value}:x))} placeholder="Имя участника" style={{...s.input,flex:1}}/>
-              <button onClick={()=>removeMember(m.id)} style={{position:'relative',width:30,height:30,borderRadius:'50%',border:`1px solid ${C.border}`,background:'#fff',color:C.muted,fontSize:14,cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}><span style={{position:'absolute',inset:-7}}/>×</button>
+              <button onClick={()=>removeMember(m.id)} style={{position:'relative',width:30,height:30,borderRadius:'50%',border:`1px solid ${C.border}`,background:'var(--c-surface)',color:C.muted,fontSize:14,cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}><span style={{position:'absolute',inset:-7}}/>×</button>
             </div>
           ))}
           <button onClick={addMember} style={{textAlign:'center',border:`1.5px dashed ${C.borderS}`,borderRadius:12,padding:12,fontSize:13,fontWeight:600,color:C.orangeD,background:'none',cursor:'pointer',fontFamily:'inherit'}}>+ Добавить участника</button>
@@ -229,7 +229,7 @@ export function Onboarding({onDone}){
                   const active=(inc.incomeType||'employed')===t.id;
                   return(
                     <button key={t.id} onClick={()=>updInc(inc.id,'incomeType',t.id)}
-                      style={{display:'flex',alignItems:'center',gap:12,padding:'11px 14px',borderRadius:12,border:`${active?'1.5px':'1px'} solid ${active?C.orange:C.border}`,background:active?C.orangeL:'#fff',cursor:'pointer',fontFamily:'inherit',textAlign:'left'}}>
+                      style={{display:'flex',alignItems:'center',gap:12,padding:'11px 14px',borderRadius:12,border:`${active?'1.5px':'1px'} solid ${active?C.orange:C.border}`,background:active?C.orangeL:'var(--c-surface)',cursor:'pointer',fontFamily:'inherit',textAlign:'left'}}>
                       <span style={{fontSize:17}}>{t.emoji}</span>
                       <div style={{flex:1}}>
                         <div style={{fontSize:13.5,fontWeight:600,color:active?C.orangeD:C.text}}>{t.name}</div>
@@ -245,15 +245,15 @@ export function Onboarding({onDone}){
                   <span style={{fontSize:12.5,color:C.muted,flex:1}}>Ставка налога</span>
                   {[4,6].map(r=>(
                     <button key={r} onClick={()=>updInc(inc.id,'taxRate',String(r))}
-                      style={{padding:'5px 12px',borderRadius:20,border:`1px solid ${(parseFloat(inc.taxRate)||6)===r?C.orange:C.border}`,background:(parseFloat(inc.taxRate)||6)===r?C.orange:'#fff',color:(parseFloat(inc.taxRate)||6)===r?'#fff':C.muted,fontSize:12,cursor:'pointer',fontFamily:'inherit'}}>
+                      style={{padding:'5px 12px',borderRadius:20,border:`1px solid ${(parseFloat(inc.taxRate)||6)===r?C.orange:C.border}`,background:(parseFloat(inc.taxRate)||6)===r?C.orange:'var(--c-surface)',color:(parseFloat(inc.taxRate)||6)===r?'#fff':C.muted,fontSize:12,cursor:'pointer',fontFamily:'inherit'}}>
                       {r}% {r===4?'· физлицам':'· юрлицам'}
                     </button>
                   ))}
                 </div>
               )}
-              <div style={{border:`1px solid ${C.border}`,background:'#fff',borderRadius:14,marginBottom:10,overflow:'hidden'}}>
+              <div style={{border:`1px solid ${C.border}`,background:'var(--c-surface)',borderRadius:14,marginBottom:10,overflow:'hidden'}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'13px 16px',borderBottom:`1px dashed ${C.border}`}}>
-                  <span style={{fontSize:12.5,color:'#8B8175'}}>{(inc.incomeType||'employed')==='manual'?'Доход в месяц (на руки)':(inc.incomeType||'employed')==='self'?'Доход в месяц (до налога)':'Доход до вычета НДФЛ'}</span>
+                  <span style={{fontSize:12.5,color:'var(--c-muted2)'}}>{(inc.incomeType||'employed')==='manual'?'Доход в месяц (на руки)':(inc.incomeType||'employed')==='self'?'Доход в месяц (до налога)':'Доход до вычета НДФЛ'}</span>
                   <div style={{display:'flex',alignItems:'center',gap:4}}>
                     <input type="text" inputMode="numeric" value={inc.gross} onChange={e=>updInc(inc.id,'gross',e.target.value)} style={{width:100,textAlign:'right',border:'none',fontFamily:MONO,fontSize:16,fontWeight:600,outline:'none',color:C.text}}/>
                     <span style={{fontFamily:MONO,fontSize:12,color:C.muted}}>₽</span>
@@ -261,17 +261,17 @@ export function Onboarding({onDone}){
                 </div>
                 {gross>0&&<>
                   {iType==='employed'&&<div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'11px 16px',borderBottom:`1px dashed ${C.border}`}}>
-                    <span style={{fontSize:12,color:'#8B8175'}}>Ставка НДФЛ</span>
+                    <span style={{fontSize:12,color:'var(--c-muted2)'}}>Ставка НДФЛ</span>
                     <span style={{fontFamily:MONO,fontSize:11,color:C.yellow}}>{getNDFLDesc(gross)}</span>
                   </div>}
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'13px 16px',background:C.greenL}}>
-                    <span style={{fontSize:12.5,color:'oklch(0.42 0.09 150)'}}>{iType==='manual'?'На руки/мес':iType==='self'?`После налога ${parseFloat(inc.taxRate)||6}%`:'Средний net/мес'}</span>
-                    <span style={{fontFamily:MONO,fontSize:16,fontWeight:600,color:'oklch(0.45 0.11 150)'}}>{fmtN(avgNet)} ₽</span>
+                    <span style={{fontSize:12.5,color:C.greenD}}>{iType==='manual'?'На руки/мес':iType==='self'?`После налога ${parseFloat(inc.taxRate)||6}%`:'Средний net/мес'}</span>
+                    <span style={{fontFamily:MONO,fontSize:16,fontWeight:600,color:C.greenD}}>{fmtN(avgNet)} ₽</span>
                   </div>
                 </>}
               </div>
               {showBreakdown&&(
-                <div style={{border:`1px solid ${C.border}`,background:'#fff',borderRadius:14,padding:0,marginBottom:10,overflow:'hidden'}}>
+                <div style={{border:`1px solid ${C.border}`,background:'var(--c-surface)',borderRadius:14,padding:0,marginBottom:10,overflow:'hidden'}}>
                   <div style={{padding:'9px 14px',borderBottom:`1px dashed ${C.border}`,fontFamily:MONO,fontSize:9.5,fontWeight:600,letterSpacing:.5,color:C.muted,textTransform:'uppercase'}}>НДФЛ по месяцам</div>
                   {Array.from({length:12},(_,i)=>i+1).map(mn=>{
                     const{monthlyNDFL,bracket,monthlyNet}=calcMonthlyNDFL(gross,mn);
@@ -295,7 +295,7 @@ export function Onboarding({onDone}){
               <DayPicker selected={inc.advanceDays} onToggle={d=>updInc(inc.id,'advanceDays',inc.advanceDays.includes(d)?inc.advanceDays.filter(x=>x!==d):[...inc.advanceDays,d].sort((a,b)=>a-b))} title="ДЕНЬ АВАНСА"/>
               <div style={{marginBottom:8}}>
                 <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
-                  <span style={{fontSize:12.5,color:'#8B8175',flex:1}}>Аванс</span>
+                  <span style={{fontSize:12.5,color:'var(--c-muted2)',flex:1}}>Аванс</span>
                   <div style={{display:'flex',gap:4}}>
                     {[['pct','% от суммы'],['abs','Сумма ₽']].map(([mode,label])=>(
                       <button key={mode} onClick={()=>updInc(inc.id,'advanceMode',mode)}
@@ -324,8 +324,8 @@ export function Onboarding({onDone}){
           );
         })}
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',background:C.greenL,borderRadius:12,padding:'13px 16px',marginBottom:20}}>
-          <span style={{fontSize:12.5,color:'oklch(0.42 0.09 150)'}}>Суммарный net семьи / мес</span>
-          <span style={{fontFamily:MONO,fontSize:16,fontWeight:600,color:'oklch(0.45 0.11 150)'}}>{fmtN(memberIncomes.reduce((s,i)=>s+calcNetFor(i),0))} ₽</span>
+          <span style={{fontSize:12.5,color:C.greenD}}>Суммарный net семьи / мес</span>
+          <span style={{fontFamily:MONO,fontSize:16,fontWeight:600,color:C.greenD}}>{fmtN(memberIncomes.reduce((s,i)=>s+calcNetFor(i),0))} ₽</span>
         </div>
         <Btn label="Далее →" onClick={goNext}/>
       </div></div>
@@ -338,7 +338,7 @@ export function Onboarding({onDone}){
       <OSteps current={2}/>
       <div style={{overflowY:'auto',flex:1,minHeight:0}}><div style={pad}>
         <h2 style={{fontSize:24,fontWeight:600,letterSpacing:-.3,color:C.text,margin:0}}>Категории трат</h2>
-        <div style={{fontSize:12.5,color:'#8B8175',marginTop:4,marginBottom:14}}>Выберите — как иконки на телефоне, потом настройте суммы</div>
+        <div style={{fontSize:12.5,color:'var(--c-muted2)',marginTop:4,marginBottom:14}}>Выберите — как иконки на телефоне, потом настройте суммы</div>
         <div style={{display:'flex',gap:10,alignItems:'flex-start',background:C.cream,borderRadius:12,padding:'11px 13px',marginBottom:18}}>
           <span style={{fontSize:14,flexShrink:0}}>ℹ️</span>
           <span style={{fontSize:11.5,lineHeight:1.5,color:C.text2}}>Этот шаг можно пропустить — категории и суммы всегда можно добавить или изменить позже в разделе «Настройки».</span>
@@ -347,11 +347,11 @@ export function Onboarding({onDone}){
           {DEFAULT_CATS.map(cat=>{const active=selectedCats.has(cat.id);return(
             <button key={cat.id} onClick={()=>{const n=new Set(selectedCats);active?n.delete(cat.id):n.add(cat.id);setSelectedCats(n);if(!active)setOpenCat(cat.id);}}
               style={{display:'flex',flexDirection:'column',alignItems:'center',gap:6,background:'none',border:'none',cursor:'pointer',fontFamily:'inherit',opacity:active?1:.55}}>
-              <div style={{position:'relative',width:54,height:54,borderRadius:16,background:active?cat.color:'#fff',border:active?'none':`1.5px dashed ${C.borderS}`,boxSizing:'border-box',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24}}>
+              <div style={{position:'relative',width:54,height:54,borderRadius:16,background:active?cat.color:'var(--c-surface)',border:active?'none':`1.5px dashed ${C.borderS}`,boxSizing:'border-box',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24}}>
                 {cat.emoji}
                 {active&&<span style={{position:'absolute',top:-5,right:-5,width:16,height:16,borderRadius:'50%',background:C.orange,color:'#fff',fontSize:9,display:'flex',alignItems:'center',justifyContent:'center'}}>✓</span>}
               </div>
-              <span style={{fontSize:10.5,fontWeight:500,color:active?C.text:'#8B8175'}}>{cat.name}</span>
+              <span style={{fontSize:10.5,fontWeight:500,color:active?C.text:'var(--c-muted2)'}}>{cat.name}</span>
             </button>
           );})}
         </div>
@@ -360,7 +360,7 @@ export function Onboarding({onDone}){
           {Array.from(selectedCats).map(catId=>{
             const cat=DEFAULT_CATS.find(c=>c.id===catId);const setup=catSetup[catId]||{};const isOpen=openCat===catId;const rep=setup.repeat||'weekly';
             return(
-              <div key={catId} style={{border:`1px solid ${C.border}`,background:'#fff',borderRadius:14,marginBottom:8,overflow:'hidden'}}>
+              <div key={catId} style={{border:`1px solid ${C.border}`,background:'var(--c-surface)',borderRadius:14,marginBottom:8,overflow:'hidden'}}>
                 <button onClick={()=>setOpenCat(isOpen?null:catId)} style={{display:'flex',alignItems:'center',gap:11,padding:'12px 15px',width:'100%',background:'none',border:'none',cursor:'pointer',fontFamily:'inherit'}}>
                   <span style={{width:30,height:30,borderRadius:9,background:cat?.color,display:'flex',alignItems:'center',justifyContent:'center',fontSize:15,flexShrink:0}}>{cat?.emoji}</span>
                   <span style={{flex:1,fontSize:14,fontWeight:600,color:C.text,textAlign:'left'}}>{cat?.name}</span>
@@ -369,12 +369,12 @@ export function Onboarding({onDone}){
                 </button>
                 {isOpen&&<div style={{padding:'0 15px 14px',borderTop:`1px dashed ${C.border}`}}>
                   <div style={{display:'flex',alignItems:'center',marginBottom:10,gap:8,paddingTop:12}}>
-                    <span style={{fontSize:12,color:'#8B8175',flex:1}}>Сумма</span>
+                    <span style={{fontSize:12,color:'var(--c-muted2)',flex:1}}>Сумма</span>
                     <input type="text" inputMode="numeric" value={setup.amount||''} onChange={e=>updCat(catId,'amount',e.target.value)} style={{width:90,textAlign:'right',border:`1px solid ${C.border}`,borderRadius:8,padding:'6px 10px',fontFamily:MONO,fontSize:14,outline:'none'}}/>
                     <span style={{fontFamily:MONO,fontSize:12,color:C.muted}}>₽</span>
                   </div>
                   <div style={{display:'flex',gap:6,marginBottom:10}}>
-                    {REPEAT_OPTS.map(r=><button key={r.id} onClick={()=>updCat(catId,'repeat',r.id)} style={{flex:1,textAlign:'center',fontFamily:MONO,fontSize:9.5,fontWeight:600,padding:'7px 2px',borderRadius:8,border:`1px solid ${rep===r.id?C.orange:C.border}`,background:rep===r.id?C.orange:'#fff',color:rep===r.id?'#fff':'#8B8175',cursor:'pointer'}}>{r.label.toUpperCase()}</button>)}
+                    {REPEAT_OPTS.map(r=><button key={r.id} onClick={()=>updCat(catId,'repeat',r.id)} style={{flex:1,textAlign:'center',fontFamily:MONO,fontSize:9.5,fontWeight:600,padding:'7px 2px',borderRadius:8,border:`1px solid ${rep===r.id?C.orange:C.border}`,background:rep===r.id?C.orange:'var(--c-surface)',color:rep===r.id?'#fff':'var(--c-muted2)',cursor:'pointer'}}>{r.label.toUpperCase()}</button>)}
                   </div>
                   {rep==='monthly'&&<>
                     <DayPicker selected={setup.days||[]} onToggle={d=>toggleCatDay(catId,d)} title={`ЧИСЛА: ${(setup.days||[]).length===0?'НЕ ВЫБРАНО':(setup.days||[]).join(', ')}`}/>
@@ -385,12 +385,12 @@ export function Onboarding({onDone}){
                       <div style={{fontFamily:MONO,fontSize:10,fontWeight:600,letterSpacing:.5,color:C.text2,marginBottom:8,textTransform:'uppercase'}}>Дата платежа</div>
                       <div style={{display:'flex',gap:6,marginBottom:8}}>
                         {[new Date().getFullYear(),new Date().getFullYear()+1,new Date().getFullYear()+2].map(y=>(
-                          <button key={y} onClick={()=>updCat(catId,'onceYear',y)} style={{flex:1,padding:5,borderRadius:7,border:`1px solid ${(setup.onceYear||new Date().getFullYear())===y?C.orange:C.border}`,background:(setup.onceYear||new Date().getFullYear())===y?C.orange:'#fff',color:(setup.onceYear||new Date().getFullYear())===y?'#fff':C.text,fontSize:11,fontWeight:(setup.onceYear||new Date().getFullYear())===y?600:400,cursor:'pointer',fontFamily:'inherit'}}>{y}</button>
+                          <button key={y} onClick={()=>updCat(catId,'onceYear',y)} style={{flex:1,padding:5,borderRadius:7,border:`1px solid ${(setup.onceYear||new Date().getFullYear())===y?C.orange:C.border}`,background:(setup.onceYear||new Date().getFullYear())===y?C.orange:'var(--c-surface)',color:(setup.onceYear||new Date().getFullYear())===y?'#fff':C.text,fontSize:11,fontWeight:(setup.onceYear||new Date().getFullYear())===y?600:400,cursor:'pointer',fontFamily:'inherit'}}>{y}</button>
                         ))}
                       </div>
                       <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8}}>
                         {MONTH_SHORT.map((name,i)=>{const m=i+1,active=(setup.onceMonth||new Date().getMonth()+1)===m;return(
-                          <button key={m} onClick={()=>updCat(catId,'onceMonth',m)} style={{padding:'3px 6px',borderRadius:6,border:`1px solid ${active?C.orange:C.border}`,background:active?C.orange:'#fff',color:active?'#fff':C.text,fontSize:10,fontWeight:active?600:400,cursor:'pointer',fontFamily:'inherit',minWidth:'30%'}}>{name}</button>
+                          <button key={m} onClick={()=>updCat(catId,'onceMonth',m)} style={{padding:'3px 6px',borderRadius:6,border:`1px solid ${active?C.orange:C.border}`,background:active?C.orange:'var(--c-surface)',color:active?'#fff':C.text,fontSize:10,fontWeight:active?600:400,cursor:'pointer',fontFamily:'inherit',minWidth:'30%'}}>{name}</button>
                         );})}
                       </div>
                       <DayPicker selected={[setup.onceDay||new Date().getDate()]} onToggle={d=>updCat(catId,'onceDay',d)}/>
@@ -400,9 +400,9 @@ export function Onboarding({onDone}){
                     </div>
                   )}
                   <div style={{display:'flex',alignItems:'center',gap:8}}>
-                    <span style={{fontSize:12,color:'#8B8175',flex:1}}>Кто платит</span>
+                    <span style={{fontSize:12,color:'var(--c-muted2)',flex:1}}>Кто платит</span>
                     <div style={{display:'flex',gap:6}}>
-                      {activeMembers.map(m=><button key={m.id} onClick={()=>updCat(catId,'memberId',m.id)} style={{display:'flex',alignItems:'center',gap:5,padding:'5px 10px',borderRadius:8,border:`1px solid ${(setup.memberId||activeMembers[0]?.id)===m.id?C.orange:C.border}`,background:(setup.memberId||activeMembers[0]?.id)===m.id?C.orangeL:'#fff',color:(setup.memberId||activeMembers[0]?.id)===m.id?C.orangeD:'#8B8175',fontSize:12,fontWeight:(setup.memberId||activeMembers[0]?.id)===m.id?600:400,cursor:'pointer',fontFamily:'inherit'}}>{m.avatar} {m.name}</button>)}
+                      {activeMembers.map(m=><button key={m.id} onClick={()=>updCat(catId,'memberId',m.id)} style={{display:'flex',alignItems:'center',gap:5,padding:'5px 10px',borderRadius:8,border:`1px solid ${(setup.memberId||activeMembers[0]?.id)===m.id?C.orange:C.border}`,background:(setup.memberId||activeMembers[0]?.id)===m.id?C.orangeL:'var(--c-surface)',color:(setup.memberId||activeMembers[0]?.id)===m.id?C.orangeD:'var(--c-muted2)',fontSize:12,fontWeight:(setup.memberId||activeMembers[0]?.id)===m.id?600:400,cursor:'pointer',fontFamily:'inherit'}}>{m.avatar} {m.name}</button>)}
                     </div>
                   </div>
                 </div>}

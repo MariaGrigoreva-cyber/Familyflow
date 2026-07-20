@@ -1,16 +1,18 @@
 // FamilyFlow — ядро: константы, утилиты дат, НДФЛ, расчёты, демо-данные
 // Палитра «Тёплый гроссбух»: терракота — единственный акцент, зелёный — доход/копилка/done, янтарь — предупреждения.
+// Значения — CSS-переменные (см. public/index.html): так тёмная тема не требует
+// трогать ни один из мест использования C.xxx по всему приложению.
 const C = {
-  orange:'oklch(0.62 0.13 40)', orangeD:'oklch(0.5 0.12 40)', orangeL:'oklch(0.96 0.02 40)', orangeB:'oklch(0.9 0.05 40)',
-  dark:'#1C1916', white:'#FFFFFF', bg:'#FCFBF8',
-  border:'#EAE4DA', borderS:'#D8CFC2',
-  text:'#1C1916', text2:'#6B6156', muted:'#A39A8D', faint:'#C9BFB0',
-  green:'oklch(0.55 0.12 150)', greenL:'oklch(0.96 0.02 150)', greenB:'oklch(0.85 0.06 150)',
-  red:'oklch(0.5 0.13 30)', redL:'oklch(0.96 0.02 30)', redB:'oklch(0.9 0.05 30)',
-  yellow:'oklch(0.5 0.11 85)', yellowL:'oklch(0.96 0.02 85)', yellowB:'oklch(0.9 0.05 85)',
-  blue:'oklch(0.65 0.08 250)', blueL:'oklch(0.95 0.02 250)', blueB:'oklch(0.85 0.05 250)',
-  purple:'oklch(0.6 0.1 300)',
-  track:'#EFE9DF', cream:'#F5F0E8',
+  orange:'var(--c-orange)', orangeD:'var(--c-orange-d)', orangeL:'var(--c-orange-l)', orangeB:'var(--c-orange-b)',
+  dark:'var(--c-text)', white:'var(--c-surface)', bg:'var(--c-bg)',
+  border:'var(--c-border)', borderS:'var(--c-border-s)',
+  text:'var(--c-text)', text2:'var(--c-text2)', muted:'var(--c-muted)', muted2:'var(--c-muted2)', faint:'var(--c-faint)',
+  green:'var(--c-green)', greenD:'var(--c-green-d)', greenL:'var(--c-green-l)', greenB:'var(--c-green-b)',
+  red:'var(--c-red)', redL:'var(--c-red-l)', redB:'var(--c-red-b)',
+  yellow:'var(--c-yellow)', yellowL:'var(--c-yellow-l)', yellowB:'var(--c-yellow-b)',
+  blue:'var(--c-blue)', blueL:'var(--c-blue-l)', blueB:'var(--c-blue-b)',
+  purple:'var(--c-purple)',
+  track:'var(--c-track)', cream:'var(--c-cream)',
 };
 const MONO = "'IBM Plex Mono', monospace";
 
@@ -264,27 +266,27 @@ const nextMemberTint=idx=>MEMBER_TINTS[idx%MEMBER_TINTS.length];
 const buildDemoState=()=>{
   const members=[{id:'m1',name:'Мария',avatar:'👩',color:'oklch(0.9 0.04 40)'},{id:'m2',name:'Сергей',avatar:'👨',color:'oklch(0.9 0.04 85)'}];
   const incomes=[
-    {id:'i1',memberId:'m1',gross:220000,salaryDays:[10],advanceDays:[25],advancePct:'40',advanceMode:'pct'},
-    {id:'i2',memberId:'m2',gross:214000,salaryDays:[5],advanceDays:[20],advancePct:'40',advanceMode:'pct'},
+    {id:'i1',memberId:'m1',gross:140000,salaryDays:[10],advanceDays:[25],advancePct:'40',advanceMode:'pct'},
+    {id:'i2',memberId:'m2',gross:160000,salaryDays:[5],advanceDays:[20],advancePct:'40',advanceMode:'pct'},
   ];
   const planned=[
     {id:'dp1',catId:'mortgage',name:'Ипотека',amount:52000,memberId:'m1',repeat:'monthly',days:[15]},
-    {id:'dp2',catId:'piggy',name:'Копилка',amount:10000,memberId:'m1',repeat:'weekly',days:[]},
-    {id:'dp3',catId:'food',name:'Еда',amount:10000,memberId:'m1',repeat:'weekly',days:[]},
-    {id:'dp4',catId:'food',name:'Еда',amount:8000,memberId:'m2',repeat:'weekly',days:[]},
-    {id:'dp5',catId:'transport',name:'Транспорт',amount:5350,memberId:'m2',repeat:'weekly',days:[]},
-    {id:'dp6',catId:'clothes',name:'Одежда',amount:6000,memberId:'m1',repeat:'weekly',days:[]},
-    {id:'dp7',catId:'home',name:'Дом',amount:4000,memberId:'m1',repeat:'weekly',days:[]},
-    {id:'dp8',catId:'fun',name:'Развлечения',amount:2500,memberId:'m2',repeat:'weekly',days:[]},
+    {id:'dp2',catId:'piggy',name:'Копилка',amount:5000,memberId:'m1',repeat:'weekly',days:[]},
+    {id:'dp3',catId:'food',name:'Еда',amount:7000,memberId:'m1',repeat:'weekly',days:[]},
+    {id:'dp4',catId:'food',name:'Еда',amount:6000,memberId:'m2',repeat:'weekly',days:[]},
+    {id:'dp5',catId:'transport',name:'Транспорт',amount:4000,memberId:'m2',repeat:'weekly',days:[]},
+    {id:'dp6',catId:'clothes',name:'Одежда',amount:12000,memberId:'m1',repeat:'monthly',days:[1]},
+    {id:'dp7',catId:'home',name:'Дом',amount:3000,memberId:'m1',repeat:'weekly',days:[]},
+    {id:'dp8',catId:'fun',name:'Развлечения',amount:3000,memberId:'m2',repeat:'weekly',days:[]},
   ];
   const weekItems=generateAllWeeks(planned);
   const week=todayKey();
   // Отмечаем часть текущей недели: еда Марии (частично категории)
   if(weekItems[week]){
     weekItems[week]=weekItems[week].map(i=>{
-      if(i.catId==='food'&&i.memberId==='m1')return{...i,isDone:true};       // 10 000
-      if(i.catId==='transport')return{...i,isDone:true};                     // 5 350
-      if(i.catId==='piggy')return{...i,isDone:true};                         // копилка 10 000
+      if(i.catId==='food'&&i.memberId==='m1')return{...i,isDone:true};       // 7 000
+      if(i.catId==='transport')return{...i,isDone:true};                     // 4 000
+      if(i.catId==='piggy')return{...i,isDone:true};                         // копилка 5 000
       return i;
     });
   }

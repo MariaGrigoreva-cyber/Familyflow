@@ -17,11 +17,58 @@
       * { box-sizing: border-box; margin: 0; padding: 0; }
       html, body { overflow-x: hidden; max-width: 100%; }
       body { font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-             background: #FCFBF8; -webkit-tap-highlight-color: transparent; }
+             background: var(--c-bg); -webkit-tap-highlight-color: transparent; }
       #root { min-height: 100dvh; }
+      /* Палитра «Тёплый гроссбух» как CSS-переменные — светлая по умолчанию, тёмная по системной
+         теме (пока пользователь не переключил вручную) и по явному data-theme со страницы. */
+      :root, :root[data-theme="light"] {
+        --c-bg:#FCFBF8; --c-surface:#FFFFFF;
+        --c-border:#EAE4DA; --c-border-s:#D8CFC2;
+        --c-text:#1C1916; --c-text2:#6B6156; --c-muted:#A39A8D; --c-muted2:#8B8175; --c-faint:#C9BFB0;
+        --c-track:#EFE9DF; --c-cream:#F5F0E8;
+        --c-orange:oklch(0.62 0.13 40); --c-orange-d:oklch(0.5 0.12 40); --c-orange-l:oklch(0.96 0.02 40); --c-orange-b:oklch(0.9 0.05 40);
+        --c-green:oklch(0.55 0.12 150); --c-green-d:oklch(0.45 0.1 150); --c-green-l:oklch(0.96 0.02 150); --c-green-b:oklch(0.85 0.06 150);
+        --c-red:oklch(0.5 0.13 30); --c-red-l:oklch(0.96 0.02 30); --c-red-b:oklch(0.9 0.05 30);
+        --c-yellow:oklch(0.5 0.11 85); --c-yellow-l:oklch(0.96 0.02 85); --c-yellow-b:oklch(0.9 0.05 85);
+        --c-blue:oklch(0.65 0.08 250); --c-blue-l:oklch(0.95 0.02 250); --c-blue-b:oklch(0.85 0.05 250);
+        --c-purple:oklch(0.6 0.1 300);
+      }
+      :root[data-theme="dark"] {
+        --c-bg:oklch(0.19 0.012 40); --c-surface:oklch(0.235 0.014 40);
+        --c-border:oklch(0.32 0.014 40); --c-border-s:oklch(0.38 0.016 40);
+        --c-text:oklch(0.94 0.006 40); --c-text2:oklch(0.74 0.012 40); --c-muted:oklch(0.56 0.012 40); --c-muted2:oklch(0.62 0.012 40); --c-faint:oklch(0.42 0.012 40);
+        --c-track:oklch(0.27 0.014 40); --c-cream:oklch(0.25 0.014 40);
+        --c-orange:oklch(0.68 0.14 40); --c-orange-d:oklch(0.82 0.1 40); --c-orange-l:oklch(0.28 0.06 40); --c-orange-b:oklch(0.42 0.09 40);
+        --c-green:oklch(0.62 0.13 150); --c-green-d:oklch(0.82 0.1 150); --c-green-l:oklch(0.26 0.05 150); --c-green-b:oklch(0.4 0.08 150);
+        --c-red:oklch(0.62 0.15 30); --c-red-l:oklch(0.26 0.05 30); --c-red-b:oklch(0.4 0.09 30);
+        --c-yellow:oklch(0.72 0.13 85); --c-yellow-l:oklch(0.26 0.05 85); --c-yellow-b:oklch(0.42 0.08 85);
+        --c-blue:oklch(0.72 0.09 250); --c-blue-l:oklch(0.26 0.05 250); --c-blue-b:oklch(0.42 0.08 250);
+        --c-purple:oklch(0.7 0.11 300);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme]) {
+          --c-bg:oklch(0.19 0.012 40); --c-surface:oklch(0.235 0.014 40);
+          --c-border:oklch(0.32 0.014 40); --c-border-s:oklch(0.38 0.016 40);
+          --c-text:oklch(0.94 0.006 40); --c-text2:oklch(0.74 0.012 40); --c-muted:oklch(0.56 0.012 40); --c-muted2:oklch(0.62 0.012 40); --c-faint:oklch(0.42 0.012 40);
+          --c-track:oklch(0.27 0.014 40); --c-cream:oklch(0.25 0.014 40);
+          --c-orange:oklch(0.68 0.14 40); --c-orange-d:oklch(0.82 0.1 40); --c-orange-l:oklch(0.28 0.06 40); --c-orange-b:oklch(0.42 0.09 40);
+          --c-green:oklch(0.62 0.13 150); --c-green-d:oklch(0.82 0.1 150); --c-green-l:oklch(0.26 0.05 150); --c-green-b:oklch(0.4 0.08 150);
+          --c-red:oklch(0.62 0.15 30); --c-red-l:oklch(0.26 0.05 30); --c-red-b:oklch(0.4 0.09 30);
+          --c-yellow:oklch(0.72 0.13 85); --c-yellow-l:oklch(0.26 0.05 85); --c-yellow-b:oklch(0.42 0.08 85);
+          --c-blue:oklch(0.72 0.09 250); --c-blue-l:oklch(0.26 0.05 250); --c-blue-b:oklch(0.42 0.08 250);
+          --c-purple:oklch(0.7 0.11 300);
+        }
+      }
       /* Разряды в цифрах (моно-шрифт): word-spacing сужает именно пробел-разделитель,
          не трогая расстояние между самими цифрами — надёжно работает во всех движках. */
       [style*="IBM Plex Mono"] { word-spacing: -0.3em; }
+      /* Нативные поля ввода по умолчанию у браузера белые independent от темы — страховка
+         на случай инлайн-стиля без явного фона/цвета текста. Конкретный inline-style всё
+         равно перекроет это, так что конфликтов с уже оформленными полями нет. */
+      input, textarea, select {
+        background: var(--c-surface);
+        color: var(--c-text);
+      }
       /* Видимый фокус для клавиатурной навигации — многие поля отключают outline инлайн-стилем,
          !important здесь оправдан: это единственный способ восстановить фокус-кольцо поверх них. */
       input:focus-visible, textarea:focus-visible, button:focus-visible, [tabindex]:focus-visible {

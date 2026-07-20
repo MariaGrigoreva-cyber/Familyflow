@@ -75,7 +75,7 @@ export function AddExtraModal({visible,onClose,onSave,members,incomes=[]}){
       <div style={{padding:16,paddingBottom:40}}>
         <div style={{fontSize:10,color:C.muted,textTransform:'uppercase',letterSpacing:.5,marginBottom:6}}>Тип</div>
         <div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:14}}>
-          {TYPES.map(t=><button key={t.id} onClick={()=>setType(t.id)} style={{display:'flex',alignItems:'center',gap:5,padding:'8px 11px',borderRadius:20,border:`1px solid ${type===t.id?C.orangeB:C.border}`,background:type===t.id?C.orangeL:'#fff',color:type===t.id?C.orangeD:C.muted,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}><span style={{fontSize:16}}>{t.emoji}</span>{t.label}</button>)}
+          {TYPES.map(t=><button key={t.id} onClick={()=>setType(t.id)} style={{display:'flex',alignItems:'center',gap:5,padding:'8px 11px',borderRadius:20,border:`1px solid ${type===t.id?C.orangeB:C.border}`,background:type===t.id?C.orangeL:'var(--c-surface)',color:type===t.id?C.orangeD:C.muted,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}><span style={{fontSize:16}}>{t.emoji}</span>{t.label}</button>)}
         </div>
         <div style={{fontSize:10,color:C.muted,textTransform:'uppercase',letterSpacing:.5,marginBottom:6}}>Название (необязательно)</div>
         <input type="text" value={label} onChange={e=>setLabel(e.target.value)} placeholder="Квартальная премия" style={{...s.input,marginBottom:14}}/>
@@ -87,16 +87,16 @@ export function AddExtraModal({visible,onClose,onSave,members,incomes=[]}){
         {memberIncomes.length>1&&(<>
           <div style={{fontSize:10,color:C.muted,textTransform:'uppercase',letterSpacing:.5,marginBottom:6}}>Источник дохода</div>
           <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:14}}>
-            {memberIncomes.map(inc=><button key={inc.id} onClick={()=>setIncomeId(inc.id)} style={{padding:'6px 11px',borderRadius:20,border:`1px solid ${incomeId===inc.id?C.orangeB:C.border}`,background:incomeId===inc.id?C.orangeL:'#fff',color:incomeId===inc.id?C.orangeD:C.muted,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}>{inc.name||`${fmt(inc.gross)}/мес`}</button>)}
+            {memberIncomes.map(inc=><button key={inc.id} onClick={()=>setIncomeId(inc.id)} style={{padding:'6px 11px',borderRadius:20,border:`1px solid ${incomeId===inc.id?C.orangeB:C.border}`,background:incomeId===inc.id?C.orangeL:'var(--c-surface)',color:incomeId===inc.id?C.orangeD:C.muted,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}>{inc.name||`${fmt(inc.gross)}/мес`}</button>)}
           </div>
         </>)}
         <div style={{fontSize:10,color:C.muted,textTransform:'uppercase',letterSpacing:.5,marginBottom:6}}>Год</div>
         <div style={{display:'flex',gap:8,marginBottom:14}}>
-          {[now.getFullYear(),now.getFullYear()+1].map(y=><button key={y} onClick={()=>setSelYear(y)} style={{flex:1,padding:8,borderRadius:8,border:`1px solid ${selYear===y?C.orangeB:C.border}`,background:selYear===y?C.orangeL:'#fff',color:selYear===y?C.orangeD:C.text,fontSize:14,fontWeight:selYear===y?600:400,cursor:'pointer',fontFamily:'inherit'}}>{y}</button>)}
+          {[now.getFullYear(),now.getFullYear()+1].map(y=><button key={y} onClick={()=>setSelYear(y)} style={{flex:1,padding:8,borderRadius:8,border:`1px solid ${selYear===y?C.orangeB:C.border}`,background:selYear===y?C.orangeL:'var(--c-surface)',color:selYear===y?C.orangeD:C.text,fontSize:14,fontWeight:selYear===y?600:400,cursor:'pointer',fontFamily:'inherit'}}>{y}</button>)}
         </div>
         <div style={{fontSize:10,color:C.muted,textTransform:'uppercase',letterSpacing:.5,marginBottom:6}}>Месяц</div>
         <div style={{display:'flex',flexWrap:'wrap',gap:6,marginBottom:14}}>
-          {MONTH_FULL.map((name,i)=>{const m=i+1,active=selMonth===m;return<button key={m} onClick={()=>setSelMonth(m)} style={{padding:'5px 10px',borderRadius:8,border:`1px solid ${active?C.orangeB:C.border}`,background:active?C.orangeL:'#fff',color:active?C.orangeD:C.text,fontSize:11,fontWeight:active?600:400,cursor:'pointer',fontFamily:'inherit',minWidth:'30%'}}>{name}</button>;})}
+          {MONTH_FULL.map((name,i)=>{const m=i+1,active=selMonth===m;return<button key={m} onClick={()=>setSelMonth(m)} style={{padding:'5px 10px',borderRadius:8,border:`1px solid ${active?C.orangeB:C.border}`,background:active?C.orangeL:'var(--c-surface)',color:active?C.orangeD:C.text,fontSize:11,fontWeight:active?600:400,cursor:'pointer',fontFamily:'inherit',minWidth:'30%'}}>{name}</button>;})}
         </div>
         <DayPicker selected={[safeDay]} onToggle={d=>setSelDay(d)} title="День"/>
         <div style={{...s.card,background:shifted?C.yellowL:C.greenL,border:`1px solid ${shifted?C.yellowB:C.greenB}`,padding:12,marginBottom:16}}>
@@ -158,7 +158,7 @@ export function AddTxModal({visible,onClose,onSave,members,planned,customCats=[]
         })()}
         <div style={{fontSize:10,color:C.muted,textTransform:'uppercase',letterSpacing:.5,marginBottom:6}}>Категория</div>
         <div style={{display:'flex',gap:7,overflowX:'auto',marginBottom:12,paddingBottom:4}}>
-          {cats.map(cat=><button key={cat.id} onClick={()=>setCatId(cat.id)} style={{display:'flex',alignItems:'center',gap:5,flexShrink:0,padding:'8px 11px',borderRadius:20,border:`1px solid ${catId===cat.id?C.orangeB:C.border}`,background:catId===cat.id?C.orangeL:'#fff',color:catId===cat.id?C.orangeD:C.muted,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}><span style={{fontSize:15}}>{cat.emoji}</span>{cat.name}</button>)}
+          {cats.map(cat=><button key={cat.id} onClick={()=>setCatId(cat.id)} style={{display:'flex',alignItems:'center',gap:5,flexShrink:0,padding:'8px 11px',borderRadius:20,border:`1px solid ${catId===cat.id?C.orangeB:C.border}`,background:catId===cat.id?C.orangeL:'var(--c-surface)',color:catId===cat.id?C.orangeD:C.muted,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}><span style={{fontSize:15}}>{cat.emoji}</span>{cat.name}</button>)}
         </div>
         <div style={{fontSize:10,color:C.muted,textTransform:'uppercase',letterSpacing:.5,marginBottom:6}}>Кто платит</div>
         <div style={{display:'flex',gap:4,marginBottom:12}}>
@@ -222,7 +222,7 @@ export function EditCatModal({visible,item,members,onClose,onSave,onDelete,custo
           <input type="text" value={catName} onChange={e=>setCatName(e.target.value)} placeholder="Кафе и рестораны" autoFocus style={{...s.input,marginBottom:14}}/>
           <div style={{fontSize:10,color:C.muted,textTransform:'uppercase',letterSpacing:.5,marginBottom:6}}>Иконка</div>
           <div style={{display:'flex',flexWrap:'wrap',gap:8,marginBottom:16}}>
-            {EMOJIS.map(e=><button key={e} onClick={()=>setCatEmoji(e)} style={{width:40,height:40,borderRadius:10,border:`1px solid ${catEmoji===e?C.orangeB:C.border}`,background:catEmoji===e?C.orangeL:'#fff',cursor:'pointer',fontSize:20,display:'flex',alignItems:'center',justifyContent:'center'}}>{e}</button>)}
+            {EMOJIS.map(e=><button key={e} onClick={()=>setCatEmoji(e)} style={{width:40,height:40,borderRadius:10,border:`1px solid ${catEmoji===e?C.orangeB:C.border}`,background:catEmoji===e?C.orangeL:'var(--c-surface)',cursor:'pointer',fontSize:20,display:'flex',alignItems:'center',justifyContent:'center'}}>{e}</button>)}
           </div>
         </>}
         <div style={s.card}>
@@ -256,12 +256,12 @@ export function EditCatModal({visible,item,members,onClose,onSave,onDelete,custo
             <div style={{fontSize:12,fontWeight:700,color:C.blue,marginBottom:8}}>📅 Дата платежа</div>
             <div style={{display:'flex',gap:8,marginBottom:10}}>
               {[now.getFullYear(),now.getFullYear()+1,now.getFullYear()+2].map(y=>(
-                <button key={y} onClick={()=>setOnceYear(y)} style={{flex:1,padding:6,borderRadius:8,border:`1px solid ${onceYear===y?C.orangeB:C.border}`,background:onceYear===y?C.orangeL:'#fff',color:onceYear===y?C.orangeD:C.text,fontSize:12,fontWeight:onceYear===y?600:400,cursor:'pointer',fontFamily:'inherit'}}>{y}</button>
+                <button key={y} onClick={()=>setOnceYear(y)} style={{flex:1,padding:6,borderRadius:8,border:`1px solid ${onceYear===y?C.orangeB:C.border}`,background:onceYear===y?C.orangeL:'var(--c-surface)',color:onceYear===y?C.orangeD:C.text,fontSize:12,fontWeight:onceYear===y?600:400,cursor:'pointer',fontFamily:'inherit'}}>{y}</button>
               ))}
             </div>
             <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:10}}>
               {MONTH_FULL.map((name,i)=>{const m=i+1,active=onceMonth===m;return(
-                <button key={m} onClick={()=>setOnceMonth(m)} style={{padding:'4px 8px',borderRadius:7,border:`1px solid ${active?C.orangeB:C.border}`,background:active?C.orangeL:'#fff',color:active?C.orangeD:C.text,fontSize:11,fontWeight:active?600:400,cursor:'pointer',fontFamily:'inherit',minWidth:'30%'}}>{name}</button>
+                <button key={m} onClick={()=>setOnceMonth(m)} style={{padding:'4px 8px',borderRadius:7,border:`1px solid ${active?C.orangeB:C.border}`,background:active?C.orangeL:'var(--c-surface)',color:active?C.orangeD:C.text,fontSize:11,fontWeight:active?600:400,cursor:'pointer',fontFamily:'inherit',minWidth:'30%'}}>{name}</button>
               );})}
             </div>
             <DayPicker selected={[onceDay]} onToggle={d=>setOnceDay(d)}/>
@@ -374,7 +374,7 @@ export function WithdrawPiggyModal({visible,onClose,onSave,members,customCats=[]
         <input type="text" value={name} onChange={e=>setName(e.target.value)} placeholder="Новый холодильник" style={{...s.input,marginBottom:14}}/>
         <div style={{fontSize:10,color:C.muted,textTransform:'uppercase',letterSpacing:.5,marginBottom:6}}>Категория</div>
         <div style={{display:'flex',gap:7,overflowX:'auto',marginBottom:14,paddingBottom:4}}>
-          {allCats.map(cat=><button key={cat.id} onClick={()=>setCatId(cat.id)} style={{display:'flex',alignItems:'center',gap:5,flexShrink:0,padding:'8px 11px',borderRadius:20,border:`1px solid ${catId===cat.id?C.orangeB:C.border}`,background:catId===cat.id?C.orangeL:'#fff',color:catId===cat.id?C.orangeD:C.muted,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}><span style={{fontSize:15}}>{cat.emoji}</span>{cat.name}</button>)}
+          {allCats.map(cat=><button key={cat.id} onClick={()=>setCatId(cat.id)} style={{display:'flex',alignItems:'center',gap:5,flexShrink:0,padding:'8px 11px',borderRadius:20,border:`1px solid ${catId===cat.id?C.orangeB:C.border}`,background:catId===cat.id?C.orangeL:'var(--c-surface)',color:catId===cat.id?C.orangeD:C.muted,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}><span style={{fontSize:15}}>{cat.emoji}</span>{cat.name}</button>)}
         </div>
         <div style={{fontSize:10,color:C.muted,textTransform:'uppercase',letterSpacing:.5,marginBottom:6}}>Кто потратил</div>
         <div style={{display:'flex',gap:4,marginBottom:14}}>
@@ -415,7 +415,7 @@ export function EditIncomeModal({visible,income,member,onClose,onSave}){
             const active=incomeType===t.id;
             return(
               <button key={t.id} onClick={()=>setIncomeType(t.id)}
-                style={{display:'flex',alignItems:'center',gap:9,padding:'9px 12px',borderRadius:10,border:`1px solid ${active?C.orangeB:C.border}`,background:active?C.orangeL:'#fff',cursor:'pointer',fontFamily:'inherit',textAlign:'left'}}>
+                style={{display:'flex',alignItems:'center',gap:9,padding:'9px 12px',borderRadius:10,border:`1px solid ${active?C.orangeB:C.border}`,background:active?C.orangeL:'var(--c-surface)',cursor:'pointer',fontFamily:'inherit',textAlign:'left'}}>
                 <span style={{fontSize:17}}>{t.emoji}</span>
                 <div style={{flex:1}}>
                   <div style={{fontSize:13,fontWeight:600,color:active?C.orangeD:C.text}}>{t.name}</div>
@@ -435,7 +435,7 @@ export function EditIncomeModal({visible,income,member,onClose,onSave}){
             <span style={{fontSize:13,color:C.muted,flex:1}}>Ставка налога</span>
             {[4,6].map(r=>(
               <button key={r} onClick={()=>setTaxRate(String(r))}
-                style={{padding:'5px 12px',borderRadius:20,border:`1px solid ${(parseFloat(taxRate)||6)===r?C.orangeB:C.border}`,background:(parseFloat(taxRate)||6)===r?C.orangeL:'#fff',color:(parseFloat(taxRate)||6)===r?C.orangeD:C.muted,fontSize:12,cursor:'pointer',fontFamily:'inherit'}}>
+                style={{padding:'5px 12px',borderRadius:20,border:`1px solid ${(parseFloat(taxRate)||6)===r?C.orangeB:C.border}`,background:(parseFloat(taxRate)||6)===r?C.orangeL:'var(--c-surface)',color:(parseFloat(taxRate)||6)===r?C.orangeD:C.muted,fontSize:12,cursor:'pointer',fontFamily:'inherit'}}>
                 {r}%
               </button>
             ))}
@@ -464,10 +464,10 @@ export function EditIncomeModal({visible,income,member,onClose,onSave}){
         <div style={{...s.card,background:C.blueL,border:`1px solid ${C.blueB}`,padding:12,marginBottom:12}}>
           <div style={{fontSize:12,fontWeight:700,color:C.blue,marginBottom:8}}>📅 Изменение вступит в силу с:</div>
           <div style={{display:'flex',gap:8,marginBottom:10}}>
-            {[now.getFullYear(),now.getFullYear()+1].map(y=><button key={y} onClick={()=>setEffYear(y)} style={{flex:1,padding:8,borderRadius:8,border:`1px solid ${effYear===y?C.orangeB:C.border}`,background:effYear===y?C.orangeL:'#fff',color:effYear===y?C.orangeD:C.text,fontSize:13,fontWeight:effYear===y?600:400,cursor:'pointer',fontFamily:'inherit'}}>{y}</button>)}
+            {[now.getFullYear(),now.getFullYear()+1].map(y=><button key={y} onClick={()=>setEffYear(y)} style={{flex:1,padding:8,borderRadius:8,border:`1px solid ${effYear===y?C.orangeB:C.border}`,background:effYear===y?C.orangeL:'var(--c-surface)',color:effYear===y?C.orangeD:C.text,fontSize:13,fontWeight:effYear===y?600:400,cursor:'pointer',fontFamily:'inherit'}}>{y}</button>)}
           </div>
           <div style={{display:'flex',flexWrap:'wrap',gap:5,marginBottom:10}}>
-            {['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'].map((name,i)=>{const m=i+1,active=effMonth===m;return<button key={m} onClick={()=>setEffMonth(m)} style={{padding:'5px 8px',borderRadius:7,border:`1px solid ${active?C.orangeB:C.border}`,background:active?C.orangeL:'#fff',color:active?C.orangeD:C.text,fontSize:11,fontWeight:active?600:400,cursor:'pointer',fontFamily:'inherit',minWidth:'30%'}}>{name}</button>;})}
+            {['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'].map((name,i)=>{const m=i+1,active=effMonth===m;return<button key={m} onClick={()=>setEffMonth(m)} style={{padding:'5px 8px',borderRadius:7,border:`1px solid ${active?C.orangeB:C.border}`,background:active?C.orangeL:'var(--c-surface)',color:active?C.orangeD:C.text,fontSize:11,fontWeight:active?600:400,cursor:'pointer',fontFamily:'inherit',minWidth:'30%'}}>{name}</button>;})}
           </div>
           <DayPicker selected={[effDay]} onToggle={d=>setEffDay(d)}/>
           <div style={{fontSize:11,color:C.blue,marginTop:8}}>Начиная с недели {effWeekK} бюджет пересчитается</div>
@@ -483,7 +483,7 @@ export function EditIncomeModal({visible,income,member,onClose,onSave}){
 // ════════════════════════════════════════════════════════════════════════
 export function TabBar({active,onPress}){
   return(
-    <div style={{display:'flex',justifyContent:'space-around',alignItems:'center',background:'#fff',borderTop:`1px solid ${C.border}`,padding:'14px 8px calc(18px + env(safe-area-inset-bottom))',position:'sticky',bottom:0,zIndex:100,flexShrink:0}}>
+    <div style={{display:'flex',justifyContent:'space-around',alignItems:'center',background:'var(--c-surface)',borderTop:`1px solid ${C.border}`,padding:'14px 8px calc(18px + env(safe-area-inset-bottom))',position:'sticky',bottom:0,zIndex:100,flexShrink:0}}>
       {[['today','СЕГОДНЯ'],['plan','ПОТОК'],['budget','БЮДЖЕТ'],['health','ЗДОРОВЬЕ'],['settings','ЕЩЁ']].map(([id,l])=>(
         <button key={id} onClick={()=>onPress(id)} style={{background:'none',border:'none',cursor:'pointer',fontFamily:'inherit',padding:'4px 2px'}}>
           <span style={{fontFamily:MONO,fontSize:13,fontWeight:active===id?600:400,color:active===id?C.text:C.muted,borderBottom:active===id?`2px solid ${C.orange}`:'2px solid transparent',paddingBottom:4}}>{l}</span>

@@ -4,7 +4,7 @@ import {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,to
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad} from '../lib/ui';
 
 const Chip=({active,onClick,children})=>(
-  <button onClick={onClick} style={{flexShrink:0,fontFamily:MONO,fontSize:10.5,fontWeight:600,textTransform:'uppercase',padding:'6px 12px',borderRadius:20,border:`1px solid ${active?C.orange:C.border}`,background:active?C.orange:'#fff',color:active?'#fff':'#8B8175',cursor:'pointer'}}>{children}</button>
+  <button onClick={onClick} style={{flexShrink:0,fontFamily:MONO,fontSize:10.5,fontWeight:600,textTransform:'uppercase',padding:'6px 12px',borderRadius:20,border:`1px solid ${active?C.orange:C.border}`,background:active?C.orange:'var(--c-surface)',color:active?'#fff':'var(--c-muted2)',cursor:'pointer'}}>{children}</button>
 );
 
 export function PlanScreen({state,onToggle,onAdd,onEditTx}){
@@ -59,7 +59,7 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx}){
     if(!map[yr])map[yr]={yr,wTot:0,wSp:0,wInc:0,wDeduct:0};map[yr].wTot+=d.wTot;map[yr].wSp+=d.wSp;map[yr].wInc+=d.wInc;map[yr].wDeduct+=(d.wk>curWk3?d.wTot:d.wSp);});return Object.values(map).sort((a,b)=>a.yr-b.yr);},[weeksSummary]);
   const TABS=[{id:'detail',label:'Неделя'},{id:'weeks',label:'Недели'},{id:'months',label:'Месяцы'},{id:'year',label:'Годы'}];
   const pad={padding:'16px 20px 90px'};
-  const navBtn={width:30,height:30,borderRadius:9,border:`1px solid ${C.border}`,background:'#fff',color:'#8B8175',fontSize:13,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0};
+  const navBtn={width:30,height:30,borderRadius:9,border:`1px solid ${C.border}`,background:'var(--c-surface)',color:'var(--c-muted2)',fontSize:13,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0};
   return(
     <div style={{overflowY:'auto',flex:1,minHeight:0,WebkitOverflowScrolling:'touch'}}><div style={pad}>
       <div style={{display:'flex',gap:6,overflowX:'auto',marginBottom:16,paddingBottom:4}}>
@@ -82,8 +82,8 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx}){
           <div style={{marginTop:6}}><PBar pct={pct}/></div>
           {totalWeekIncome>0&&<div style={{display:'flex',alignItems:'center',gap:10,background:C.greenL,borderRadius:12,padding:'10px 13px',marginTop:14}}>
             <span style={{fontSize:14}}>💰</span>
-            <span style={{flex:1,fontSize:12,color:'oklch(0.42 0.09 150)'}}>Доходы этой недели</span>
-            <span style={{fontFamily:MONO,fontSize:13,fontWeight:600,color:'oklch(0.45 0.11 150)'}}>+{fmtN(totalWeekIncome)} ₽</span>
+            <span style={{flex:1,fontSize:12,color:C.greenD}}>Доходы этой недели</span>
+            <span style={{fontFamily:MONO,fontSize:13,fontWeight:600,color:C.greenD}}>+{fmtN(totalWeekIncome)} ₽</span>
           </div>}
         </div>
         <div style={{display:'flex',gap:7,marginBottom:14,overflowX:'auto'}}>
@@ -147,7 +147,7 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx}){
                   <Stat label="план" value={wTot>0?fmtN(wTot):'—'} color={C.borderS}/>
                   <Stat label="факт" value={wSp>0?fmtN(wSp):'—'} color={C.orange} valueColor={wSp>0?C.orangeD:C.muted}/>
                 </div>
-                {wPiggy>0&&<div style={{fontSize:11,color:'oklch(0.45 0.11 150)',marginTop:8}}>🐷 в т.ч. копилка {fmtN(wPiggy)}</div>}
+                {wPiggy>0&&<div style={{fontSize:11,color:C.greenD,marginTop:8}}>🐷 в т.ч. копилка {fmtN(wPiggy)}</div>}
                 <div style={{fontFamily:MONO,fontSize:11.5,fontWeight:600,color:runPlus?C.green:C.red,marginTop:8}}>Накопительный баланс: {runPlus?'+':'−'}{fmtN(runningBalance)}</div>
               </button>
             );

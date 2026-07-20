@@ -4,7 +4,7 @@ import {C,MONO,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,EmojiPicker} from '../lib/ui';
 import {isLoggedIn,logout,register,login,familyMe,familyInvite,familyJoin,errText,changePassword,resetRequest,resetConfirm,saveCloudState} from '../api';
 
-export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncome,onUpdateMember,onAddMember,onRemoveMember}){
+export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncome,onUpdateMember,onAddMember,onRemoveMember,theme,onSetTheme}){
   const{members,incomes,planned,familyName,customCats=[]}=state;
   const allCats=[...DEFAULT_CATS,...customCats];
   const showMember=members.length>1; // при одном члене семьи не дублируем его имя в каждой строке
@@ -32,7 +32,7 @@ export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncom
             <div key={m.id} style={{display:'flex',alignItems:'center',gap:10}}>
               <button onClick={()=>setEmojiPickerFor(m.id)} style={{width:40,height:40,borderRadius:'50%',background:m.color,border:'none',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0,cursor:'pointer'}}>{m.avatar}</button>
               <input type="text" value={m.name} onChange={e=>onUpdateMember(m.id,'name',e.target.value)} placeholder="Имя участника" style={{...s.input,flex:1,padding:'10px 12px'}}/>
-              <button onClick={()=>onRemoveMember(m.id)} style={{position:'relative',width:28,height:28,borderRadius:'50%',border:`1px solid ${C.border}`,background:'#fff',color:C.muted,fontSize:13,cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}><span style={{position:'absolute',inset:-8}}/>×</button>
+              <button onClick={()=>onRemoveMember(m.id)} style={{position:'relative',width:28,height:28,borderRadius:'50%',border:`1px solid ${C.border}`,background:'var(--c-surface)',color:C.muted,fontSize:13,cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}><span style={{position:'absolute',inset:-8}}/>×</button>
             </div>
           ))}
           <button onClick={onAddMember} style={{textAlign:'center',border:`1.5px dashed ${C.borderS}`,borderRadius:12,padding:11,fontSize:12.5,fontWeight:600,color:C.orangeD,background:'none',cursor:'pointer',fontFamily:'inherit'}}>+ Добавить участника</button>
@@ -52,7 +52,7 @@ export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncom
               <div style={{fontFamily:MONO,fontSize:10,color:C.muted,marginTop:1}}>GROSS {fmtN(inc.gross||0)} · {inc.incomeType==='self'?`${parseFloat(inc.taxRate)||6}%`:inc.incomeType==='manual'?'без налога':getNDFLDesc(inc.gross||0)}</div>
               {inc.effectiveFrom&&<div style={{fontFamily:MONO,fontSize:9,color:C.orangeD,marginTop:1}}>✦ изменён с {inc.effectiveFrom.day} {MONTH_SHORT[inc.effectiveFrom.month-1]} {inc.effectiveFrom.year}</div>}
             </div>
-            <span style={{fontFamily:MONO,fontSize:13,fontWeight:600,color:'oklch(0.5 0.11 150)'}}>{fmtN(calcNetFor(inc))}</span>
+            <span style={{fontFamily:MONO,fontSize:13,fontWeight:600,color:C.greenD}}>{fmtN(calcNetFor(inc))}</span>
           </button>
         );
       })}
@@ -77,11 +77,11 @@ export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncom
             <button key={cat.id}
               onClick={()=>onEditCat({id:uid(),catId:cat.id,name:cat.name,amount:0,memberId:members[0]?.id||'m1',repeat:'weekly',days:[],isNew:true,addedAt:new Date().toISOString()})}
               style={{display:'flex',flexDirection:'column',alignItems:'center',gap:6,background:'none',border:'none',cursor:'pointer',fontFamily:'inherit',opacity:active?1:.55}}>
-              <div style={{position:'relative',width:54,height:54,borderRadius:16,background:active?cat.color:'#fff',border:active?'none':`1.5px dashed ${C.borderS}`,boxSizing:'border-box',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24}}>
+              <div style={{position:'relative',width:54,height:54,borderRadius:16,background:active?cat.color:'var(--c-surface)',border:active?'none':`1.5px dashed ${C.borderS}`,boxSizing:'border-box',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24}}>
                 {cat.emoji}
                 {active&&<span style={{position:'absolute',top:-5,right:-5,fontFamily:MONO,fontSize:9,fontWeight:600,color:'#fff',background:C.orange,borderRadius:8,padding:'2px 5px'}}>×{count}</span>}
               </div>
-              <span style={{fontSize:10.5,fontWeight:500,color:active?C.text:'#8B8175'}}>{cat.name}</span>
+              <span style={{fontSize:10.5,fontWeight:500,color:active?C.text:'var(--c-muted2)'}}>{cat.name}</span>
             </button>
           );
         })}
@@ -105,6 +105,18 @@ export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncom
             </button>
           );
         })}
+      </>}
+      {/* ═══ Внешний вид ═══ */}
+      {onSetTheme&&<>
+        <SecTitle>ВНЕШНИЙ ВИД</SecTitle>
+        <div style={{display:'flex',gap:6,marginBottom:16}}>
+          {[['auto','Системная'],['light','Светлая'],['dark','Тёмная']].map(([id,label])=>(
+            <button key={id} onClick={()=>onSetTheme(id)}
+              style={{flex:1,textAlign:'center',fontFamily:MONO,fontSize:10.5,fontWeight:600,padding:9,borderRadius:10,border:`1px solid ${theme===id?C.orange:C.border}`,background:theme===id?C.orange:C.white,color:theme===id?'#fff':C.muted,cursor:'pointer'}}>
+              {label.toUpperCase()}
+            </button>
+          ))}
+        </div>
       </>}
       {/* ═══ Аккаунт и синхронизация ═══ */}
       <SecTitle>АККАУНТ И СИНХРОНИЗАЦИЯ</SecTitle>
@@ -225,7 +237,7 @@ function AccountSection(){
       <div style={{display:'flex',gap:6,marginBottom:10}}>
         {[['register','Регистрация'],['login','Вход']].map(([id,l])=>(
           <button key={id} onClick={()=>{setMode(id);setErr('');}}
-            style={{flex:1,textAlign:'center',fontFamily:MONO,fontSize:11,fontWeight:600,padding:9,borderRadius:10,border:`1px solid ${mode===id?C.orange:C.border}`,background:mode===id?C.orange:'#fff',color:mode===id?'#fff':C.muted,cursor:'pointer'}}>{l.toUpperCase()}</button>
+            style={{flex:1,textAlign:'center',fontFamily:MONO,fontSize:11,fontWeight:600,padding:9,borderRadius:10,border:`1px solid ${mode===id?C.orange:C.border}`,background:mode===id?C.orange:'var(--c-surface)',color:mode===id?'#fff':C.muted,cursor:'pointer'}}>{l.toUpperCase()}</button>
         ))}
       </div>
       <input type="email" placeholder="email" value={email} onChange={e=>setEmail(e.target.value)}
@@ -313,7 +325,7 @@ function ChangePasswordRow(){
       <div style={{display:'flex',gap:6}}>
         <button onClick={async()=>{try{await changePassword(oldP,newP);setMsg('✓ Пароль изменён');setOldP('');setNewP('');}catch(e){setMsg(errText(e));}}}
           style={{flex:1,padding:10,borderRadius:9,border:'none',background:C.orange,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Сохранить</button>
-        <button onClick={()=>setOpen(false)} style={{padding:'10px 14px',borderRadius:9,border:`1px solid ${C.border}`,background:'#fff',fontSize:13,color:C.muted,cursor:'pointer',fontFamily:'inherit'}}>Отмена</button>
+        <button onClick={()=>setOpen(false)} style={{padding:'10px 14px',borderRadius:9,border:`1px solid ${C.border}`,background:'var(--c-surface)',fontSize:13,color:C.muted,cursor:'pointer',fontFamily:'inherit'}}>Отмена</button>
       </div>
     </div>
   );
