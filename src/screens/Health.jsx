@@ -4,6 +4,7 @@ import {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,to
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad} from '../lib/ui';
 
 export function HealthScreen({state}){
+  const[showScoreInfo,setShowScoreInfo]=useState(false);
   const{incomes,planned,weekItems={},customCats=[],startBalance=0,extraPayments=[]}=state;
   const extraIncomeInRange=(start,end)=>(extraPayments||[]).filter(p=>{const d=new Date(p.date);return d>=start&&d<=end;}).reduce((s,p)=>s+(p.actualAmount||p.amount),0);
   const allCats=[...DEFAULT_CATS,...customCats];
@@ -100,7 +101,28 @@ export function HealthScreen({state}){
             </div>
           ))}
         </div>
+        <button onClick={()=>setShowScoreInfo(true)} style={{marginTop:12,background:'none',border:'none',padding:0,fontFamily:MONO,fontSize:10.5,color:'rgba(255,255,255,.6)',textDecoration:'underline',cursor:'pointer'}}>
+          ⓘ Как считается балл
+        </button>
       </div>
+      <Modal visible={showScoreInfo} onClose={()=>setShowScoreInfo(false)} title="Как считается балл">
+        <div style={{padding:'16px 18px 40px',display:'flex',flexDirection:'column',gap:18}}>
+          <div style={{fontSize:12.5,color:C.text2,lineHeight:1.6}}>
+            Балл — это сумма четырёх независимых критериев, максимум 100. Копилка нигде здесь не считается обязательным расходом: сколько бы вы ни планировали откладывать сверх дохода, это не портит остальные критерии.
+          </div>
+          {[
+            ['Норма сбережений', 30, 'Копилка + свободные деньги после обязательных трат, делённые на доход. 30 баллов при ≥20% дохода, 15 — при ≥10%. Не считается (0), если дохода не хватает на обязательные (не-копилка) траты — это и есть настоящий дефицит.'],
+            ['Кассовые разрывы', 30, 'Прогноз на ближайшие недели вперёд: хватит ли накопительного баланса покрыть план. 30, если разрывов не видно; 0, если план в реальном дефиците (см. выше); иначе 15.'],
+            ['Свободные средства', 20, '20 баллов, если после обязательных трат остаются свободные деньги (без учёта копилки). 0 — если их нет или план в реальном дефиците.'],
+            ['Копилка', 20, 'Сколько месяцев ваших расходов покрывает то, что уже отложено. 20 при ≥3 месяцев, 10 при ≥1 месяце, иначе 0 — это подушка на чёрный день, а не про сам факт откладывания денег.'],
+          ].map(([title,max,text],i)=>(
+            <div key={i}>
+              <div style={{fontSize:13,fontWeight:600,color:C.text,marginBottom:4}}>{title} · до {max} баллов</div>
+              <div style={{fontSize:12,color:C.text2,lineHeight:1.55}}>{text}</div>
+            </div>
+          ))}
+        </div>
+      </Modal>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:16,rowGap:16,paddingBottom:18,borderBottom:`1px solid ${C.border}`,marginBottom:16}}>
         <Stat label="остаток / мес" value={`${freeCash>=0?'+':'−'}${fmtN(Math.abs(freeCash))}`} color={C.green} valueColor={freeCash>=0?C.green:C.red}/>
         <Stat label="сбережения" value={`${savingsRate}%`} color={C.green}/>
