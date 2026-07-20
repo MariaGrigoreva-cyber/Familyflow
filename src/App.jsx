@@ -307,7 +307,14 @@ useEffect(() => {
       error.body.updatedAt
     );
 
-    // Принимаем серверную версию как актуальную
+    // Принимаем серверную версию как актуальную — но если она реально отличается
+    // от того, что мы только что пытались сохранить, значит наши последние правки
+    // (сделанные, пока другое устройство сохраняло свои) сейчас молча потеряются.
+    // Раньше это происходило без единой подсказки пользователю.
+    const localAppState = latestCloudDataRef.current?.appState;
+    const lostLocalEdit = serverData.appState &&
+      JSON.stringify(localAppState) !== JSON.stringify(serverData.appState);
+
     if (serverData.appState) {
       skipNextCloudSaveRef.current = true;
       setAppState(serverData.appState);
@@ -320,7 +327,11 @@ useEffect(() => {
       );
     }
 
-    setCloudError(null);
+    setCloudError(
+      lostLocalEdit
+        ? 'Данные обновились с другого устройства. Если только что что-то меняли здесь — проверьте и повторите.'
+        : null
+    );
     return;
   }
 
@@ -541,6 +552,13 @@ useEffect(() => {
           <span style={{fontSize:20,fontWeight:600,letterSpacing:-.2,color:C.text}}>{TAB_TITLES[tab]}</span>
           <span style={{fontFamily:MONO,fontSize:11,color:C.muted}}>{(appState.familyName||'').toUpperCase()}{appState.familyName?' · НЕД ':''}{getISOWeek(new Date()).week}</span>
         </div>
+        {cloudError&&(
+          <div style={{display:'flex',alignItems:'center',gap:8,background:C.yellowL,borderTop:`1px solid ${C.yellowB}`,borderBottom:`1px solid ${C.yellowB}`,padding:'7px 14px'}}>
+            <span style={{fontSize:13}}>⚠️</span>
+            <span style={{flex:1,fontSize:11,color:C.text2,lineHeight:1.4}}>{cloudError}</span>
+            <button onClick={()=>setCloudError(null)} style={{background:'none',border:'none',color:C.muted,fontSize:16,cursor:'pointer',padding:'0 4px',fontFamily:'inherit',lineHeight:1}}>×</button>
+          </div>
+        )}
         {appState.demoMode&&(
           <div style={{display:'flex',alignItems:'center',gap:8,background:C.orangeL,borderTop:`1px solid ${C.orangeB}`,borderBottom:`1px solid ${C.orangeB}`,padding:'7px 14px'}}>
             <span style={{fontSize:13}}>👁</span>
