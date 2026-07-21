@@ -377,6 +377,23 @@ describe('projectCashFlow — прогноз накопительного бал
     expect(freeSpendableNow).toBe(0);
     expect(negativeWeek).toBeNull();
   });
+
+  // Реальный баг из живого аккаунта: прогноз считает будущий минимум, который уже
+  // включает доход, ещё не пришедший на счёт — это может дать "свободные средства"
+  // БОЛЬШЕ, чем реально лежит на руках прямо сейчас. Нельзя предлагать потратить
+  // деньги, которых физически ещё нет.
+  test('свободные средства не превышают реальный остаток на руках, даже если будущий минимум выше', () => {
+    const state = {
+      startBalance: 5000,
+      weekItems: { [curWk]: [{ id: 'a', catId: 'other', amount: 3000, isDone: true }] }, // потратили 3000 → на руках 2000
+    };
+    const weeksSummary = [
+      { wk: curWk, wSp: 0, wTot: 0, wInc: 0 },
+      { wk: nextWk, wSp: 0, wTot: 0, wInc: 0 },
+    ];
+    const { freeSpendableNow } = projectCashFlow(state, weeksSummary);
+    expect(freeSpendableNow).toBe(2000); // не 5000 (прогноз), а именно то, что реально на руках
+  });
 });
 
 describe('getCatFund / FUND_LABELS — единая группировка категорий по фондам методики', () => {

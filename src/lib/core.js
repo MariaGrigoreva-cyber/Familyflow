@@ -271,10 +271,14 @@ const computeWeeksSummary=state=>{
 // прошлых/текущей) — общая основа для двух вещей: "когда баланс уйдёт в минус"
 // (банер на Потоке) и "сколько можно потратить сверх плана прямо сейчас, чтобы
 // баланс не ушёл в минус НИКОГДА" (свободные средства на Сегодня). Второе — это
-// ровно минимум проекции от сегодняшней недели и дальше: трата X сегодня сдвигает
-// весь будущий график вниз на X, значит безопасно тратить можно не больше минимума.
+// минимум проекции от сегодняшней недели и дальше: трата X сегодня сдвигает весь
+// будущий график вниз на X. НО этого одного недостаточно — будущий минимум может
+// быть выше, чем реально лежит в кармане сейчас (проекция уже включает доход,
+// который ещё не пришёл), поэтому дополнительно ограничиваем текущим остатком
+// на руках: нельзя потратить то, чего физически ещё нет на счету.
 const projectCashFlow=(state,weeksSummary)=>{
-  let bal=computeBalances(state).savingStart;
+  const cb=computeBalances(state);
+  let bal=cb.savingStart;
   const curWk=todayKey();
   let negativeWeek=null;
   let minFromNow=null;
@@ -284,7 +288,8 @@ const projectCashFlow=(state,weeksSummary)=>{
     if(negativeWeek===null&&bal<0)negativeWeek={wk:d.wk,bal};
     if(d.wk>=curWk)minFromNow=minFromNow===null?bal:Math.min(minFromNow,bal);
   }
-  return{negativeWeek,freeSpendableNow:minFromNow===null?0:Math.max(0,Math.round(minFromNow))};
+  const projectedFree=minFromNow===null?0:Math.round(minFromNow);
+  return{negativeWeek,freeSpendableNow:Math.max(0,Math.min(cb.balance,projectedFree))};
 };
 
 // Старый формат ключей weekItems был просто числом (напр. '12'), текущий — 'YYYY-Www'.
