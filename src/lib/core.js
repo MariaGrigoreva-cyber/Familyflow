@@ -353,6 +353,20 @@ const REPEAT_OPTS=[{id:'weekly',label:'Каждую нед.'},{id:'biweekly',lab
 const monthlyOf=p=>p.repeat==='weekly'?p.amount*4.3:p.repeat==='biweekly'?p.amount*2.15:p.repeat==='once'?p.amount/12:p.amount;
 const yearlyOf=p=>p.repeat==='weekly'?Math.round(p.amount*52.14):p.repeat==='biweekly'?Math.round(p.amount*26.07):p.repeat==='once'?p.amount:p.amount*12;
 const getCat=(id,custom=[])=>[...DEFAULT_CATS,...custom].find(c=>c.id===id);
+// Три потока методики (см. онбординг-сторис): Защита/Жизнь/Комфорт — 20/50/30% дохода.
+// Единая группировка по цвету плашки категории — раньше Онбординг и Бюджет держали
+// у себя РАЗНЫЕ списки catId по фондам (напр. «кредит» был в Защите на Онбординге,
+// но в Жизни на Бюджете), из-за чего суммы по фондам могли не совпадать между экранами.
+const FUND_LABELS=[
+  {key:'defense',label:'Защита',pct:20,colors:[H_DEFENSE,H_PIGGY]},
+  {key:'life',label:'Жизнь',pct:50,colors:[H_LIFE]},
+  {key:'comfort',label:'Комфорт',pct:30,colors:[H_COMFORT]},
+];
+const getCatFund=(catId,customCats=[])=>{
+  const cat=getCat(catId,customCats);
+  if(!cat)return null;
+  return FUND_LABELS.find(f=>f.colors.includes(cat.color))||null;
+};
 // Политика конфиденциальности — общий источник для стартового экрана и формы регистрации
 const POLICY_ITEMS=[['Какие данные мы обрабатываем','Приложение обрабатывает данные, которые вы вводите: имена членов семьи, сведения о доходах и расходах. Эти данные относятся к персональным данным в соответствии с ФЗ № 152-ФЗ.'],['Где хранятся данные','По умолчанию все данные хранятся на вашем устройстве. Если вы включите синхронизацию, данные также сохраняются в облаке для доступа с других устройств.'],['Цель обработки','Данные используются только для формирования семейного бюджета. Не передаются третьим лицам и не используются в коммерческих целях.'],['Информационный характер','FamilyFlow — инструмент планирования. Расчёты и рекомендации не являются финансовой консультацией.'],['Удаление данных','Вы можете удалить все данные, очистив данные приложения или аккаунт. После удаления данные полностью уничтожаются.']];
 const PIE_COLORS=['oklch(0.62 0.13 40)','oklch(0.72 0.11 60)','oklch(0.55 0.12 150)','oklch(0.75 0.12 85)','oklch(0.65 0.08 250)','oklch(0.5 0.12 40)','oklch(0.6 0.1 300)','oklch(0.45 0.11 150)','oklch(0.55 0.09 250)','oklch(0.6 0.11 85)'];
@@ -415,4 +429,4 @@ const DEMO_MEMBERS=[{id:'m1',name:'Мария',avatar:'👩',color:'oklch(0.9 0.
 const DEMO_PLANNED=[{id:'p1',catId:'mortgage',name:'Ипотека',amount:55000,memberId:'m1',repeat:'monthly',days:[20]},{id:'p2',catId:'food',name:'Еда',amount:10000,memberId:'m1',repeat:'weekly',days:[]},{id:'p3',catId:'food',name:'Еда',amount:10000,memberId:'m2',repeat:'weekly',days:[]},{id:'p4',catId:'beauty',name:'Красота',amount:15000,memberId:'m1',repeat:'biweekly',days:[]},{id:'p5',catId:'edu',name:'Образование',amount:20000,memberId:'m2',repeat:'monthly',days:[1]},{id:'p6',catId:'piggy',name:'Копилка',amount:10000,memberId:'m1',repeat:'weekly',days:[]}];
 
 
-export {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,paymentTypeLabel,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,buildPaymentScheduleSpan,regenWeeksKeepDone,computeBalances,computeBudgetMetrics,computeWeeksSummary,projectCashFlow,compactWeekItemsForSave,isLegacyWeekKeyFormat,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,FACE_EMOJIS,MEMBER_TINTS,nextMemberTint,POLICY_ITEMS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED};
+export {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,paymentTypeLabel,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,buildPaymentScheduleSpan,regenWeeksKeepDone,computeBalances,computeBudgetMetrics,computeWeeksSummary,projectCashFlow,compactWeekItemsForSave,isLegacyWeekKeyFormat,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,FUND_LABELS,getCatFund,PIE_COLORS,FACE_EMOJIS,MEMBER_TINTS,nextMemberTint,POLICY_ITEMS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED};

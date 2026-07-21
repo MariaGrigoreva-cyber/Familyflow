@@ -1,6 +1,6 @@
 // FamilyFlow — экран онбординг
 import React, { useState, useEffect } from 'react';
-import {C,MONO,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,POLICY_ITEMS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
+import {C,MONO,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,FUND_LABELS,getCatFund,PIE_COLORS,POLICY_ITEMS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,EmojiPicker} from '../lib/ui';
 
 export function SplashScreen(){
@@ -150,6 +150,26 @@ export function Onboarding({onDone}){
   const addMember=()=>{const newId=uid();const tint=members.length%2===0?'oklch(0.9 0.04 40)':'oklch(0.9 0.04 85)';setMembers(p=>[...p,{id:newId,name:'',avatar:'🧑',color:tint}]);setIncomes(p=>[...p,{id:uid(),memberId:newId,gross:'',salaryDays:[],advanceDays:[],advancePct:'40'}]);};
   const activeMembers=members.filter(m=>m.name.trim());
   const memberIncomes=incomes.filter(i=>activeMembers.find(m=>m.id===i.memberId));
+  // Автораспределение сумм по выбранным категориям: доход делится по методике 20/50/30
+  // (Защита/Жизнь/Комфорт), а бюджет каждого фонда — поровну между выбранными в нём
+  // категориями. Пользователь только выбирает категории, суммы всегда можно поправить.
+  const autoDistribute=()=>{
+    const totalNet=memberIncomes.reduce((s,i)=>s+calcNetFor(i),0);
+    if(totalNet<=0||selectedCats.size===0)return;
+    setCatSetup(prev=>{
+      const next={...prev};
+      FUND_LABELS.forEach(fund=>{
+        const catsInFund=Array.from(selectedCats).filter(catId=>getCatFund(catId)?.key===fund.key);
+        if(catsInFund.length===0)return;
+        const fundBudget=totalNet*fund.pct/100;
+        const perCat=Math.round(fundBudget/catsInFund.length/50)*50; // округляем до 50 ₽
+        catsInFund.forEach(catId=>{
+          next[catId]={...(next[catId]||{}),amount:String(perCat),repeat:'monthly',days:[1]};
+        });
+      });
+      return next;
+    });
+  };
   const finish=()=>{
     const bm=members.filter(m=>m.name.trim());
     const bp=Array.from(selectedCats).map(catId=>{
@@ -356,6 +376,15 @@ export function Onboarding({onDone}){
           );})}
         </div>
         {selectedCats.size>0&&<>
+          {memberIncomes.reduce((s,i)=>s+calcNetFor(i),0)>0&&(
+            <button onClick={autoDistribute} style={{width:'100%',display:'flex',alignItems:'center',gap:10,border:`1.5px solid ${C.orange}`,background:C.orangeL,borderRadius:12,padding:'12px 14px',marginBottom:14,cursor:'pointer',fontFamily:'inherit',boxSizing:'border-box',textAlign:'left'}}>
+              <span style={{fontSize:18,flexShrink:0}}>✨</span>
+              <div style={{flex:1}}>
+                <div style={{fontSize:13,fontWeight:600,color:C.orangeD}}>Распределить автоматически</div>
+                <div style={{fontSize:11,color:C.orangeD,opacity:.8,marginTop:1}}>По методике 20/50/30 — суммы всегда можно поправить</div>
+              </div>
+            </button>
+          )}
           <SecTitle>НАСТРОЙТЕ СУММЫ</SecTitle>
           {Array.from(selectedCats).map(catId=>{
             const cat=DEFAULT_CATS.find(c=>c.id===catId);const setup=catSetup[catId]||{};const isOpen=openCat===catId;const rep=setup.repeat||'weekly';
@@ -417,15 +446,18 @@ export function Onboarding({onDone}){
 
   // STEP 4: Итог
   const totalNet=memberIncomes.reduce((s,i)=>s+calcNetFor(i),0);
-  const FUND_GROUPS=[
-    {key:'defense',n:'Защита',sub:'ипотека, копилка',catIds:['mortgage','credit','piggy'],col:C.orange},
-    {key:'life',n:'Жизнь',sub:'еда, транспорт',catIds:['food','transport','health','fun'],col:'oklch(0.75 0.12 85)'},
-    {key:'comfort',n:'Комфорт',sub:'одежда, дом',catIds:['clothes','beauty','home','gifts','edu','sport','pets','other','travel'],col:C.blue},
-  ];
+  // Та же группировка по фондам, что и в автораспределении на шаге 3 и на экране
+  // Бюджет — единый источник (getCatFund), а не отдельный список catId здесь.
+  const FUND_COLORS={defense:C.orange,life:'oklch(0.75 0.12 85)',comfort:C.blue};
   const selArr=Array.from(selectedCats);
   const monthlyOfSetup=setup=>{const amt=parseInt(setup.amount)||0;return setup.repeat==='weekly'?amt*4.3:setup.repeat==='biweekly'?amt*2.15:setup.repeat==='once'?amt/12:amt;};
   const monthlyExp=selArr.reduce((s,catId)=>s+monthlyOfSetup(catSetup[catId]||{}),0);
-  const fundBreakdown=FUND_GROUPS.map(g=>({...g,monthly:selArr.filter(catId=>g.catIds.includes(catId)).reduce((s,catId)=>s+monthlyOfSetup(catSetup[catId]||{}),0)})).filter(g=>g.monthly>0);
+  const fundBreakdown=FUND_LABELS.map(fund=>{
+    const catsInFund=selArr.filter(catId=>getCatFund(catId)?.key===fund.key);
+    const monthly=catsInFund.reduce((s,catId)=>s+monthlyOfSetup(catSetup[catId]||{}),0);
+    const sub=catsInFund.map(catId=>DEFAULT_CATS.find(c=>c.id===catId)?.name).filter(Boolean).join(', ').toLowerCase();
+    return{key:fund.key,n:fund.label,sub,monthly,col:FUND_COLORS[fund.key]};
+  }).filter(g=>g.monthly>0);
   const sb=parseInt(startBalance)||0,profit=totalNet-monthlyExp;
   return(
     <div style={{height:'100%',background:C.bg,display:'flex',flexDirection:'column'}}>

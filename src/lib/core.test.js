@@ -28,6 +28,8 @@ import {
   computeWeeksSummary,
   projectCashFlow,
   todayKey,
+  FUND_LABELS,
+  getCatFund,
 } from './core';
 
 describe('getActualPayDate', () => {
@@ -374,6 +376,36 @@ describe('projectCashFlow — прогноз накопительного бал
     const { freeSpendableNow, negativeWeek } = projectCashFlow(state, []);
     expect(freeSpendableNow).toBe(0);
     expect(negativeWeek).toBeNull();
+  });
+});
+
+describe('getCatFund / FUND_LABELS — единая группировка категорий по фондам методики', () => {
+  // Раньше Онбординг (автораспределение и итоговая сводка) и Бюджет держали
+  // РАЗНЫЕ списки catId по фондам (напр. «кредит» был в Защите на Онбординге,
+  // но в Жизни на Бюджете) — суммы по фондам расходились между экранами.
+  test('проценты трёх фондов дают в сумме 100%', () => {
+    const total = FUND_LABELS.reduce((s, f) => s + f.pct, 0);
+    expect(total).toBe(100);
+  });
+
+  test('ипотека и копилка — фонд «Защита»', () => {
+    expect(getCatFund('mortgage').key).toBe('defense');
+    expect(getCatFund('piggy').key).toBe('defense');
+  });
+
+  test('еда, транспорт, кредit — фонд «Жизнь»', () => {
+    expect(getCatFund('food').key).toBe('life');
+    expect(getCatFund('transport').key).toBe('life');
+    expect(getCatFund('credit').key).toBe('life');
+  });
+
+  test('одежда, дом — фонд «Комфорт»', () => {
+    expect(getCatFund('clothes').key).toBe('comfort');
+    expect(getCatFund('home').key).toBe('comfort');
+  });
+
+  test('несуществующая категория — null, без падения', () => {
+    expect(getCatFund('not-a-real-category')).toBeNull();
   });
 });
 
