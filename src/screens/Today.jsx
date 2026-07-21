@@ -157,7 +157,7 @@ const HOW_SLIDES=[
   ),
 ];
 
-export function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx,onQuickMark,onWithdrawPiggy,tourStep}){
+export function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx,onQuickMark,onWithdrawPiggy,tourStep,freeSpendableNow=0}){
   const{members,incomes,planned,weekItems,startBalance=0,payments={},customCats=[],transactions=[],budgetStartDate,extraPayments=[]}=state;
   const week=todayKey();
   const wItems=weekItems[week]||[];
@@ -190,6 +190,7 @@ export function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx,onQuick
   const allUpcomingPay=[...scheduledUpcoming,...extraUpcomingToday].sort((a,b)=>a.date-b.date).slice(0,3);
   const showMember=members.length>1; // при одном члене семьи не дублируем его имя в каждой строке
   const[showPiggyInfo,setShowPiggyInfo]=useState(false);
+  const[showFreeInfo,setShowFreeInfo]=useState(false);
   const[showHow,setShowHow]=useState(false);
   const[howSlide,setHowSlide]=useState(0);
   const pad={padding:'16px 20px 90px'};
@@ -228,6 +229,20 @@ export function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx,onQuick
         <div style={{display:'flex',gap:16,marginTop:14,fontFamily:MONO,fontSize:11.5,flexWrap:'wrap'}}>
           <span style={{color:'rgba(255,255,255,.85)'}}>+{fmtN(actualSalaryReceived+CB.txIncome)} <span style={{color:'rgba(255,255,255,.5)'}}>получено</span></span>
           <span style={{color:'rgba(255,255,255,.85)'}}>−{fmtN(allSpentTotal)} <span style={{color:'rgba(255,255,255,.5)'}}>потрачено</span></span>
+        </div>
+        <div style={{marginTop:10}}>
+          <button onClick={()=>setShowFreeInfo(v=>!v)} style={{width:'100%',display:'flex',alignItems:'center',gap:10,background:'rgba(255,255,255,.12)',border:'none',borderRadius:12,padding:'10px 13px',cursor:'pointer',fontFamily:'inherit',boxSizing:'border-box'}}>
+            <span style={{fontSize:14}}>💡</span>
+            <span style={{flex:1,fontSize:12,color:'rgba(255,255,255,.8)',textAlign:'left'}}>Свободно сверх плана</span>
+            <span style={{fontFamily:MONO,fontSize:13,fontWeight:600,color:'#fff'}}>{fmt(freeSpendableNow)}</span>
+          </button>
+          {showFreeInfo&&<div style={{background:'rgba(255,255,255,.08)',borderRadius:10,padding:'10px 13px',marginTop:6}}>
+            <div style={{fontSize:11.5,color:'rgba(255,255,255,.75)',lineHeight:'17px'}}>
+              {freeSpendableNow>0
+                ?'Столько можно потратить дополнительно прямо сейчас — и накопительный баланс не уйдёт в минус ни на одной будущей неделе (с учётом уже запланированных трат и доходов).'
+                :'Сейчас свободных денег нет — весь буфер уже расписан планом на будущее. Подробнее — на вкладке «Поток» → «Недели».'}
+            </div>
+          </div>}
         </div>
         {totalSaved>0&&<div data-tour="1" style={{...glow(1)}}>
           <button onClick={()=>setShowPiggyInfo(v=>!v)} style={{width:'100%',display:'flex',alignItems:'center',gap:10,marginTop:14,background:'rgba(255,255,255,.12)',border:'none',borderRadius:12,padding:'10px 13px',cursor:'pointer',fontFamily:'inherit',boxSizing:'border-box'}}>

@@ -245,6 +245,48 @@ const computeBudgetMetrics=state=>{
   return{totalNet,monthlyExp,piggyMonthly,expWithoutPiggy,freeCash,totalSavings,savingsRate,isDeficit};
 };
 
+// Доход/план/факт по каждой существующей неделе weekItems — общая основа для сводок
+// Недель/Месяцев/Годов на Потоке и для прогноза накопительного баланса (см. ниже).
+const computeWeeksSummary=state=>{
+  const{weekItems={},incomes=[],payments={},transactions=[],extraPayments=[]}=state;
+  const extraIncomeInRange=(start,end)=>(extraPayments||[]).filter(p=>{const d=new Date(p.date);return d>=start&&d<=end;}).reduce((s,p)=>s+(p.actualAmount||p.amount),0);
+  const allWeekKeys=Object.keys(weekItems).sort();
+  return allWeekKeys.map(wk=>{
+    const items=weekItems[wk]||[];
+    // Копилка входит в план и факт: это распределённые деньги бюджета
+    const txExp=(transactions||[]).filter(t=>t.week===wk&&(t.type==='expense'||t.catId==='piggy')).reduce((s,t)=>s+t.amount,0);
+    const wSp=items.filter(x=>x.isDone).reduce((s,x)=>s+x.amount,0)+txExp;
+    const wTot=items.reduce((s,x)=>s+x.amount,0);
+    const wPiggy=items.filter(x=>x.catId==='piggy').reduce((s,x)=>s+x.amount,0)
+      +(transactions||[]).filter(t=>t.week===wk&&t.catId==='piggy').reduce((s,t)=>s+t.amount,0);
+    const wS=weekKeyToDate(wk),wE=new Date(wS.getTime()+6*86400000);
+    const wInc=incomes.reduce((s,inc)=>{const yr=wS.getFullYear();const sch=buildPaymentScheduleSpan(yr,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc).map(p=>({...p,...(payments[p.displayLabel]||{})}));return s+sch.filter(p=>p.date>=wS&&p.date<=wE).reduce((ss,p)=>ss+(p.actualAmount||p.amount),0);},0);
+    const txInc=(transactions||[]).filter(t=>t.week===wk&&t.type==='income').reduce((s,t)=>s+t.amount,0);
+    const exInc=extraIncomeInRange(wS,wE);
+    return{wk,wSp,wTot,wInc:wInc+txInc+exInc,bal:(wInc+txInc+exInc)-wTot,wPiggy};
+  });
+};
+
+// Проекция накопительного баланса вперёд по неделям (план для будущих, факт для
+// прошлых/текущей) — общая основа для двух вещей: "когда баланс уйдёт в минус"
+// (банер на Потоке) и "сколько можно потратить сверх плана прямо сейчас, чтобы
+// баланс не ушёл в минус НИКОГДА" (свободные средства на Сегодня). Второе — это
+// ровно минимум проекции от сегодняшней недели и дальше: трата X сегодня сдвигает
+// весь будущий график вниз на X, значит безопасно тратить можно не больше минимума.
+const projectCashFlow=(state,weeksSummary)=>{
+  let bal=computeBalances(state).savingStart;
+  const curWk=todayKey();
+  let negativeWeek=null;
+  let minFromNow=null;
+  for(const d of weeksSummary){
+    const isFuture=d.wk>curWk;
+    bal=bal+d.wInc-(isFuture?d.wTot:d.wSp);
+    if(negativeWeek===null&&bal<0)negativeWeek={wk:d.wk,bal};
+    if(d.wk>=curWk)minFromNow=minFromNow===null?bal:Math.min(minFromNow,bal);
+  }
+  return{negativeWeek,freeSpendableNow:minFromNow===null?0:Math.max(0,Math.round(minFromNow))};
+};
+
 // Старый формат ключей weekItems был просто числом (напр. '12'), текущий — 'YYYY-Www'.
 // НЕ проверять через parseInt(key) — parseInt('2026-W30')===2026 (не NaN!), т.к. парсит
 // только ведущие цифры. Нужна проверка, что вся строка целиком состоит из цифр.
@@ -373,4 +415,4 @@ const DEMO_MEMBERS=[{id:'m1',name:'Мария',avatar:'👩',color:'oklch(0.9 0.
 const DEMO_PLANNED=[{id:'p1',catId:'mortgage',name:'Ипотека',amount:55000,memberId:'m1',repeat:'monthly',days:[20]},{id:'p2',catId:'food',name:'Еда',amount:10000,memberId:'m1',repeat:'weekly',days:[]},{id:'p3',catId:'food',name:'Еда',amount:10000,memberId:'m2',repeat:'weekly',days:[]},{id:'p4',catId:'beauty',name:'Красота',amount:15000,memberId:'m1',repeat:'biweekly',days:[]},{id:'p5',catId:'edu',name:'Образование',amount:20000,memberId:'m2',repeat:'monthly',days:[1]},{id:'p6',catId:'piggy',name:'Копилка',amount:10000,memberId:'m1',repeat:'weekly',days:[]}];
 
 
-export {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,paymentTypeLabel,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,buildPaymentScheduleSpan,regenWeeksKeepDone,computeBalances,computeBudgetMetrics,compactWeekItemsForSave,isLegacyWeekKeyFormat,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,FACE_EMOJIS,MEMBER_TINTS,nextMemberTint,POLICY_ITEMS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED};
+export {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,paymentTypeLabel,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,buildPaymentScheduleSpan,regenWeeksKeepDone,computeBalances,computeBudgetMetrics,computeWeeksSummary,projectCashFlow,compactWeekItemsForSave,isLegacyWeekKeyFormat,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,FACE_EMOJIS,MEMBER_TINTS,nextMemberTint,POLICY_ITEMS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED};

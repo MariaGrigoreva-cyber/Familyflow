@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
-import {C,MONO,uid,weekKey,todayKey,getISOWeek,calcAvgMonthlyNet,calcNetFor,generateAllWeeks,regenWeeksKeepDone,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED,DEFAULT_CATS,nextMemberTint,computeBalances,compactWeekItemsForSave,isLegacyWeekKeyFormat} from './lib/core';
+import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
+import {C,MONO,uid,weekKey,todayKey,getISOWeek,calcAvgMonthlyNet,calcNetFor,generateAllWeeks,regenWeeksKeepDone,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED,DEFAULT_CATS,nextMemberTint,computeBalances,compactWeekItemsForSave,isLegacyWeekKeyFormat,computeWeeksSummary,projectCashFlow} from './lib/core';
 import {TodayScreen} from './screens/Today';
 // Экран сплэша нужен мгновенно каждому пользователю — держим его прямо здесь,
 // а не тянем весь Onboarding.jsx (со сторис/формой/анкетой) в основной бандл.
@@ -484,6 +484,10 @@ useEffect(() => {
       return{...prev,incomes:newIncomes,weekItems:merged};
     });
   };
+  // Считаем один раз здесь (не в каждом экране отдельно) — Поток и Сегодня оба
+  // используют один и тот же прогноз накопительного баланса.
+  const weeksSummary=useMemo(()=>computeWeeksSummary(appState),[appState.weekItems,appState.incomes,appState.payments,appState.transactions,appState.extraPayments]);
+  const cashFlowProjection=useMemo(()=>projectCashFlow(appState,weeksSummary),[weeksSummary,appState]);
   const TAB_TITLES={today:'Сегодня',plan:'Денежный поток',budget:'Годовой бюджет',health:'Здоровье бюджета',settings:'Настройки'};
   const shell={maxWidth:480,margin:'0 auto',height:'100dvh',overflow:'hidden',background:C.bg,display:'flex',flexDirection:'column',fontFamily:"'IBM Plex Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",position:'relative'};
   if(showSplash)return<div style={shell}><SplashScreen/></div>;
@@ -549,9 +553,9 @@ useEffect(() => {
         )}
       </div>
       <div style={{flex:1,display:'flex',flexDirection:'column',minHeight:0}}>
-        {tab==='today'&&<TodayScreen state={appState} onToggle={handleToggle} onAdd={()=>setShowAdd(true)} onEditPayment={handleEditPayment} onEditTx={handleEditTx} onQuickMark={handleQuickMark} onWithdrawPiggy={()=>setShowWithdrawPiggy(true)} tourStep={tourStep}/>}
+        {tab==='today'&&<TodayScreen state={appState} onToggle={handleToggle} onAdd={()=>setShowAdd(true)} onEditPayment={handleEditPayment} onEditTx={handleEditTx} onQuickMark={handleQuickMark} onWithdrawPiggy={()=>setShowWithdrawPiggy(true)} tourStep={tourStep} freeSpendableNow={cashFlowProjection.freeSpendableNow}/>}
         <Suspense fallback={null}>
-          {tab==='plan'&&<PlanScreen state={appState} onToggle={handleToggle} onAdd={(wk)=>{setAddWeek(wk);setShowAdd(true);}} onEditTx={handleEditTx}/>}
+          {tab==='plan'&&<PlanScreen state={appState} onToggle={handleToggle} onAdd={(wk)=>{setAddWeek(wk);setShowAdd(true);}} onEditTx={handleEditTx} weeksSummary={weeksSummary} negativeWeek={cashFlowProjection.negativeWeek}/>}
           {tab==='budget'&&<BudgetScreen state={appState} onEditPlanned={item=>{setEditItem(item);setShowEdit(true);}} onAddPlanned={handleAddPlanned} onEditPayment={handleEditPayment} onAddExtra={(data)=>{if(data&&data.amount){handleAddExtra(data);}else{setShowAddExtra(true);}}} onWithdrawPiggy={()=>setShowWithdrawPiggy(true)} onSetGoal={handleSetGoal} onAddGoalToPlan={handleEditPlanned}/>}
           {tab==='health'&&<HealthScreen state={appState}/>}
           {tab==='settings'&&<SettingsScreen state={appState} onEditCat={item=>{setEditItem(item||null);setShowEdit(true);}} onAddCat={handleAddPlanned} onEditIncome={handleEditIncome} onAddIncome={handleAddIncomeSource} onUpdateMember={handleUpdateMember} onAddMember={handleAddMember} onRemoveMember={handleRemoveMember} theme={theme} onSetTheme={setTheme}/>}

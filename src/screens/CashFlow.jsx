@@ -7,7 +7,7 @@ const Chip=({active,onClick,children})=>(
   <button onClick={onClick} style={{flexShrink:0,fontFamily:MONO,fontSize:10.5,fontWeight:600,textTransform:'uppercase',padding:'6px 12px',borderRadius:20,border:`1px solid ${active?C.orange:C.border}`,background:active?C.orange:'var(--c-surface)',color:active?'#fff':'var(--c-muted2)',cursor:'pointer'}}>{children}</button>
 );
 
-export function PlanScreen({state,onToggle,onAdd,onEditTx}){
+export function PlanScreen({state,onToggle,onAdd,onEditTx,weeksSummary,negativeWeek}){
   const{members,planned,weekItems,incomes,customCats=[],transactions=[],payments={},extraPayments=[]}=state;
   const showMember=members.length>1; // при одном члене семьи не дублируем его имя в каждой строке
   // Доп. разовые выплаты (премии, ручной доход), попавшие в диапазон дат — планово учитываются наравне с зарплатой/авансом
@@ -35,40 +35,11 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx}){
   const weekExtraIncome=extraIncomeInRange(weekStart,weekEnd);
   const totalWeekIncome=weekIncome+weekTxIncome+weekExtraIncome;
   const filtered=wItems.filter(i=>filter==='pending'?!i.isDone:filter==='done'?i.isDone:true);
-  const allWeekKeys=Object.keys(weekItems).sort();
-  // Раньше пересчитывался график выплат на каждую неделю заново при каждом рендере
-  // (и до 3 раз за один рендер для месяцев/годов) — тяжело, раз schedule теперь строится
-  // на 3 года вперёд/назад. Считаем недельные суммы один раз и мемоизируем,
-  // а месяцы/годы просто агрегируют уже готовые недельные данные, не трогая расписание заново.
-  const weeksSummary=useMemo(()=>allWeekKeys.map(wk=>{
-    const items=weekItems[wk]||[];
-    // Копилка входит в план и факт: это распределённые деньги бюджета
-    const txExp=(transactions||[]).filter(t=>t.week===wk&&(t.type==='expense'||t.catId==='piggy')).reduce((s,t)=>s+t.amount,0);
-    const wSp=items.filter(x=>x.isDone).reduce((s,x)=>s+x.amount,0)+txExp;
-    const wTot=items.reduce((s,x)=>s+x.amount,0);
-    const wPiggy=items.filter(x=>x.catId==='piggy').reduce((s,x)=>s+x.amount,0)
-      +(transactions||[]).filter(t=>t.week===wk&&t.catId==='piggy').reduce((s,t)=>s+t.amount,0);
-    const wS=weekKeyToDate(wk),wE=new Date(wS.getTime()+6*86400000);
-    const wInc=incomes.reduce((s,inc)=>{const yr=wS.getFullYear();const sch=buildPaymentScheduleSpan(yr,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc).map(p=>({...p,...(payments[p.displayLabel]||{})}));return s+sch.filter(p=>p.date>=wS&&p.date<=wE).reduce((ss,p)=>ss+(p.actualAmount||p.amount),0);},0);
-    const txInc=(transactions||[]).filter(t=>t.week===wk&&t.type==='income').reduce((s,t)=>s+t.amount,0);
-    const exInc=extraIncomeInRange(wS,wE);
-    return{wk,wSp,wTot,wInc:wInc+txInc+exInc,bal:(wInc+txInc+exInc)-wTot,wPiggy};
-  }),[allWeekKeys.join(','),weekItems,incomes,payments,transactions,extraPayments]);
+  // weeksSummary/negativeWeek теперь приходят из App.jsx пропсами (считаются один раз
+  // на всё приложение — Поток и Сегодня используют один и тот же прогноз баланса).
   const monthsSummary=useMemo(()=>{const curWk2=todayKey();const map={};weeksSummary.forEach(d=>{const wS=weekKeyToDate(d.wk);const mk=monthKey(wS);if(!map[mk])map[mk]={mk,wTot:0,wSp:0,wInc:0,wDeduct:0};map[mk].wTot+=d.wTot;map[mk].wSp+=d.wSp;map[mk].wInc+=d.wInc;map[mk].wDeduct+=(d.wk>curWk2?d.wTot:d.wSp);});return Object.values(map).sort((a,b)=>a.mk.localeCompare(b.mk));},[weeksSummary]);
   const yearsSummary=useMemo(()=>{const curWk3=todayKey();const map={};weeksSummary.forEach(d=>{const yr=weekKeyToDate(d.wk).getFullYear(); // календарный год по дате начала недели
     if(!map[yr])map[yr]={yr,wTot:0,wSp:0,wInc:0,wDeduct:0,weeks:0};map[yr].wTot+=d.wTot;map[yr].wSp+=d.wSp;map[yr].wInc+=d.wInc;map[yr].wDeduct+=(d.wk>curWk3?d.wTot:d.wSp);map[yr].weeks+=1;});return Object.values(map).sort((a,b)=>a.yr-b.yr);},[weeksSummary]);
-  // Когда накопительный баланс уйдёт в минус при текущем плане — та же логика прогноза,
-  // что и в списке недель ниже, только идём вперёд до первого отрицательного значения
-  const negativeWeek=useMemo(()=>{
-    let bal=computeBalances(state).savingStart;
-    const curWk2=todayKey();
-    for(const d of weeksSummary){
-      const isFuture=d.wk>curWk2;
-      bal=bal+d.wInc-(isFuture?d.wTot:d.wSp);
-      if(bal<0)return{wk:d.wk,bal};
-    }
-    return null;
-  },[weeksSummary,state]);
   // Крупнейшая необязательная категория (фонд «Комфорт») — куда в первую очередь стоит урезать
   const trimCat=useMemo(()=>{
     const allCats2=[...DEFAULT_CATS,...(state.customCats||[])];

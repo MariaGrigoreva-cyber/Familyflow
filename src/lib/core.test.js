@@ -25,6 +25,9 @@ import {
   paymentTypeLabel,
   compactWeekItemsForSave,
   isLegacyWeekKeyFormat,
+  computeWeeksSummary,
+  projectCashFlow,
+  todayKey,
 } from './core';
 
 describe('getActualPayDate', () => {
@@ -316,6 +319,61 @@ describe('isLegacyWeekKeyFormat — не путать нормальный кл�
   test('чисто числовой ключ — старый формат', () => {
     expect(isLegacyWeekKeyFormat('12')).toBe(true);
     expect(isLegacyWeekKeyFormat('202630')).toBe(true);
+  });
+});
+
+describe('computeWeeksSummary', () => {
+  test('считает план/факт/доход по неделе с плановой категорией', () => {
+    const planned = [{ id: 'p1', catId: 'food', name: 'Еда', amount: 1000, repeat: 'weekly', days: [] }];
+    const weekItems = generateAllWeeks(planned);
+    const firstKey = Object.keys(weekItems).sort()[0];
+    weekItems[firstKey] = weekItems[firstKey].map((i) => ({ ...i, isDone: true }));
+    const state = { weekItems, incomes: [], payments: {}, transactions: [], extraPayments: [] };
+    const summary = computeWeeksSummary(state);
+    const firstWeekSummary = summary.find((d) => d.wk === firstKey);
+    expect(firstWeekSummary.wTot).toBe(1000);
+    expect(firstWeekSummary.wSp).toBe(1000); // отмечено выполненным
+    expect(firstWeekSummary.wInc).toBe(0); // доходов нет
+  });
+});
+
+describe('projectCashFlow — прогноз накопительного баланса и "свободные средства"', () => {
+  // "Свободные средства" — это ровно минимум проекции баланса от текущей недели и
+  // дальше: потратить X сегодня — значит сдвинуть весь будущий график вниз на X,
+  // поэтому безопасно тратить можно не больше этого минимума.
+  const curWk = todayKey();
+  const nextWk = nextWeekKey(curWk);
+  const wk3 = nextWeekKey(nextWk);
+
+  test('свободные средства = минимум будущего баланса, если он положительный', () => {
+    const state = { startBalance: 1000, weekItems: {} };
+    const weeksSummary = [
+      { wk: curWk, wSp: 0, wTot: 500, wInc: 500 }, // текущая: факт (wSp=0) → баланс 1000+500-0=1500
+      { wk: nextWk, wSp: 0, wTot: 800, wInc: 200 }, // будущая: план → баланс 1500+200-800=900
+      { wk: wk3, wSp: 0, wTot: 100, wInc: 1000 }, // будущая: план → баланс 900+1000-100=1800
+    ];
+    const { freeSpendableNow, negativeWeek } = projectCashFlow(state, weeksSummary);
+    expect(negativeWeek).toBeNull();
+    expect(freeSpendableNow).toBe(900); // минимум из [1500, 900, 1800]
+  });
+
+  test('если прогноз уходит в минус — свободные средства 0 (не отрицательное число)', () => {
+    const state = { startBalance: 0, weekItems: {} };
+    const weeksSummary = [
+      { wk: curWk, wSp: 0, wTot: 0, wInc: 0 },
+      { wk: nextWk, wSp: 0, wTot: 5000, wInc: 100 }, // план сильно превышает доход
+    ];
+    const { freeSpendableNow, negativeWeek } = projectCashFlow(state, weeksSummary);
+    expect(freeSpendableNow).toBe(0);
+    expect(negativeWeek).not.toBeNull();
+    expect(negativeWeek.wk).toBe(nextWk);
+  });
+
+  test('пустой прогноз — свободные средства 0, дефицита нет', () => {
+    const state = { startBalance: 500, weekItems: {} };
+    const { freeSpendableNow, negativeWeek } = projectCashFlow(state, []);
+    expect(freeSpendableNow).toBe(0);
+    expect(negativeWeek).toBeNull();
   });
 });
 
