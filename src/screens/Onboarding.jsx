@@ -153,6 +153,9 @@ export function Onboarding({onDone}){
   // Автораспределение сумм по выбранным категориям: доход делится по методике 20/50/30
   // (Защита/Жизнь/Комфорт), а бюджет каждого фонда — поровну между выбранными в нём
   // категориями. Пользователь только выбирает категории, суммы всегда можно поправить.
+  // Защита (ипотека, копилка) — периодичность месячная, как и положено таким платежам.
+  // Жизнь и Комфорт (еда, транспорт, одежда и т.п.) — понедельная: это траты по чуть-чуть
+  // каждую неделю, а не раз в месяц, поэтому сумма фонда переводится в недельный эквивалент.
   const autoDistribute=()=>{
     const totalNet=memberIncomes.reduce((s,i)=>s+calcNetFor(i),0);
     if(totalNet<=0||selectedCats.size===0)return;
@@ -161,10 +164,14 @@ export function Onboarding({onDone}){
       FUND_LABELS.forEach(fund=>{
         const catsInFund=Array.from(selectedCats).filter(catId=>getCatFund(catId)?.key===fund.key);
         if(catsInFund.length===0)return;
-        const fundBudget=totalNet*fund.pct/100;
-        const perCat=Math.round(fundBudget/catsInFund.length/50)*50; // округляем до 50 ₽
+        const fundBudgetMonthly=totalNet*fund.pct/100;
+        const perCatMonthly=fundBudgetMonthly/catsInFund.length;
+        const weekly=fund.key!=='defense';
+        const perCat=Math.round((weekly?perCatMonthly/4.3:perCatMonthly)/50)*50; // округляем до 50 ₽
         catsInFund.forEach(catId=>{
-          next[catId]={...(next[catId]||{}),amount:String(perCat),repeat:'monthly',days:[1]};
+          next[catId]=weekly
+            ?{...(next[catId]||{}),amount:String(perCat),repeat:'weekly',days:[]}
+            :{...(next[catId]||{}),amount:String(perCat),repeat:'monthly',days:[1]};
         });
       });
       return next;
