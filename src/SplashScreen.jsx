@@ -6,7 +6,9 @@ import { C, MONO } from './lib/core';
 export function SplashScreen(){
   return(
     <div style={{height:'100%',maxWidth:480,margin:'0 auto',width:'100%',boxSizing:'border-box',background:C.orange,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
-      <div style={{width:88,height:88,borderRadius:26,background:'rgba(255,255,255,.14)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:44}}>🐷</div>
+      <div style={{width:88,height:88,borderRadius:26,background:'rgba(255,255,255,.14)',display:'flex',alignItems:'center',justifyContent:'center'}}>
+        <svg width="46" height="46" viewBox="0 0 32 32" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="15" cy="18" r="9.5"/><circle cx="20.5" cy="9.3" r="2" fill="#fff" stroke="none"/><rect x="23.5" y="15" width="5.5" height="6" rx="2.5"/><line x1="11" y1="6" x2="17.5" y2="6"/><circle cx="18.5" cy="15" r="1.5" fill="#fff" stroke="none"/><path d="M10.5 27 v2.5 M19.5 27 v2.5"/></svg>
+      </div>
       <div style={{fontSize:32,fontWeight:600,letterSpacing:-.5,color:'#fff',marginTop:22}}>Семейный поток</div>
       <div style={{fontFamily:MONO,fontSize:11,letterSpacing:2.5,color:'rgba(255,255,255,.6)',marginTop:8}}>ФИНАНСОВЫЙ ДИРЕКТОР СЕМЬИ</div>
       <div style={{width:120,height:3,borderRadius:2,background:'rgba(255,255,255,.25)',marginTop:48,overflow:'hidden'}}>

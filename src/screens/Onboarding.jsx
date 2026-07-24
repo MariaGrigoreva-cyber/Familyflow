@@ -3,20 +3,6 @@ import React, { useState, useEffect } from 'react';
 import {C,MONO,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,FUND_LABELS,getCatFund,PIE_COLORS,POLICY_ITEMS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,EmojiPicker} from '../lib/ui';
 
-export function SplashScreen(){
-  return(
-    <div style={{height:'100%',maxWidth:480,margin:'0 auto',width:'100%',boxSizing:'border-box',background:C.orange,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
-      <div style={{width:88,height:88,borderRadius:26,background:'rgba(255,255,255,.14)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:44}}>🐷</div>
-      <div style={{fontSize:32,fontWeight:600,letterSpacing:-.5,color:'#fff',marginTop:22}}>Семейный поток</div>
-      <div style={{fontFamily:MONO,fontSize:11,letterSpacing:2.5,color:'rgba(255,255,255,.6)',marginTop:8}}>ФИНАНСОВЫЙ ДИРЕКТОР СЕМЬИ</div>
-      <div style={{width:120,height:3,borderRadius:2,background:'rgba(255,255,255,.25)',marginTop:48,overflow:'hidden'}}>
-        <div style={{width:'40%',height:3,background:'#fff',borderRadius:2,animation:'ffSplashBar 1.1s ease-in-out infinite'}}/>
-      </div>
-      <style>{'@keyframes ffSplashBar{0%{margin-left:-40%}100%{margin-left:100%}}'}</style>
-    </div>
-  );
-}
-
 export function EntryScreen({onDemo,onSetup,onLoginClick}){
   const[policy,setPolicy]=useState(false);
   if(policy)return(
@@ -38,7 +24,9 @@ export function EntryScreen({onDemo,onSetup,onLoginClick}){
   return(
     <div style={{height:'100%',maxWidth:480,margin:'0 auto',width:'100%',background:C.bg,display:'flex',flexDirection:'column',justifyContent:'center',padding:24,boxSizing:'border-box',overflowY:'auto'}}>
       <div style={{display:'flex',alignItems:'center',gap:12}}>
-        <div style={{width:44,height:44,borderRadius:13,background:C.orange,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>🐷</div>
+        <div style={{width:44,height:44,borderRadius:13,background:C.orange,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
+          <svg width="24" height="24" viewBox="0 0 32 32" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="15" cy="18" r="9.5"/><circle cx="20.5" cy="9.3" r="2" fill="#fff" stroke="none"/><rect x="23.5" y="15" width="5.5" height="6" rx="2.5"/><line x1="11" y1="6" x2="17.5" y2="6"/><circle cx="18.5" cy="15" r="1.5" fill="#fff" stroke="none"/><path d="M10.5 27 v2.5 M19.5 27 v2.5"/></svg>
+        </div>
         <div><div style={{fontSize:18,fontWeight:600,color:C.text}}>Семейный поток</div><div style={{fontFamily:MONO,fontSize:9.5,letterSpacing:1.5,color:C.muted,marginTop:2}}>ФИНАНСОВЫЙ ДИРЕКТОР СЕМЬИ</div></div>
       </div>
       <div style={{fontFamily:MONO,fontSize:10.5,letterSpacing:1.5,color:C.muted,margin:'30px 0 12px',textTransform:'uppercase'}}>КАК ХОТИТЕ НАЧАТЬ?</div>
@@ -67,70 +55,6 @@ export function EntryScreen({onDemo,onSetup,onLoginClick}){
 // ════════════════════════════════════════════════════════════════════════
 // ONBOARDING
 // ════════════════════════════════════════════════════════════════════════
-const FRAME_BG=['oklch(0.95 0.03 40)','oklch(0.95 0.03 85)'];
-export function IntroStories({onDone}){
-  const[introPage,setIntroPage]=useState(0);
-  const FRAMES=[
-    {icon:'😌',eyebrow:'ЗАЧЕМ СЕМЕЙНЫЙ ПОТОК',title:'Деньги не закончатся\nдо зарплаты',sub:'Спланируйте бюджет один раз в начале — и больше не считайте дни до аванса'},
-    {icon:'📅',eyebrow:'МЕТОДИКА',title:'Раз в неделю —\nпо трём потокам',sub:'Спланировали один раз — дальше Семейный поток сам раскладывает деньги по направлениям каждую неделю'},
-  ];
-  const STREAMS=[
-    {e:'🛡️',t:'Защита',s:'копилка',col:C.orangeD,bg:C.orangeL,pct:'20%'},
-    {e:'🍽️',t:'Жизнь',s:'еда · транспорт · развлечения',col:C.yellow,bg:C.yellowL,pct:'50%'},
-    {e:'🛋️',t:'Комфорт',s:'одежда · дом · путешествия',col:C.blue,bg:C.blueL,pct:'30%'},
-  ];
-  const TOTAL=FRAMES.length+1; // + финальный кадр с потоками
-  const advance=()=>{if(introPage<TOTAL-1)setIntroPage(p=>p+1);else{setIntroPage(0);onDone();}};
-  const retreat=()=>{if(introPage>0)setIntroPage(p=>p-1);};
-  const isLast=introPage===TOTAL-1;
-  return(
-    <div style={{height:'100%',maxWidth:480,margin:'0 auto',width:'100%',background:C.bg,boxSizing:'border-box',padding:'18px 24px 24px',display:'flex',flexDirection:'column',position:'relative'}}>
-      <div style={{display:'flex',gap:5}}>
-        {Array.from({length:TOTAL}).map((_,i)=>(
-          <div key={i} style={{flex:1,height:3,borderRadius:2,background:i<=introPage?C.orange:C.border}}/>
-        ))}
-      </div>
-      {!isLast&&<>
-        <div style={{position:'absolute',top:0,left:0,width:'40%',height:'100%',zIndex:2}} onClick={retreat}/>
-        <div style={{position:'absolute',top:0,right:0,width:'60%',height:'100%',zIndex:2}} onClick={advance}/>
-      </>}
-      {!isLast?(
-        <>
-          <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',textAlign:'center',position:'relative',zIndex:1}}>
-            <div style={{width:96,height:96,borderRadius:28,background:FRAME_BG[introPage],display:'flex',alignItems:'center',justifyContent:'center',fontSize:46}}>{FRAMES[introPage].icon}</div>
-            <div style={{fontFamily:MONO,fontSize:10.5,letterSpacing:1.5,color:C.muted,textTransform:'uppercase',marginTop:30}}>{FRAMES[introPage].eyebrow} · {introPage+1} / {TOTAL}</div>
-            <div style={{fontSize:30,fontWeight:600,letterSpacing:-.5,lineHeight:1.2,color:C.text,marginTop:10,whiteSpace:'pre-line'}}>{FRAMES[introPage].title}</div>
-            <div style={{fontSize:14,color:'var(--c-muted2)',lineHeight:1.55,marginTop:14,maxWidth:270}}>{FRAMES[introPage].sub}</div>
-          </div>
-          <div style={{textAlign:'center',fontFamily:MONO,fontSize:10,color:C.faint,position:'relative',zIndex:1}}>ТАП — ДАЛЬШЕ · ЛЕВЫЙ КРАЙ — НАЗАД</div>
-        </>
-      ):(
-        <div style={{flex:1,display:'flex',flexDirection:'column'}}>
-          {introPage>0&&<button onClick={retreat} style={{alignSelf:'flex-start',background:'none',border:'none',cursor:'pointer',fontSize:13,color:C.muted,fontFamily:'inherit',padding:0,marginBottom:8}}>← Назад</button>}
-          <div style={{fontFamily:MONO,fontSize:10.5,letterSpacing:1.5,color:C.muted,textTransform:'uppercase',marginTop:8}}>МЕТОДИКА · {TOTAL} / {TOTAL}</div>
-          <div style={{fontSize:30,fontWeight:600,letterSpacing:-.5,lineHeight:1.15,color:C.text,marginTop:10}}>Раз в неделю —<br/>по трём потокам</div>
-          <div style={{fontSize:14,color:'var(--c-muted2)',lineHeight:1.55,marginTop:12}}>Все деньги приходят на один счёт. Семейный поток распределяет их по направлениям — вы просто переводите по плану.</div>
-          <div style={{display:'flex',flexDirection:'column',gap:10,marginTop:26}}>
-            {STREAMS.map((b,i)=>(
-              <div key={i} style={{display:'flex',alignItems:'center',gap:14,background:b.bg,borderRadius:16,padding:'16px 18px'}}>
-                <span style={{width:44,height:44,borderRadius:13,background:'var(--c-surface)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:21,flexShrink:0}}>{b.e}</span>
-                <div style={{flex:1}}><div style={{fontSize:15,fontWeight:600,color:b.col}}>{b.t}</div><div style={{fontSize:11.5,color:b.col,opacity:.85,marginTop:1}}>{b.s}</div></div>
-                <span style={{fontFamily:MONO,fontSize:16,fontWeight:600,color:b.col}}>{b.pct}</span>
-              </div>
-            ))}
-          </div>
-          <div style={{display:'flex',height:10,borderRadius:5,overflow:'hidden',marginTop:20}}>
-            <div style={{width:'55%',background:C.orange}}/>
-            <div style={{width:'25%',background:'oklch(0.75 0.12 85)'}}/>
-            <div style={{flex:1,background:C.blue}}/>
-          </div>
-          <div style={{marginTop:'auto',paddingTop:24}}><Btn label="Настроить бюджет →" onClick={onDone}/></div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 export function Onboarding({onDone}){
   const[step,setStep]=useState(1);
   const[startBalance,setStartBalance]=useState('');

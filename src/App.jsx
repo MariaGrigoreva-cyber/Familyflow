@@ -4,7 +4,6 @@ import {TodayScreen} from './screens/Today';
 // Экран сплэша нужен мгновенно каждому пользователю — держим его прямо здесь,
 // а не тянем весь Onboarding.jsx (со сторис/формой/анкетой) в основной бандл.
 const EntryScreen=lazy(()=>import('./screens/Onboarding').then(m=>({default:m.EntryScreen})));
-const IntroStories=lazy(()=>import('./screens/Onboarding').then(m=>({default:m.IntroStories})));
 const Onboarding=lazy(()=>import('./screens/Onboarding').then(m=>({default:m.Onboarding})));
 const PlanScreen=lazy(()=>import('./screens/CashFlow').then(m=>({default:m.PlanScreen})));
 const BudgetScreen=lazy(()=>import('./screens/Budget').then(m=>({default:m.BudgetScreen})));
@@ -53,7 +52,6 @@ export default function App(){
   const[tab,setTab]=useState('today');
   const[tourStep,setTourStep]=useState(-1); // -1 = тур выключен
   const[showSplash,setShowSplash]=useState(true); // загрузочный экран при старте приложения
-  const[introSeen,setIntroSeen]=useState(false); // сторис-методика показана перед согласием
   const[startLogin,setStartLogin]=useState(false); // форма входа на стартовом экране
   const[showAdd,setShowAdd]=useState(false);
   const[addWeek,setAddWeek]=useState(null); // неделя для добавления транзакции
@@ -509,7 +507,6 @@ useEffect(() => {
   const TAB_TITLES={today:'Сегодня',plan:'Денежный поток',budget:'Годовой бюджет',health:'Здоровье бюджета',settings:'Настройки'};
   const shell={maxWidth:480,margin:'0 auto',height:'100dvh',overflow:'hidden',background:C.bg,display:'flex',flexDirection:'column',fontFamily:"'IBM Plex Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",position:'relative'};
   if(showSplash)return<div style={shell}><SplashScreen/></div>;
-  if(!consented&&!introSeen)return<div style={shell}><Suspense fallback={null}><IntroStories onDone={()=>setIntroSeen(true)}/></Suspense></div>;
   const startDemo=()=>{
     const demo=buildDemoState();
     setAppState(demo);
