@@ -13,6 +13,7 @@ import {EditPaymentModal,AddExtraModal,AddTxModal,EditCatModal,EditTxModal,EditI
 import { isLoggedIn, loadCloudState, saveCloudState, authMe, resendVerification } from './api';
 import { SplashScreen } from './SplashScreen';
 import { StartLoginForm } from './StartLoginForm';
+import { AddToHomeScreenPrompt } from './AddToHomeScreenPrompt';
 export default function App(){
   // ── localStorage: загружаем сохранённые данные при старте ──────────────
   const loadFromStorage = () => {
@@ -585,6 +586,7 @@ useEffect(() => {
         </Suspense>
       </div>
       <TabBar active={tab} onPress={setTab}/>
+      <AddToHomeScreenPrompt/>
       <AddTxModal visible={showAdd} onClose={()=>setShowAdd(false)} onSave={handleAddTx} members={appState.members} planned={appState.planned} customCats={appState.customCats}/>
       <EditCatModal visible={showEdit} item={editItem} members={appState.members} customCats={appState.customCats} onClose={()=>{setShowEdit(false);setEditItem(null);}} onSave={item=>{const{isNew,...rest}=item||{};handleEditPlanned(isNew?{...rest,isNew:true}:rest);}} onDelete={handleDeletePlanned}/>
       <EditPaymentModal visible={showEditPay} payment={editPayment} onClose={()=>{setShowEditPay(false);setEditPayment(null);}} onSave={handleSavePayment} onDelete={handleDeleteExtra}/>
