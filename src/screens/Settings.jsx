@@ -163,7 +163,7 @@ export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncom
           r.onload=ev=>{
             try{
               const parsed=JSON.parse(ev.target.result);
-              if(!parsed||typeof parsed!=='object'||!parsed.appState)throw new Error('это не файл FamilyFlow');
+              if(!parsed||typeof parsed!=='object'||!parsed.appState)throw new Error('это не файл Семейного потока');
               if(!window.confirm('Заменить текущие данные данными из файла? Отменить будет нельзя.'))return;
               localStorage.setItem('ff_state',ev.target.result);
               window.location.reload();
@@ -173,7 +173,7 @@ export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncom
         }}/>
       </label>
       <SecTitle>ПОДДЕРЖКА</SecTitle>
-      <a href="mailto:support@myfamilyflow.ru?subject=FamilyFlow" style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'9px 0',textDecoration:'none',boxSizing:'border-box'}}>
+      <a href="mailto:support@myfamilyflow.ru?subject=Семейный поток" style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'9px 0',textDecoration:'none',boxSizing:'border-box'}}>
         <span style={{fontSize:17}}>💬</span>
         <div style={{flex:1}}>
           <div style={{fontSize:13.5,color:C.text}}>Написать в поддержку</div>

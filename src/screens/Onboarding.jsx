@@ -7,7 +7,7 @@ export function SplashScreen(){
   return(
     <div style={{height:'100%',maxWidth:480,margin:'0 auto',width:'100%',boxSizing:'border-box',background:C.orange,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center'}}>
       <div style={{width:88,height:88,borderRadius:26,background:'rgba(255,255,255,.14)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:44}}>🐷</div>
-      <div style={{fontSize:32,fontWeight:600,letterSpacing:-.5,color:'#fff',marginTop:22}}>FamilyFlow</div>
+      <div style={{fontSize:32,fontWeight:600,letterSpacing:-.5,color:'#fff',marginTop:22}}>Семейный поток</div>
       <div style={{fontFamily:MONO,fontSize:11,letterSpacing:2.5,color:'rgba(255,255,255,.6)',marginTop:8}}>ФИНАНСОВЫЙ ДИРЕКТОР СЕМЬИ</div>
       <div style={{width:120,height:3,borderRadius:2,background:'rgba(255,255,255,.25)',marginTop:48,overflow:'hidden'}}>
         <div style={{width:'40%',height:3,background:'#fff',borderRadius:2,animation:'ffSplashBar 1.1s ease-in-out infinite'}}/>
@@ -39,7 +39,7 @@ export function EntryScreen({onDemo,onSetup,onLoginClick}){
     <div style={{height:'100%',maxWidth:480,margin:'0 auto',width:'100%',background:C.bg,display:'flex',flexDirection:'column',justifyContent:'center',padding:24,boxSizing:'border-box',overflowY:'auto'}}>
       <div style={{display:'flex',alignItems:'center',gap:12}}>
         <div style={{width:44,height:44,borderRadius:13,background:C.orange,display:'flex',alignItems:'center',justifyContent:'center',fontSize:22,flexShrink:0}}>🐷</div>
-        <div><div style={{fontSize:18,fontWeight:600,color:C.text}}>FamilyFlow</div><div style={{fontFamily:MONO,fontSize:9.5,letterSpacing:1.5,color:C.muted,marginTop:2}}>ФИНАНСОВЫЙ ДИРЕКТОР СЕМЬИ</div></div>
+        <div><div style={{fontSize:18,fontWeight:600,color:C.text}}>Семейный поток</div><div style={{fontFamily:MONO,fontSize:9.5,letterSpacing:1.5,color:C.muted,marginTop:2}}>ФИНАНСОВЫЙ ДИРЕКТОР СЕМЬИ</div></div>
       </div>
       <div style={{fontFamily:MONO,fontSize:10.5,letterSpacing:1.5,color:C.muted,margin:'30px 0 12px',textTransform:'uppercase'}}>КАК ХОТИТЕ НАЧАТЬ?</div>
       <div style={{display:'flex',flexDirection:'column',gap:8}}>
@@ -71,8 +71,8 @@ const FRAME_BG=['oklch(0.95 0.03 40)','oklch(0.95 0.03 85)'];
 export function IntroStories({onDone}){
   const[introPage,setIntroPage]=useState(0);
   const FRAMES=[
-    {icon:'😌',eyebrow:'ЗАЧЕМ FAMILYFLOW',title:'Деньги не закончатся\nдо зарплаты',sub:'Спланируйте бюджет один раз в начале — и больше не считайте дни до аванса'},
-    {icon:'📅',eyebrow:'МЕТОДИКА',title:'Раз в неделю —\nпо трём потокам',sub:'Спланировали один раз — дальше FamilyFlow сам раскладывает деньги по направлениям каждую неделю'},
+    {icon:'😌',eyebrow:'ЗАЧЕМ СЕМЕЙНЫЙ ПОТОК',title:'Деньги не закончатся\nдо зарплаты',sub:'Спланируйте бюджет один раз в начале — и больше не считайте дни до аванса'},
+    {icon:'📅',eyebrow:'МЕТОДИКА',title:'Раз в неделю —\nпо трём потокам',sub:'Спланировали один раз — дальше Семейный поток сам раскладывает деньги по направлениям каждую неделю'},
   ];
   const STREAMS=[
     {e:'🛡️',t:'Защита',s:'копилка',col:C.orangeD,bg:C.orangeL,pct:'20%'},
@@ -109,7 +109,7 @@ export function IntroStories({onDone}){
           {introPage>0&&<button onClick={retreat} style={{alignSelf:'flex-start',background:'none',border:'none',cursor:'pointer',fontSize:13,color:C.muted,fontFamily:'inherit',padding:0,marginBottom:8}}>← Назад</button>}
           <div style={{fontFamily:MONO,fontSize:10.5,letterSpacing:1.5,color:C.muted,textTransform:'uppercase',marginTop:8}}>МЕТОДИКА · {TOTAL} / {TOTAL}</div>
           <div style={{fontSize:30,fontWeight:600,letterSpacing:-.5,lineHeight:1.15,color:C.text,marginTop:10}}>Раз в неделю —<br/>по трём потокам</div>
-          <div style={{fontSize:14,color:'var(--c-muted2)',lineHeight:1.55,marginTop:12}}>Все деньги приходят на один счёт. FamilyFlow распределяет их по направлениям — вы просто переводите по плану.</div>
+          <div style={{fontSize:14,color:'var(--c-muted2)',lineHeight:1.55,marginTop:12}}>Все деньги приходят на один счёт. Семейный поток распределяет их по направлениям — вы просто переводите по плану.</div>
           <div style={{display:'flex',flexDirection:'column',gap:10,marginTop:26}}>
             {STREAMS.map((b,i)=>(
               <div key={i} style={{display:'flex',alignItems:'center',gap:14,background:b.bg,borderRadius:16,padding:'16px 18px'}}>
@@ -492,7 +492,7 @@ export function Onboarding({onDone}){
             </div>
           ))}
         </div>}
-        <div style={{marginTop:'auto'}}><Btn label="Открыть FamilyFlow →" onClick={finish}/></div>
+        <div style={{marginTop:'auto'}}><Btn label="Открыть Семейный поток →" onClick={finish}/></div>
       </div></div>
     </div>
   );
