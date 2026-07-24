@@ -172,6 +172,15 @@ export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncom
           r.readAsText(f);
         }}/>
       </label>
+      <SecTitle>ПОДДЕРЖКА</SecTitle>
+      <a href="mailto:support@myfamilyflow.ru?subject=FamilyFlow" style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'9px 0',textDecoration:'none',boxSizing:'border-box'}}>
+        <span style={{fontSize:17}}>💬</span>
+        <div style={{flex:1}}>
+          <div style={{fontSize:13.5,color:C.text}}>Написать в поддержку</div>
+          <div style={{fontSize:11,color:C.muted,marginTop:1}}>вопрос, баг, предложение — support@myfamilyflow.ru</div>
+        </div>
+        <span style={{fontSize:13,color:C.muted}}>›</span>
+      </a>
       <SecTitle>СБРОС</SecTitle>
       <div style={{...s.card,background:C.redL,border:`1px solid ${C.redB}`,padding:14}}>
         <div style={{fontSize:12,color:C.red,marginBottom:10,lineHeight:1.5}}>

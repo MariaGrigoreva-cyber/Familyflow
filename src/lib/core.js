@@ -204,7 +204,12 @@ const computeBalances=(state)=>{
 
   // Расходы (без piggy): плановые галочки + ручные записи
   const txExpenseAll=(transactions||[]).filter(t=>t.type==='expense'&&t.catId!=='piggy').reduce((s,t)=>s+t.amount,0);
-  const spentFor=(items)=>(items||[]).filter(i=>i.isDone&&!isPiggy(i)&&!i.week).reduce((s,i)=>s+i.amount,0);
+  // weekItems-записи никогда не должны нести поле week (это атрибут отдельных
+  // transactions) — раньше spentFor на него ориентировался, чтобы не задвоить
+  // с transactions, но UI редактирования планового пункта временно подмешивал
+  // week только для подписи в модалке, и это просачивалось в сохранённые данные,
+  // из-за чего отредактированные плановые траты пропадали из «Остаток на руках».
+  const spentFor=(items)=>(items||[]).filter(i=>i.isDone&&!isPiggy(i)).reduce((s,i)=>s+i.amount,0);
   const weekSpent=spentFor(wItems)+(transactions||[]).filter(t=>t.week===week&&t.type==='expense'&&t.catId!=='piggy').reduce((s,t)=>s+t.amount,0);
   const pastSpent=Object.entries(weekItems).filter(([wk])=>wk<week).reduce((s,[,items])=>s+spentFor(items),0)
     +(transactions||[]).filter(t=>t.week<week&&t.type==='expense'&&t.catId!=='piggy').reduce((s,t)=>s+t.amount,0);
@@ -282,14 +287,20 @@ const projectCashFlow=(state,weeksSummary)=>{
   const curWk=todayKey();
   let negativeWeek=null;
   let minFromNow=null;
+  // Полный ряд балансов по неделям — общая основа и для банера на Потоке, и для
+  // прогноза кассовых разрывов на Здоровье (там раньше была своя копия этого цикла,
+  // которая для будущих недель по ошибке брала только уже отмеченные траты вместо
+  // плана — из-за этого будущий минус не показывался как риск).
+  const weeklyBalances=[];
   for(const d of weeksSummary){
     const isFuture=d.wk>curWk;
     bal=bal+d.wInc-(isFuture?d.wTot:d.wSp);
+    weeklyBalances.push({wk:d.wk,bal,wTot:d.wTot});
     if(negativeWeek===null&&bal<0)negativeWeek={wk:d.wk,bal};
     if(d.wk>=curWk)minFromNow=minFromNow===null?bal:Math.min(minFromNow,bal);
   }
   const projectedFree=minFromNow===null?0:Math.round(minFromNow);
-  return{negativeWeek,freeSpendableNow:Math.max(0,Math.min(cb.balance,projectedFree))};
+  return{negativeWeek,freeSpendableNow:Math.max(0,Math.min(cb.balance,projectedFree)),weeklyBalances};
 };
 
 // Старый формат ключей weekItems был просто числом (напр. '12'), текущий — 'YYYY-Www'.

@@ -53,6 +53,8 @@ export const familyJoin = code => req('/family/join', { method: 'POST', body: { 
 
 export const changePassword = (oldPassword, newPassword) =>
   req('/auth/change-password', { method: 'POST', body: { oldPassword, newPassword } });
+export const authMe = () => req('/auth/me');
+export const resendVerification = () => req('/auth/resend-verification', { method: 'POST' });
 export const resetRequest = email =>
   req('/auth/reset-request', { method: 'POST', auth: false, body: { email } });
 export async function resetConfirm(email, code, newPassword) {

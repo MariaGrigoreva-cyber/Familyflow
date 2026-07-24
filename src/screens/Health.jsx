@@ -1,12 +1,11 @@
 // FamilyFlow — экран Здоровье бюджета
 import React, { useState, useEffect, useMemo } from 'react';
-import {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,buildPaymentScheduleSpan,regenWeeksKeepDone,computeBalances,computeBudgetMetrics,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
+import {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBudgetMetrics,computeWeeksSummary,projectCashFlow,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad} from '../lib/ui';
 
 export function HealthScreen({state}){
   const[showScoreInfo,setShowScoreInfo]=useState(false);
-  const{incomes,planned,weekItems={},customCats=[],startBalance=0,extraPayments=[]}=state;
-  const extraIncomeInRange=(start,end)=>(extraPayments||[]).filter(p=>{const d=new Date(p.date);return d>=start&&d<=end;}).reduce((s,p)=>s+(p.actualAmount||p.amount),0);
+  const{planned,weekItems={},customCats=[],startBalance=0}=state;
   const allCats=[...DEFAULT_CATS,...customCats];
   const{totalNet,monthlyExp,piggyMonthly,expWithoutPiggy,freeCash,savingsRate,isDeficit}=computeBudgetMetrics(state);
   const expenseRatio=totalNet>0?Math.round(expWithoutPiggy/totalNet*100):0;
@@ -22,28 +21,24 @@ export function HealthScreen({state}){
     return total+items.filter(i=>i.catId==='piggy'&&i.isDone).reduce((s,i)=>s+i.amount,0);
   },0)+Object.entries(txPiggyMap).filter(([wk])=>!weekItems[wk]).reduce((s,[,v])=>s+v,0);
   const cushion=piggyActual>0?piggyActual:Math.round(piggyMonthly/4.3*4);
-  // Прогноз кассовых разрывов на ближайшие недели: считаем накопительный баланс вперёд
-  // и сравниваем с планом следующей недели — если баланс покрывает меньше половины плана, неделя "рискованная"
+  // Прогноз кассовых разрывов на ближайшие недели: та же единая формула накопительного
+  // баланса, что и на Потоке/Сегодня (см. projectCashFlow) — раньше здесь была отдельная
+  // копия цикла, которая для будущих недель по ошибке брала только уже отмеченные траты
+  // вместо плана, из-за чего реальный будущий минус не показывался как риск.
+  const weeksSummary=useMemo(()=>computeWeeksSummary(state),[state]);
   const projectedRiskyWeeks=useMemo(()=>{
-    const allWeekKeys=Object.keys(weekItems).sort();
+    const{weeklyBalances}=projectCashFlow(state,weeksSummary);
+    const curWk=todayKey();
+    const upcoming=weeklyBalances.filter(w=>w.wk>=curWk).slice(0,12);
     const risky=[];
-    let runBal=computeBalances(state).savingStart;
-    for(let i=0;i<Math.min(allWeekKeys.length-1,12);i++){
-      const wk=allWeekKeys[i];
-      const items=weekItems[wk]||[];
-      const wkStart=weekKeyToDate(wk),wkEnd=new Date(wkStart.getTime()+6*86400000);
-      const wkInc=incomes.reduce((s,inc)=>{const yr=wkStart.getFullYear();const sch=buildPaymentScheduleSpan(yr,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc);return s+sch.filter(p=>p.date>=wkStart&&p.date<=wkEnd).reduce((ss,p)=>ss+(p.actualAmount||p.amount),0);},0)+extraIncomeInRange(wkStart,wkEnd);
-      const wkSpent=items.filter(x=>x.isDone).reduce((s,x)=>s+x.amount,0);
-      runBal=runBal+wkInc-wkSpent;
-      const nextWk=allWeekKeys[i+1];
-      const nextItems=weekItems[nextWk]||[];
-      const nextPlan=nextItems.reduce((s,x)=>s+x.amount,0);
-      if(nextPlan>0&&runBal<nextPlan*0.5){
-        risky.push({wk,runBal,nextWk,nextPlan,pct:Math.round(runBal/nextPlan*100)});
+    for(let i=0;i<upcoming.length-1;i++){
+      const cur=upcoming[i],next=upcoming[i+1];
+      if(next.wTot>0&&cur.bal<next.wTot*0.5){
+        risky.push({wk:cur.wk,runBal:cur.bal,nextWk:next.wk,nextPlan:next.wTot,pct:Math.round(cur.bal/next.wTot*100)});
       }
     }
     return risky;
-  },[weekItems,incomes,state.startBalance,state.transactions,state.payments,extraPayments]);
+  },[state,weeksSummary]);
   const hasCashGapDeficit=projectedRiskyWeeks.some(r=>r.pct<=0);
   // Расходы % от дохода — теперь чисто информационная строка (см. ниже), не даёт очков.
   const cashGapScore=projectedRiskyWeeks.length===0?30:hasCashGapDeficit?0:15;

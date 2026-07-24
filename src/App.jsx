@@ -11,7 +11,7 @@ const BudgetScreen=lazy(()=>import('./screens/Budget').then(m=>({default:m.Budge
 const HealthScreen=lazy(()=>import('./screens/Health').then(m=>({default:m.HealthScreen})));
 const SettingsScreen=lazy(()=>import('./screens/Settings').then(m=>({default:m.SettingsScreen})));
 import {EditPaymentModal,AddExtraModal,AddTxModal,EditCatModal,EditTxModal,EditIncomeModal,WithdrawPiggyModal,TabBar} from './modals';
-import { isLoggedIn, loadCloudState, saveCloudState } from './api';
+import { isLoggedIn, loadCloudState, saveCloudState, authMe, resendVerification } from './api';
 import { SplashScreen } from './SplashScreen';
 import { StartLoginForm } from './StartLoginForm';
 export default function App(){
@@ -78,6 +78,14 @@ export default function App(){
   });
   const [cloudReady, setCloudReady] = useState(false);
 const [cloudError, setCloudError] = useState(null);
+const [emailVerified, setEmailVerified] = useState(null); // null = ещё не знаем
+const [verifyDismissed, setVerifyDismissed] = useState(false);
+const [resendBusy, setResendBusy] = useState(false);
+const [resendSent, setResendSent] = useState(false);
+const handleResendVerify = () => {
+  setResendBusy(true);
+  resendVerification().then(() => setResendSent(true)).catch(() => {}).finally(() => setResendBusy(false));
+};
 const cloudSaveBusyRef = useRef(false);
   useEffect(()=>{const t=setTimeout(()=>setShowSplash(false),1300);return()=>clearTimeout(t);},[]);
 const skipNextCloudSaveRef = useRef(false);
@@ -155,6 +163,11 @@ useEffect(() => {
     cancelled = true;
   };
 }, []);
+  // Подтверждён ли email — для баннера-напоминания (мягкое требование, не блокирует вход)
+  useEffect(() => {
+    if (!isLoggedIn()) return;
+    authMe().then(r => setEmailVerified(r.emailVerified)).catch(() => {});
+  }, []);
   // Автосохранение appState при каждом изменении
   useEffect(()=>{
     if(!onboarded) return;
@@ -440,9 +453,14 @@ useEffect(() => {
       // Обновляем в weekItems (плановые позиции). Помечаем edited:true — иначе
       // правку (напр. заранее изменённую сумму) без отметки isDone молча
       // выкидывало компактное сохранение в localStorage (только отмеченные недели).
+      // Поле week в updated ставится в CashFlow/Today только для подписи недели в
+      // модалке редактирования — плановой записи в weekItems оно не принадлежит.
+      // Если его тут не убрать, computeBalances().spentFor() примет запись за уже
+      // учтённую transaction и исключит её из «Остаток на руках» (см. баг с Кредит).
+      const { week: _weekLabelOnly, ...updatedForWeekItems } = updated;
       const newWeekItems={};
       Object.keys(prev.weekItems).forEach(wk=>{
-        newWeekItems[wk]=(prev.weekItems[wk]||[]).map(i=>i.id===updated.id?{...updated,edited:true}:i);
+        newWeekItems[wk]=(prev.weekItems[wk]||[]).map(i=>i.id===updated.id?{...updatedForWeekItems,edited:true}:i);
       });
       return{...prev,transactions:newTx,weekItems:newWeekItems};
     });
@@ -540,6 +558,14 @@ useEffect(() => {
             <span style={{fontSize:13}}>⚠️</span>
             <span style={{flex:1,fontSize:11,color:C.text2,lineHeight:1.4}}>{cloudError}</span>
             <button onClick={()=>setCloudError(null)} style={{background:'none',border:'none',color:C.muted,fontSize:16,cursor:'pointer',padding:'0 4px',fontFamily:'inherit',lineHeight:1}}>×</button>
+          </div>
+        )}
+        {emailVerified===false&&!verifyDismissed&&(
+          <div style={{display:'flex',alignItems:'center',gap:8,background:C.yellowL,borderTop:`1px solid ${C.yellowB}`,borderBottom:`1px solid ${C.yellowB}`,padding:'7px 14px'}}>
+            <span style={{fontSize:13}}>✉️</span>
+            <span style={{flex:1,fontSize:11,color:C.text2,lineHeight:1.4}}>{resendSent?'Письмо отправлено — проверьте почту.':'Подтвердите email, чтобы не потерять доступ при сбросе пароля.'}</span>
+            {!resendSent&&<button onClick={handleResendVerify} disabled={resendBusy} style={{fontFamily:MONO,fontSize:10.5,fontWeight:600,color:C.text2,background:'var(--c-surface)',border:`1px solid ${C.yellowB}`,padding:'4px 10px',borderRadius:20,cursor:'pointer',flexShrink:0}}>{resendBusy?'…':'ОТПРАВИТЬ ПИСЬМО'}</button>}
+            <button onClick={()=>setVerifyDismissed(true)} style={{background:'none',border:'none',color:C.muted,fontSize:16,cursor:'pointer',padding:'0 4px',fontFamily:'inherit',lineHeight:1}}>×</button>
           </div>
         )}
         {appState.demoMode&&(
