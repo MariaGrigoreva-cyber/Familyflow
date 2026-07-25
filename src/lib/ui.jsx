@@ -70,7 +70,7 @@ const Numpad=({value,onChange})=>{
     <div>
       <div style={{...s.card,textAlign:'center',padding:14}}>
         <div style={{fontFamily:MONO,fontSize:9.5,letterSpacing:1,color:C.muted,textTransform:'uppercase',marginBottom:4}}>Сумма</div>
-        <div style={{fontFamily:MONO,fontSize:32,fontWeight:800,color:C.orange,letterSpacing:-1}}>{disp} ₽</div>
+        <div style={{fontFamily:MONO,fontSize:32,fontWeight:800,color:C.orange,letterSpacing:-1}}>{disp}</div>
       </div>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:1,background:C.border,borderRadius:12,overflow:'hidden',marginBottom:14}}>
         {['1','2','3','4','5','6','7','8','9','000','0','⌫'].map(k=>(

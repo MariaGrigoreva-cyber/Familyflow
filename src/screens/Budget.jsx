@@ -183,7 +183,7 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
           {!goal?(
             <div style={{display:'flex',flexDirection:'column',gap:8}}>
               <input type="text" value={goalName} onChange={e=>setGoalName(e.target.value)} placeholder="Название цели (напр. Отпуск в Сочи)" style={{...s.input,padding:'10px 12px'}}/>
-              <input type="text" inputMode="numeric" value={goalAmount} onChange={e=>setGoalAmount(e.target.value.replace(/\D/g,''))} placeholder="Нужная сумма, ₽" style={{...s.input,padding:'10px 12px'}}/>
+              <input type="text" inputMode="numeric" value={goalAmount} onChange={e=>setGoalAmount(e.target.value.replace(/\D/g,''))} placeholder="Нужная сумма" style={{...s.input,padding:'10px 12px'}}/>
               <div style={{display:'flex',alignItems:'center',gap:8}}>
                 <span style={{fontSize:13,color:C.muted,flex:1}}>Хочу накопить к</span>
                 <input type="date" value={goalDate} onChange={e=>setGoalDate(e.target.value)}
@@ -207,26 +207,26 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
               <div style={{background:goalCalc.achievable?C.greenL:C.yellowL,border:`1px solid ${goalCalc.achievable?C.greenB:C.yellowB}`,borderRadius:12,padding:'10px 12px'}}>
                 {goalCalc.achievable?(
                   <div style={{fontSize:12.5,color:C.green,lineHeight:1.6}}>
-                    ✓ Хватает свободных средств: откладывайте <b>{fmtN(Math.round(goalCalc.requiredMonthly))} ₽/мес</b> — при свободном остатке {fmtN(Math.round(Math.max(freeCash,0)))} ₽/мес успеете к {goalCalc.targetD.toLocaleDateString('ru-RU')}.
+                    ✓ Хватает свободных средств: откладывайте <b>{fmtN(Math.round(goalCalc.requiredMonthly))}/мес</b> — при свободном остатке {fmtN(Math.round(Math.max(freeCash,0)))}/мес успеете к {goalCalc.targetD.toLocaleDateString('ru-RU')}.
                   </div>
                 ):(
                   <div style={{fontSize:12.5,color:C.yellow,lineHeight:1.6}}>
-                    ⚠ Нужно {fmtN(Math.round(goalCalc.requiredMonthly))} ₽/мес, а свободно только {fmtN(Math.round(Math.max(freeCash,0)))} ₽/мес. Варианты:
+                    ⚠ Нужно {fmtN(Math.round(goalCalc.requiredMonthly))}/мес, а свободно только {fmtN(Math.round(Math.max(freeCash,0)))}/мес. Варианты:
                     <div style={{marginTop:6,paddingLeft:14}}>
                       {goalCalc.realisticDate&&<div>• при текущем темпе цель будет достигнута к {goalCalc.realisticDate.toLocaleDateString('ru-RU')}</div>}
-                      {goalCalc.comfortCat&&<div style={{marginTop:4}}>• либо сократите «{goalCalc.comfortCat.cat.name}» ({fmtN(Math.round(goalCalc.comfortCat.monthly))} ₽/мес) на {fmtN(Math.round(Math.min(goalCalc.shortfall,goalCalc.comfortCat.monthly)))} ₽/мес</div>}
+                      {goalCalc.comfortCat&&<div style={{marginTop:4}}>• либо сократите «{goalCalc.comfortCat.cat.name}» ({fmtN(Math.round(goalCalc.comfortCat.monthly))}/мес) на {fmtN(Math.round(Math.min(goalCalc.shortfall,goalCalc.comfortCat.monthly)))}/мес</div>}
                     </div>
                   </div>
                 )}
               </div>
               {goalPlannedItem?(
                 <div style={{display:'flex',alignItems:'center',gap:8,fontSize:12,color:C.green,background:C.greenL,border:`1px solid ${C.greenB}`,borderRadius:12,padding:'9px 12px'}}>
-                  <span>✓</span><span>В плане недели: {fmtN(goalPlannedItem.amount)} ₽/нед на «{goal.name}»</span>
+                  <span>✓</span><span>В плане недели: {fmtN(goalPlannedItem.amount)}/нед на «{goal.name}»</span>
                 </div>
               ):(
                 <button onClick={()=>onAddGoalToPlan({id:uid(),catId:'piggy',name:goal.name,amount:goalCalc.weeklyAmount,memberId:members[0]?.id||'m1',repeat:'weekly',days:[],goalId:goal.id})}
                   style={{width:'100%',padding:12,borderRadius:12,border:'none',background:C.orange,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>
-                  + Добавить в план недели: {fmtN(goalCalc.weeklyAmount)} ₽/нед
+                  + Добавить в план недели: {fmtN(goalCalc.weeklyAmount)}/нед
                 </button>
               )}
               <button onClick={()=>{onSetGoal(null);setGoalName('');setGoalAmount('');setGoalDate('');}} style={{textAlign:'center',border:`1px solid ${C.border}`,borderRadius:12,padding:9,fontSize:12,fontWeight:600,color:C.muted,background:'none',cursor:'pointer',fontFamily:'inherit'}}>Удалить цель</button>
@@ -248,12 +248,9 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
             </div>
             <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
               <span style={{fontSize:12,color:vacActual12?C.green:C.yellow}}>Фактический заработок за 12 мес.:</span>
-              <div style={{display:'flex',alignItems:'center',gap:6}}>
-                <input type="text" inputMode="numeric" value={vacActual12||''} onChange={e=>setVacActual12(e.target.value)}
-                  placeholder={`~${fmt(Math.round(vacBasis12))} (годовая сумма)`}
-                  style={{width:110,border:`1px solid ${vacActual12?C.greenB:C.yellowB}`,borderRadius:8,padding:'4px 8px',fontSize:13,outline:'none',fontFamily:'inherit',background:'var(--c-surface)'}}/>
-                <span style={{fontSize:12,color:C.muted}}>₽</span>
-              </div>
+              <input type="text" inputMode="numeric" value={vacActual12||''} onChange={e=>setVacActual12(e.target.value)}
+                placeholder={`~${fmt(Math.round(vacBasis12))} (годовая сумма)`}
+                style={{width:110,border:`1px solid ${vacActual12?C.greenB:C.yellowB}`,borderRadius:8,padding:'4px 8px',fontSize:13,outline:'none',fontFamily:'inherit',background:'var(--c-surface)'}}/>
               {!vacActual12&&<span style={{fontSize:11,color:C.muted}}>← годовая сумма (~gross × 12)</span>}
             </div>
             {vacActual12&&parseInt(vacActual12)<(monthlyGross||0)&&(
@@ -332,7 +329,7 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
                     amount:vacN,
                     date:payD2.toISOString(),
                     type:'vacation',
-                    note:`Расчёт по ТК РФ ст.139. СДЗ=${Math.round(sdz2)} ₽/день × ${vacDays} дней`
+                    note:`Расчёт по ТК РФ ст.139. СДЗ=${Math.round(sdz2)}/день × ${vacDays} дней`
                   });
                   setVacAdded(true);
                   setTimeout(()=>setShowVacPlanner(false),1200);

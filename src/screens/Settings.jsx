@@ -384,14 +384,14 @@ function BillingSection(){
               <div style={{fontSize:13,fontWeight:600,color:C.green}}>Pro активен до {fmtDate(status.proUntil)}</div>
               <div style={{fontSize:11,color:C.muted,marginTop:1}}>
                 {status.autoRenew
-                  ?`Автопродление включено · ${status.billingPeriod==='yearly'?'год':'месяц'} за ${fmtN(status.prices[status.billingPeriod]||0)} ₽`
+                  ?`Автопродление включено · ${status.billingPeriod==='yearly'?'год':'месяц'} за ${fmtN(status.prices[status.billingPeriod]||0)}`
                   :'Автопродление отключено — доступ Pro закончится в указанную дату'}
               </div>
             </div>
           </div>
           {status.billingPeriod!=='yearly'&&<button onClick={()=>checkout('yearly')} disabled={!!busy}
             style={{width:'100%',padding:12,borderRadius:12,border:'none',background:busy==='yearly'?C.borderS:C.orange,color:'#fff',fontSize:12.5,fontWeight:600,cursor:'pointer',fontFamily:'inherit',marginTop:10}}>
-            {busy==='yearly'?'Секунду…':`Перейти на годовой план · ${fmtN(status.prices.yearly)} ₽`}
+            {busy==='yearly'?'Секунду…':`Перейти на годовой план · ${fmtN(status.prices.yearly)}`}
           </button>}
           {status.autoRenew&&<>
             <div style={{fontSize:11,color:C.muted,lineHeight:1.5,marginTop:10,marginBottom:10}}>Также можно отключить по ссылке в письме-напоминании, которое приходит за 2 дня до списания.</div>
@@ -417,11 +417,11 @@ function BillingSection(){
           <div style={{display:'flex',gap:8}}>
             <button onClick={()=>checkout('monthly')} disabled={!!busy}
               style={{flex:1,padding:12,borderRadius:12,border:'none',background:busy?C.borderS:C.orange,color:'#fff',fontSize:12.5,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>
-              {busy==='monthly'?'Секунду…':`Месяц · ${fmtN(status.prices.monthly)} ₽`}
+              {busy==='monthly'?'Секунду…':`Месяц · ${fmtN(status.prices.monthly)}`}
             </button>
             <button onClick={()=>checkout('yearly')} disabled={!!busy}
               style={{flex:1,padding:12,borderRadius:12,border:`1.5px solid ${C.orange}`,background:'transparent',color:C.orangeD,fontSize:12.5,fontWeight:600,cursor:'pointer',fontFamily:'inherit',opacity:busy?.5:1}}>
-              {busy==='yearly'?'Секунду…':`Год · ${fmtN(status.prices.yearly)} ₽`}
+              {busy==='yearly'?'Секунду…':`Год · ${fmtN(status.prices.yearly)}`}
             </button>
           </div>
         </>

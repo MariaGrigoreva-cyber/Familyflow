@@ -11,7 +11,7 @@ export function WithdrawPiggyModal({visible,onClose,onSave,members,customCats=[]
   const save=()=>{
     const n=parseInt(amount)||0;
     if(!n){alert('Введите сумму');return;}
-    if(n>available){alert(`В копилке только ${fmt(available)} ₽`);return;}
+    if(n>available){alert(`В копилке только ${fmt(available)}`);return;}
     const cat=allCats.find(c=>c.id===catId);
     onSave({amount:n,catId,name:name||cat?.name||'Покупка из копилки',memberId});
     setAmount('');setName('');onClose();

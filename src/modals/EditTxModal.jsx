@@ -37,11 +37,8 @@ export function EditTxModal({visible,item,onClose,onSave,onDelete,members,custom
         <div style={s.card}>
           <div style={{...s.row,borderBottom:`1px solid ${C.border}`,justifyContent:'space-between'}}>
             <span style={{fontSize:11,color:C.muted}}>Сумма</span>
-            <div style={{display:'flex',alignItems:'center',gap:4}}>
-              <input type="text" inputMode="numeric" value={amount} onChange={e=>setAmount(e.target.value)}
-                style={{width:100,textAlign:'right',border:'none',fontSize:15,fontWeight:600,outline:'none',fontFamily:'inherit',color:isIncome?C.green:C.orange}}/>
-              <span style={{fontSize:12,color:C.muted}}>₽</span>
-            </div>
+            <input type="text" inputMode="numeric" value={amount} onChange={e=>setAmount(e.target.value)}
+              style={{width:100,textAlign:'right',border:'none',fontSize:15,fontWeight:600,outline:'none',fontFamily:'inherit',color:isIncome?C.green:C.orange}}/>
           </div>
           <div style={{...s.row,borderBottom:`1px solid ${C.border}`,justifyContent:'space-between'}}>
             <span style={{fontSize:11,color:C.muted}}>Выполнено</span>

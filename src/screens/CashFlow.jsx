@@ -47,7 +47,7 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx,weeksSummary,negativeW
   const navBtn={width:30,height:30,borderRadius:9,border:`1px solid ${C.border}`,background:'var(--c-surface)',color:'var(--c-muted2)',fontSize:13,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0};
   return(
     <div style={{overflowY:'auto',flex:1,minHeight:0,WebkitOverflowScrolling:'touch'}}><div style={pad}>
-      <div style={{display:'flex',gap:6,overflowX:'auto',marginBottom:16,paddingBottom:4}}>
+      <div data-swipe-ignore style={{display:'flex',gap:6,overflowX:'auto',marginBottom:16,paddingBottom:4}}>
         {TABS.map(t=><Chip key={t.id} active={viewMode===t.id} onClick={()=>setViewMode(t.id)}>{t.label}</Chip>)}
       </div>
 
@@ -68,10 +68,10 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx,weeksSummary,negativeW
           {totalWeekIncome>0&&<div style={{display:'flex',alignItems:'center',gap:10,background:C.greenL,borderRadius:12,padding:'10px 13px',marginTop:14}}>
             <span style={{fontSize:14}}>💰</span>
             <span style={{flex:1,fontSize:12,color:C.greenD}}>Доходы этой недели</span>
-            <span style={{fontFamily:MONO,fontSize:13,fontWeight:600,color:C.greenD}}>+{fmtN(totalWeekIncome)} ₽</span>
+            <span style={{fontFamily:MONO,fontSize:13,fontWeight:600,color:C.greenD}}>+{fmtN(totalWeekIncome)}</span>
           </div>}
         </div>
-        <div style={{display:'flex',gap:7,marginBottom:14,overflowX:'auto'}}>
+        <div data-swipe-ignore style={{display:'flex',gap:7,marginBottom:14,overflowX:'auto'}}>
           {[['all','Все'],['pending','Не оплачено'],['done','Оплачено']].map(([f,l])=>(
             <Chip key={f} active={filter===f} onClick={()=>setFilter(f)}>{l}</Chip>
           ))}
@@ -115,7 +115,7 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx,weeksSummary,negativeW
                 {negativeWeek
                   ?<>Накопительный баланс уйдёт в минус на нед. {parseWeekKey(negativeWeek.wk).week} · {parseWeekKey(negativeWeek.wk).year} ({weekRange(negativeWeek.wk)}).</>
                   :'При текущем буфере разрыв не наступит в ближайшие 2 года, но план стоит поправить.'}
-                {trimCat&&<> Например, сократить «{trimCat.cat.name}» ({fmtN(Math.round(trimCat.monthly))} ₽/мес) хотя бы на {fmtN(Math.round(Math.min(monthlyExp-monthlyNet,trimCat.monthly)))} ₽/мес.</>}
+                {trimCat&&<> Например, сократить «{trimCat.cat.name}» ({fmtN(Math.round(trimCat.monthly))}/мес) хотя бы на {fmtN(Math.round(Math.min(monthlyExp-monthlyNet,trimCat.monthly)))}/мес.</>}
               </div>
             </div>
           );

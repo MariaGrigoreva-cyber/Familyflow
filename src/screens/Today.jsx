@@ -35,7 +35,7 @@ function TipsCarousel(){
   return(
     <>
       <SecTitle>СОВЕТЫ</SecTitle>
-      <div ref={scrollRef} onScroll={onScroll} style={{display:'flex',overflowX:'auto',scrollSnapType:'x mandatory',WebkitOverflowScrolling:'touch',marginBottom:10}}>
+      <div ref={scrollRef} onScroll={onScroll} data-swipe-ignore style={{display:'flex',overflowX:'auto',scrollSnapType:'x mandatory',WebkitOverflowScrolling:'touch',marginBottom:10}}>
         {TIPS.map((t,i)=>(
           <div key={i} style={{minWidth:'100%',scrollSnapAlign:'start',boxSizing:'border-box',background:C.cream,borderRadius:14,padding:'16px 18px',display:'flex',gap:12,alignItems:'flex-start'}}>
             <span style={{fontSize:22,flexShrink:0}}>{t.icon}</span>
@@ -268,7 +268,7 @@ export function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx,onQuick
                 <input type="range" min={0} max={simMax} step={simStep} value={extraSpend}
                   onChange={e=>setExtraSpend(+e.target.value)}
                   style={{flex:1,accentColor:'#fff'}}/>
-                <span style={{fontFamily:MONO,fontSize:13,fontWeight:600,color:'#fff',minWidth:76,textAlign:'right'}}>{fmtN(extraSpend)} ₽</span>
+                <span style={{fontFamily:MONO,fontSize:13,fontWeight:600,color:'#fff',minWidth:76,textAlign:'right'}}>{fmtN(extraSpend)}</span>
               </div>
               <div style={{fontSize:10,color:'rgba(255,255,255,.5)',marginBottom:6}}>Баланс на ближайшие 10 недель:</div>
               <div style={{display:'flex',alignItems:'flex-end',gap:4,height:56,marginBottom:4}}>

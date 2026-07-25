@@ -58,10 +58,7 @@ export function EditIncomeModal({visible,income,member,onClose,onSave}){
         <div style={s.card}>
           <div style={{...s.row,borderBottom:`1px solid ${C.border}`,justifyContent:'space-between'}}>
             <span style={{fontSize:14,color:C.muted}}>{incomeType==='manual'?'Доход в месяц (на руки)':incomeType==='self'?'Доход в месяц (до налога)':'Доход до вычета налога (НДФЛ)'}</span>
-            <div style={{display:'flex',alignItems:'center',gap:4}}>
-              <input type="text" inputMode="numeric" value={gross} onChange={e=>setGross(e.target.value)} placeholder="0" style={{width:100,textAlign:'right',border:'none',borderBottom:`1.5px dashed ${C.borderS}`,fontSize:13,outline:'none',fontFamily:'inherit'}}/>
-              <span style={{fontSize:12,color:C.muted}}>₽</span>
-            </div>
+            <input type="text" inputMode="numeric" value={gross} onChange={e=>setGross(e.target.value)} placeholder="0" style={{width:100,textAlign:'right',border:'none',borderBottom:`1.5px dashed ${C.borderS}`,fontSize:13,outline:'none',fontFamily:'inherit'}}/>
           </div>
           {grossN>0&&<>
             {incomeType==='employed'&&<div style={{...s.row,background:C.yellowL,borderBottom:`1px solid ${C.border}`,justifyContent:'space-between'}}><span style={{fontSize:11,color:C.muted}}>НДФЛ</span><span style={{fontSize:11,color:C.yellow}}>{getNDFLDesc(grossN)}</span></div>}

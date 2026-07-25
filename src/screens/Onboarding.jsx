@@ -132,7 +132,6 @@ export function Onboarding({onDone}){
         <div style={{border:`1.5px solid ${C.orange}`,background:'var(--c-surface)',borderRadius:14,padding:'16px 18px',display:'flex',alignItems:'baseline',justifyContent:'space-between',boxSizing:'border-box'}}>
           <input type="text" inputMode="numeric" value={startBalance} onChange={e=>setStartBalance(e.target.value)} placeholder="0"
             style={{border:'none',outline:'none',fontFamily:MONO,fontSize:28,fontWeight:500,letterSpacing:-.5,color:C.text,width:'70%',background:'transparent'}}/>
-          <span style={{fontFamily:MONO,fontSize:18,color:C.muted}}>₽</span>
         </div>
         <div style={{fontSize:11.5,color:C.muted,marginTop:6,lineHeight:1.5}}>Остаток на картах и наличные — бюджет начнётся с этой суммы</div>
         <div style={{fontFamily:MONO,fontSize:10.5,letterSpacing:1.5,color:C.muted,textTransform:'uppercase',margin:'20px 0 8px'}}>НАЗВАНИЕ СЕМЬИ</div>
@@ -203,10 +202,7 @@ export function Onboarding({onDone}){
               <div style={{border:`1px solid ${C.border}`,background:'var(--c-surface)',borderRadius:14,marginBottom:10,overflow:'hidden'}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'13px 16px',borderBottom:`1px dashed ${C.border}`}}>
                   <span style={{fontSize:12.5,color:'var(--c-muted2)'}}>{(inc.incomeType||'employed')==='manual'?'Доход в месяц (на руки)':(inc.incomeType||'employed')==='self'?'Доход в месяц (до налога)':'Доход до вычета НДФЛ'}</span>
-                  <div style={{display:'flex',alignItems:'center',gap:4}}>
-                    <input type="text" inputMode="numeric" value={inc.gross} onChange={e=>updInc(inc.id,'gross',e.target.value)} placeholder="0" style={{width:100,textAlign:'right',border:'none',borderBottom:`1.5px dashed ${C.borderS}`,fontFamily:MONO,fontSize:16,fontWeight:600,outline:'none',color:C.text}}/>
-                    <span style={{fontFamily:MONO,fontSize:12,color:C.muted}}>₽</span>
-                  </div>
+                  <input type="text" inputMode="numeric" value={inc.gross} onChange={e=>updInc(inc.id,'gross',e.target.value)} placeholder="0" style={{width:100,textAlign:'right',border:'none',borderBottom:`1.5px dashed ${C.borderS}`,fontFamily:MONO,fontSize:16,fontWeight:600,outline:'none',color:C.text}}/>
                 </div>
                 {gross>0&&<>
                   {iType==='employed'&&<div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'11px 16px',borderBottom:`1px dashed ${C.border}`}}>
@@ -215,7 +211,7 @@ export function Onboarding({onDone}){
                   </div>}
                   <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'13px 16px',background:C.greenL}}>
                     <span style={{fontSize:12.5,color:C.greenD}}>{iType==='manual'?'На руки/мес':iType==='self'?`После налога ${parseFloat(inc.taxRate)||6}%`:'Средний net/мес'}</span>
-                    <span style={{fontFamily:MONO,fontSize:16,fontWeight:600,color:C.greenD}}>{fmtN(avgNet)} ₽</span>
+                    <span style={{fontFamily:MONO,fontSize:16,fontWeight:600,color:C.greenD}}>{fmtN(avgNet)}</span>
                   </div>
                 </>}
               </div>
@@ -247,7 +243,7 @@ export function Onboarding({onDone}){
                   <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
                     <span style={{fontSize:12.5,color:'var(--c-muted2)',flex:1}}>Аванс</span>
                     <div style={{display:'flex',gap:4}}>
-                      {[['pct','% от суммы'],['abs','Сумма ₽']].map(([mode,label])=>(
+                      {[['pct','% от суммы'],['abs','Сумма']].map(([mode,label])=>(
                         <button key={mode} onClick={()=>updInc(inc.id,'advanceMode',mode)}
                           style={{padding:'5px 10px',borderRadius:20,border:`1px solid ${(inc.advanceMode||'pct')===mode?C.orange:C.border}`,background:(inc.advanceMode||'pct')===mode?C.orange:'transparent',color:(inc.advanceMode||'pct')===mode?'#fff':C.muted,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}>
                           {label}
@@ -265,7 +261,6 @@ export function Onboarding({onDone}){
                     :<div style={{display:'flex',alignItems:'center',gap:8}}>
                       <input type="text" inputMode="numeric" value={inc.advanceAbs||''} onChange={e=>updInc(inc.id,'advanceAbs',e.target.value)}
                         style={{width:120,textAlign:'right',border:`1px solid ${C.border}`,borderRadius:8,padding:'6px 10px',fontFamily:MONO,fontSize:14,outline:'none'}}/>
-                      <span style={{fontFamily:MONO,fontSize:13,color:C.muted}}>₽</span>
                       {inc.advanceAbs&&gross>0&&<span style={{fontFamily:MONO,fontSize:11.5,color:C.muted,marginLeft:4}}>зарплата {fmtN(avgNet-parseInt(inc.advanceAbs||0))}</span>}
                     </div>
                   }
@@ -282,7 +277,7 @@ export function Onboarding({onDone}){
         })}
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',background:C.greenL,borderRadius:12,padding:'13px 16px',marginBottom:20}}>
           <span style={{fontSize:12.5,color:C.greenD}}>Суммарный net семьи / мес</span>
-          <span style={{fontFamily:MONO,fontSize:16,fontWeight:600,color:C.greenD}}>{fmtN(memberIncomes.reduce((s,i)=>s+calcNetFor(i),0))} ₽</span>
+          <span style={{fontFamily:MONO,fontSize:16,fontWeight:600,color:C.greenD}}>{fmtN(memberIncomes.reduce((s,i)=>s+calcNetFor(i),0))}</span>
         </div>
         <Btn label="Далее →" onClick={goNext}/>
       </div></div>
@@ -330,14 +325,13 @@ export function Onboarding({onDone}){
                 <button onClick={()=>setOpenCat(isOpen?null:catId)} style={{display:'flex',alignItems:'center',gap:11,padding:'12px 15px',width:'100%',background:'none',border:'none',cursor:'pointer',fontFamily:'inherit'}}>
                   <span style={{width:30,height:30,borderRadius:9,background:cat?.color,display:'flex',alignItems:'center',justifyContent:'center',fontSize:15,flexShrink:0}}>{cat?.emoji}</span>
                   <span style={{flex:1,fontSize:14,fontWeight:600,color:C.text,textAlign:'left'}}>{cat?.name}</span>
-                  {setup.amount&&<span style={{fontFamily:MONO,fontSize:14,fontWeight:600,color:C.text}}>{fmtN(parseInt(setup.amount))} ₽</span>}
+                  {setup.amount&&<span style={{fontFamily:MONO,fontSize:14,fontWeight:600,color:C.text}}>{fmtN(parseInt(setup.amount))}</span>}
                   <span style={{color:C.muted,fontSize:11}}>{isOpen?'▲':'▼'}</span>
                 </button>
                 {isOpen&&<div style={{padding:'0 15px 14px',borderTop:`1px dashed ${C.border}`}}>
                   <div style={{display:'flex',alignItems:'center',marginBottom:10,gap:8,paddingTop:12}}>
                     <span style={{fontSize:12,color:'var(--c-muted2)',flex:1}}>Сумма</span>
                     <input type="text" inputMode="numeric" value={setup.amount||''} onChange={e=>updCat(catId,'amount',e.target.value)} style={{width:90,textAlign:'right',border:`1px solid ${C.border}`,borderRadius:8,padding:'6px 10px',fontFamily:MONO,fontSize:14,outline:'none'}}/>
-                    <span style={{fontFamily:MONO,fontSize:12,color:C.muted}}>₽</span>
                   </div>
                   <div style={{display:'flex',gap:6,marginBottom:10}}>
                     {REPEAT_OPTS.map(r=><button key={r.id} onClick={()=>updCat(catId,'repeat',r.id)} style={{flex:1,textAlign:'center',fontFamily:MONO,fontSize:9.5,fontWeight:600,padding:'7px 2px',borderRadius:8,border:`1px solid ${rep===r.id?C.orange:C.border}`,background:rep===r.id?C.orange:'var(--c-surface)',color:rep===r.id?'#fff':'var(--c-muted2)',cursor:'pointer'}}>{r.label.toUpperCase()}</button>)}
@@ -403,7 +397,7 @@ export function Onboarding({onDone}){
         <h2 style={{fontSize:24,fontWeight:600,letterSpacing:-.3,color:C.text,margin:'0 0 18px'}}>Ваш план готов</h2>
         <div style={{background:C.orange,color:'#fff',borderRadius:18,padding:20,marginBottom:18}}>
           <div style={{fontFamily:MONO,fontSize:10.5,letterSpacing:1.5,color:'rgba(255,255,255,.55)',textTransform:'uppercase'}}>БЮДЖЕТ В НЕДЕЛЮ</div>
-          <div style={{fontFamily:MONO,fontSize:38,fontWeight:800,letterSpacing:-1,marginTop:4}}>{fmtN(monthlyExp/4.3)} ₽</div>
+          <div style={{fontFamily:MONO,fontSize:38,fontWeight:800,letterSpacing:-1,marginTop:4}}>{fmtN(monthlyExp/4.3)}</div>
           <div style={{display:'flex',gap:16,marginTop:12,fontFamily:MONO,fontSize:11,color:'rgba(255,255,255,.7)'}}>
             <span>≈{fmtN(monthlyExp)} / мес</span>
             <span>net {fmtN(totalNet)} / мес</span>

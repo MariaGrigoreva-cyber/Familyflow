@@ -97,7 +97,11 @@ const handleResendVerify = () => {
   resendVerification().then(() => setResendSent(true)).catch(() => {}).finally(() => setResendBusy(false));
 };
 const cloudSaveBusyRef = useRef(false);
-  useEffect(()=>{const t=setTimeout(()=>setShowSplash(false),1300);return()=>clearTimeout(t);},[]);
+  // Раньше держали заставку фиксированные 1300мс независимо от готовности данных —
+  // это чистая добавленная задержка при каждом запуске (данные из localStorage уже
+  // готовы синхронно к первому рендеру). Оставляем короткую паузу только чтобы не
+  // мелькал белый кадр между заставкой и контентом.
+  useEffect(()=>{const t=setTimeout(()=>setShowSplash(false),400);return()=>clearTimeout(t);},[]);
 const skipNextCloudSaveRef = useRef(false);
 const appStateRef = useRef(null); // после принятия серверной версии не шлём её эхом обратно
 const cloudSaveAgainRef = useRef(false);
@@ -518,6 +522,27 @@ useEffect(() => {
   const weeksSummary=useMemo(()=>computeWeeksSummary(appState),[appState.weekItems,appState.incomes,appState.payments,appState.transactions,appState.extraPayments]);
   const cashFlowProjection=useMemo(()=>projectCashFlow(appState,weeksSummary),[weeksSummary,appState]);
   const TAB_TITLES={today:'Сегодня',plan:'Денежный поток',budget:'Годовой бюджет',health:'Здоровье бюджета',settings:'Настройки'};
+  // Свайп между вкладками — тот же порядок, что и в TabBar снизу.
+  const TAB_ORDER=['today','plan','budget','health','settings'];
+  const swipeRef=useRef(null);
+  const handleTabTouchStart=e=>{
+    // Внутри горизонтальных каруселей (советы, чипы-фильтры) свайп не должен листать вкладки —
+    // иначе пролистывание совета одним движением палаца случайно переключало бы весь экран.
+    if(e.target.closest('[data-swipe-ignore]')){swipeRef.current=null;return;}
+    const t=e.touches[0];
+    swipeRef.current={x:t.clientX,y:t.clientY};
+  };
+  const handleTabTouchEnd=e=>{
+    const start=swipeRef.current;
+    swipeRef.current=null;
+    if(!start)return;
+    const t=e.changedTouches[0];
+    const dx=t.clientX-start.x,dy=t.clientY-start.y;
+    if(Math.abs(dx)<60||Math.abs(dx)<Math.abs(dy)*1.5)return;
+    const idx=TAB_ORDER.indexOf(tab);
+    const nextIdx=dx<0?idx+1:idx-1;
+    if(nextIdx>=0&&nextIdx<TAB_ORDER.length)setTab(TAB_ORDER[nextIdx]);
+  };
   const shell={maxWidth:480,margin:'0 auto',height:'100dvh',overflow:'hidden',background:C.bg,display:'flex',flexDirection:'column',fontFamily:"'IBM Plex Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",position:'relative'};
   if(showSplash)return<div style={shell}><SplashScreen/></div>;
   const startDemo=()=>{
@@ -588,7 +613,7 @@ useEffect(() => {
           </div>
         )}
       </div>
-      <div style={{flex:1,display:'flex',flexDirection:'column',minHeight:0}}>
+      <div style={{flex:1,display:'flex',flexDirection:'column',minHeight:0}} onTouchStart={handleTabTouchStart} onTouchEnd={handleTabTouchEnd}>
         {tab==='today'&&<TodayScreen state={appState} onToggle={handleToggle} onAdd={()=>setShowAdd(true)} onEditPayment={handleEditPayment} onEditTx={handleEditTx} onQuickMark={handleQuickMark} onWithdrawPiggy={()=>setShowWithdrawPiggy(true)} tourStep={tourStep} freeSpendableNow={cashFlowProjection.freeSpendableNow} weeklyBalances={cashFlowProjection.weeklyBalances}/>}
         <Suspense fallback={null}>
           {tab==='plan'&&<PlanScreen state={appState} onToggle={handleToggle} onAdd={(wk)=>{setAddWeek(wk);setShowAdd(true);}} onEditTx={handleEditTx} weeksSummary={weeksSummary} negativeWeek={cashFlowProjection.negativeWeek} isPro={isPro} onUpgrade={()=>setTab('settings')}/>}

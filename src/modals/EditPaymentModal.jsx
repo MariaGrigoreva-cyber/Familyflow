@@ -17,10 +17,7 @@ export function EditPaymentModal({visible,payment,onClose,onSave,onDelete}){
           <div style={{...s.row,borderBottom:`1px solid ${C.border}`,justifyContent:'space-between'}}><span style={{fontSize:11,color:C.muted}}>Плановая сумма</span><span style={{fontSize:13,color:C.muted}}>{fmt(payment.amount)}</span></div>
           <div style={{...s.row,background:C.greenL,borderBottom:`1px solid ${C.border}`,justifyContent:'space-between'}}>
             <span style={{fontSize:11,color:C.muted}}>Фактически</span>
-            <div style={{display:'flex',alignItems:'center',gap:4}}>
-              <input type="text" inputMode="numeric" value={actual} onChange={e=>setActual(e.target.value)} style={{width:100,textAlign:'right',border:'none',fontSize:13,background:'transparent',outline:'none',fontFamily:'inherit'}}/>
-              <span style={{fontSize:12,color:C.muted}}>₽</span>
-            </div>
+            <input type="text" inputMode="numeric" value={actual} onChange={e=>setActual(e.target.value)} style={{width:100,textAlign:'right',border:'none',fontSize:13,background:'transparent',outline:'none',fontFamily:'inherit'}}/>
           </div>
           <div style={{...s.row,borderBottom:payment.ndfl>0?`1px solid ${C.border}`:'none',justifyContent:'space-between'}}>
             <span style={{fontSize:11,color:C.muted}}>Поступила ✓</span>

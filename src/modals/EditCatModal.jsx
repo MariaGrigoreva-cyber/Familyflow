@@ -59,10 +59,7 @@ export function EditCatModal({visible,item,members,onClose,onSave,onDelete,custo
         <div style={s.card}>
           <div style={{...s.row,borderBottom:`1px solid ${C.border}`,justifyContent:'space-between'}}>
             <span style={{fontSize:11,color:C.muted}}>Сумма</span>
-            <div style={{display:'flex',alignItems:'center',gap:4}}>
-              <input type="text" inputMode="numeric" value={amount} onChange={e=>setAmount(e.target.value)} style={{width:80,textAlign:'right',border:'none',fontSize:13,outline:'none',fontFamily:'inherit'}}/>
-              <span style={{fontSize:13,color:C.muted}}>₽</span>
-            </div>
+            <input type="text" inputMode="numeric" value={amount} onChange={e=>setAmount(e.target.value)} style={{width:80,textAlign:'right',border:'none',fontSize:13,outline:'none',fontFamily:'inherit'}}/>
           </div>
           <div style={{...s.row,borderBottom:'none',justifyContent:'space-between'}}>
             <span style={{fontSize:11,color:C.muted}}>Кто платит</span>

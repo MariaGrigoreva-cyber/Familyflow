@@ -11,7 +11,12 @@
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/apple-touch-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
+    <!-- Обычный <link rel="stylesheet"> к Google Fonts блокирует рендер всей страницы,
+         пока не придёт ответ — на мобильной сети это заметная задержка ДАЖЕ у статичной
+         заставки ниже, которая как раз и задумана как мгновенная. Грузим CSS шрифтов
+         асинхронно (media=print → all на onload), а для браузеров без JS — noscript. -->
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+    <noscript><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" /></noscript>
     <title>Семейный поток</title>
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }

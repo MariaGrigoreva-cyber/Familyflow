@@ -20,8 +20,8 @@ const MONO = "'Manrope', sans-serif";
 // (U+00A0) — в Manrope он выглядит широковато рядом с tabular-nums, меняем на
 // узкий неразрывный (U+202F), как в дизайн-инструкции.
 const THIN_NBSP = ' ';
-const fmt = n => new Intl.NumberFormat('ru-RU').format(Math.round(Math.abs(n))).replace(/ /g, THIN_NBSP) + ' ₽';
 const fmtN = n => new Intl.NumberFormat('ru-RU').format(Math.round(Math.abs(n))).replace(/ /g, THIN_NBSP);
+const fmt = fmtN; // раньше добавлял суффикс «₽» — убран по просьбе пользователя, теперь просто алиас
 const uid = () => Math.random().toString(36).slice(2);
 
 const isoMondayOf = d => {
