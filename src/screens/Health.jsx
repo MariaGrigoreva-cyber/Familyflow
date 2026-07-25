@@ -1,9 +1,9 @@
 // FamilyFlow — экран Здоровье бюджета
 import React, { useState, useEffect, useMemo } from 'react';
 import {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBudgetMetrics,computeWeeksSummary,projectCashFlow,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
-import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad} from '../lib/ui';
+import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,ProLock} from '../lib/ui';
 
-export function HealthScreen({state}){
+export function HealthScreen({state,isPro=true,onUpgrade}){
   const[showScoreInfo,setShowScoreInfo]=useState(false);
   const{planned,weekItems={},customCats=[],startBalance=0}=state;
   const allCats=[...DEFAULT_CATS,...customCats];
@@ -76,11 +76,16 @@ export function HealthScreen({state}){
   ].filter(Boolean).slice(0,3);
   const recDot={yellow:C.yellow,red:C.red,green:C.green};
   const pad={padding:'16px 20px 90px'};
+  if(!isPro)return(
+    <ProLock icon="💚" title="Здоровье бюджета — в Pro"
+      desc="Оценка 0–100, прогноз кассовых разрывов на недели вперёд и рекомендации, что улучшить — доступно в подписке Pro."
+      onUpgrade={onUpgrade}/>
+  );
   return(
     <div style={{overflowY:'auto',flex:1,minHeight:0,WebkitOverflowScrolling:'touch'}}><div style={pad}>
       <div style={{background:C.orange,color:'#fff',borderRadius:18,padding:20,marginBottom:16}}>
         <div style={{display:'flex',alignItems:'center',gap:18}}>
-          <div style={{fontFamily:MONO,fontSize:52,fontWeight:500,letterSpacing:-2,lineHeight:1,flexShrink:0}}>{healthScore}</div>
+          <div style={{fontFamily:MONO,fontSize:52,fontWeight:800,letterSpacing:-2,lineHeight:1,flexShrink:0}}>{healthScore}</div>
           <div style={{flex:1,minWidth:0}}>
             <div style={{fontSize:15,fontWeight:600}}>{healthLabel}</div>
             <div style={{fontSize:11.5,color:'rgba(255,255,255,.6)',marginTop:2}}>{healthSubtitle}</div>

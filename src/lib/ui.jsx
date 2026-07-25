@@ -70,7 +70,7 @@ const Numpad=({value,onChange})=>{
     <div>
       <div style={{...s.card,textAlign:'center',padding:14}}>
         <div style={{fontFamily:MONO,fontSize:9.5,letterSpacing:1,color:C.muted,textTransform:'uppercase',marginBottom:4}}>Сумма</div>
-        <div style={{fontFamily:MONO,fontSize:32,fontWeight:500,color:C.orange,letterSpacing:-1}}>{disp} ₽</div>
+        <div style={{fontFamily:MONO,fontSize:32,fontWeight:800,color:C.orange,letterSpacing:-1}}>{disp} ₽</div>
       </div>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:1,background:C.border,borderRadius:12,overflow:'hidden',marginBottom:14}}>
         {['1','2','3','4','5','6','7','8','9','000','0','⌫'].map(k=>(
@@ -93,7 +93,26 @@ const EmojiPicker=({visible,onClose,onPick,selected})=>(
   </Modal>
 );
 
+// ProLock — блокировка целого экрана для бесплатного тарифа (напр. «Здоровье бюджета»)
+const ProLock=({icon='⭐',title,desc,onUpgrade})=>(
+  <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'32px 24px',textAlign:'center'}}>
+    <div style={{width:64,height:64,borderRadius:20,background:C.orangeL,display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,marginBottom:18}}>{icon}</div>
+    <div style={{fontSize:17,fontWeight:600,color:C.text,marginBottom:8}}>{title}</div>
+    <div style={{fontSize:13,color:C.muted,lineHeight:1.55,maxWidth:280,marginBottom:20}}>{desc}</div>
+    <button onClick={onUpgrade} style={{padding:'13px 24px',borderRadius:14,border:'none',background:C.orange,color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Оформить Pro</button>
+  </div>
+);
+
+// ProInline — маленькая точечная заглушка вместо кнопки/блока, недоступного на Free
+const ProInline=({label='Доступно в Pro',onUpgrade})=>(
+  <button onClick={onUpgrade} style={{width:'100%',display:'flex',alignItems:'center',gap:8,padding:'10px 12px',borderRadius:10,border:`1.5px dashed ${C.borderS}`,background:'none',cursor:'pointer',fontFamily:'inherit',textAlign:'left'}}>
+    <span style={{fontSize:14}}>⭐</span>
+    <span style={{fontSize:12.5,color:C.muted,flex:1}}>{label}</span>
+    <span style={{fontSize:11,fontWeight:600,color:C.orangeD}}>Pro ›</span>
+  </button>
+);
+
 // ════════════════════════════════════════════════════════════════════════
 // CONSENT
 
-export {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,EmojiPicker};
+export {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,EmojiPicker,ProLock,ProInline};

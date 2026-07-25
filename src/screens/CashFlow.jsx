@@ -1,13 +1,13 @@
 // FamilyFlow — экран Денежный поток
 import React, { useState, useEffect, useMemo } from 'react';
-import {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,buildPaymentScheduleSpan,regenWeeksKeepDone,computeBalances,computeBudgetMetrics,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
-import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad} from '../lib/ui';
+import {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,buildPaymentScheduleSpan,scheduledIncomeForWeek,regenWeeksKeepDone,computeBalances,computeBudgetMetrics,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
+import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,ProLock} from '../lib/ui';
 
 const Chip=({active,onClick,children})=>(
   <button onClick={onClick} style={{flexShrink:0,fontFamily:MONO,fontSize:10.5,fontWeight:600,textTransform:'uppercase',padding:'6px 12px',borderRadius:20,border:`1px solid ${active?C.orange:C.border}`,background:active?C.orange:'var(--c-surface)',color:active?'#fff':'var(--c-muted2)',cursor:'pointer'}}>{children}</button>
 );
 
-export function PlanScreen({state,onToggle,onAdd,onEditTx,weeksSummary,negativeWeek}){
+export function PlanScreen({state,onToggle,onAdd,onEditTx,weeksSummary,negativeWeek,isPro=true,onUpgrade}){
   const{members,planned,weekItems,incomes,customCats=[],transactions=[],payments={},extraPayments=[]}=state;
   const showMember=members.length>1; // при одном члене семьи не дублируем его имя в каждой строке
   // Доп. разовые выплаты (премии, ручной доход), попавшие в диапазон дат — планово учитываются наравне с зарплатой/авансом
@@ -25,12 +25,7 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx,weeksSummary,negativeW
   const pct=wPlan>0?Math.round(spent/wPlan*100):0;
   const remaining=wPlan-spent;
   const weekStart=weekKeyToDate(week),weekEnd=new Date(weekStart.getTime()+6*86400000);
-  const weekIncome=incomes.reduce((s,inc)=>{
-    const yr=weekStart.getFullYear();
-    const sch=buildPaymentScheduleSpan(yr,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc)
-      .map(p=>({...p,...(payments[p.displayLabel]||{})})); // учитываем скорректированные суммы
-    return s+sch.filter(p=>p.date>=weekStart&&p.date<=weekEnd).reduce((ss,p)=>ss+(p.actualAmount||p.amount),0);
-  },0);
+  const weekIncome=incomes.reduce((s,inc)=>s+scheduledIncomeForWeek(inc,weekStart,weekEnd,payments,curWeek),0);
   const weekTxIncome=(transactions||[]).filter(t=>t.week===week&&t.type==='income').reduce((s,t)=>s+t.amount,0);
   const weekExtraIncome=extraIncomeInRange(weekStart,weekEnd);
   const totalWeekIncome=weekIncome+weekTxIncome+weekExtraIncome;
@@ -103,7 +98,12 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx,weeksSummary,negativeW
         <button onClick={()=>onAdd(week)} style={{width:'100%',padding:13,borderRadius:12,border:'none',background:C.orange,color:'#fff',fontSize:13.5,fontWeight:600,cursor:'pointer',fontFamily:'inherit',marginTop:14}}>+ Добавить трату на нед. {weekLabel(week)}</button>
       </>}
 
-      {viewMode==='weeks'&&<>
+      {viewMode!=='detail'&&!isPro&&(
+        <ProLock icon="📈" title="Прогноз кассового разрыва — в Pro"
+          desc="Сводка по неделям, месяцам и годам с прогнозом накопительного баланса на недели вперёд — доступно в подписке Pro."
+          onUpgrade={onUpgrade}/>
+      )}
+      {viewMode==='weeks'&&isPro&&<>
         <SecTitle>СВОДКА ПО НЕДЕЛЯМ</SecTitle>
         {(()=>{
           const{totalNet:monthlyNet,expWithoutPiggy:monthlyExp,isDeficit}=computeBudgetMetrics(state);
@@ -149,7 +149,7 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx,weeksSummary,negativeW
         })()}
       </>}
 
-      {viewMode==='months'&&<>
+      {viewMode==='months'&&isPro&&<>
         <div style={{display:'flex',alignItems:'center',marginBottom:16,gap:10}}>
           <button onClick={()=>setCurMonth(prevMonthKey(curMonth))} style={navBtn}>←</button>
           <div style={{flex:1,textAlign:'center',fontSize:14,fontWeight:600,color:C.text}}>{monthLabel(curMonth)}</div>
@@ -183,7 +183,7 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx,weeksSummary,negativeW
         })})()}
       </>}
 
-      {viewMode==='year'&&<>
+      {viewMode==='year'&&isPro&&<>
         <SecTitle>ИТОГИ ПО ГОДАМ</SecTitle>
         {(()=>{
           let runBalYr=computeBalances(state).savingStart;

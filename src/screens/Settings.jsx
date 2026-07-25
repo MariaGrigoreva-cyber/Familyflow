@@ -1,11 +1,12 @@
 // FamilyFlow — экран Настройки
 import React, { useState, useEffect } from 'react';
 import {C,MONO,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
-import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,EmojiPicker} from '../lib/ui';
+import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,EmojiPicker,ProInline} from '../lib/ui';
 import {isLoggedIn,logout,register,login,familyMe,familyInvite,familyJoin,errText,changePassword,resetRequest,resetConfirm,saveCloudState,billingStatus,billingCheckout,billingCancelAutoRenew} from '../api';
 import {getPushState,enablePush,disablePush} from '../push';
 
-export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncome,onUpdateMember,onAddMember,onRemoveMember,theme,onSetTheme}){
+export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncome,onUpdateMember,onAddMember,onRemoveMember,theme,onSetTheme,isPro=true}){
+  const scrollToTop=()=>{try{document.querySelector('[data-settings-scroll]')?.scrollTo({top:0,behavior:'smooth'});}catch{}};
   const{members,incomes,planned,familyName,customCats=[]}=state;
   const allCats=[...DEFAULT_CATS,...customCats];
   const showMember=members.length>1; // при одном члене семьи не дублируем его имя в каждой строке
@@ -16,7 +17,7 @@ export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncom
   const memberWord=members.length===1?'ЧЕЛОВЕК':'ЧЕЛОВЕКА';
 
   return(
-    <div style={{overflowY:'auto',flex:1,minHeight:0,WebkitOverflowScrolling:'touch'}}><div style={pad}>
+    <div data-settings-scroll style={{overflowY:'auto',flex:1,minHeight:0,WebkitOverflowScrolling:'touch'}}><div style={pad}>
       <button onClick={()=>setShowFamilyEdit(v=>!v)} style={{width:'100%',display:'flex',alignItems:'center',gap:14,paddingBottom:showFamilyEdit?14:18,border:'none',background:'none',cursor:'pointer',fontFamily:'inherit',textAlign:'left'}}>
         <div style={{display:'flex',flexShrink:0}}>
           {members.map((m,i)=><span key={m.id} style={{width:44,height:44,borderRadius:'50%',background:m.color,display:'flex',alignItems:'center',justifyContent:'center',fontSize:19,border:`2px solid ${C.bg}`,marginLeft:i>0?-10:0}}>{m.avatar}</span>)}
@@ -36,7 +37,9 @@ export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncom
               <button onClick={()=>onRemoveMember(m.id)} style={{position:'relative',width:28,height:28,borderRadius:'50%',border:`1px solid ${C.border}`,background:'var(--c-surface)',color:C.muted,fontSize:13,cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}><span style={{position:'absolute',inset:-8}}/>×</button>
             </div>
           ))}
-          <button onClick={onAddMember} style={{textAlign:'center',border:`1.5px dashed ${C.borderS}`,borderRadius:12,padding:11,fontSize:12.5,fontWeight:600,color:C.orangeD,background:'none',cursor:'pointer',fontFamily:'inherit'}}>+ Добавить участника</button>
+          {isPro
+            ?<button onClick={onAddMember} style={{textAlign:'center',border:`1.5px dashed ${C.borderS}`,borderRadius:12,padding:11,fontSize:12.5,fontWeight:600,color:C.orangeD,background:'none',cursor:'pointer',fontFamily:'inherit'}}>+ Добавить участника</button>
+            :<ProInline label="Семейный бюджет на несколько участников" onUpgrade={scrollToTop}/>}
         </div>
       </div>}
       <EmojiPicker visible={!!emojiPickerFor} onClose={()=>setEmojiPickerFor(null)} selected={members.find(m=>m.id===emojiPickerFor)?.avatar}
@@ -58,13 +61,15 @@ export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncom
         );
       })}
       {onAddIncome&&members.length>0&&(
-        <div style={{display:'flex',flexDirection:'column',gap:6,marginTop:8}}>
-          {members.map(m=>(
-            <button key={m.id} onClick={()=>onAddIncome(m.id)} style={{background:'none',border:'none',padding:0,textAlign:'left',cursor:'pointer',fontFamily:'inherit',fontSize:12,fontWeight:600,color:C.orangeD}}>
-              + Ещё источник для {m.avatar} {m.name}
-            </button>
-          ))}
-        </div>
+        isPro
+          ?<div style={{display:'flex',flexDirection:'column',gap:6,marginTop:8}}>
+            {members.map(m=>(
+              <button key={m.id} onClick={()=>onAddIncome(m.id)} style={{background:'none',border:'none',padding:0,textAlign:'left',cursor:'pointer',fontFamily:'inherit',fontSize:12,fontWeight:600,color:C.orangeD}}>
+                + Ещё источник для {m.avatar} {m.name}
+              </button>
+            ))}
+          </div>
+          :<div style={{marginTop:8}}><ProInline label="Несколько источников дохода на человека" onUpgrade={scrollToTop}/></div>
       )}
       <SecTitle>КАТЕГОРИИ РАСХОДОВ</SecTitle>
       <div style={{fontSize:12,color:C.muted,marginBottom:14,lineHeight:1.5}}>
@@ -121,7 +126,7 @@ export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncom
       </>}
       {/* ═══ Аккаунт и синхронизация ═══ */}
       <SecTitle>АККАУНТ И СИНХРОНИЗАЦИЯ</SecTitle>
-      <AccountSection/>
+      <AccountSection isPro={isPro}/>
       {/* ═══ Подписка ═══ */}
       {isLoggedIn()&&<>
         <SecTitle>ПОДПИСКА</SecTitle>
@@ -227,7 +232,7 @@ export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncom
 
 
 // ── Аккаунт: вход/регистрация, статус синхронизации, приглашения ──────────
-function AccountSection(){
+function AccountSection({isPro=true}){
   const[logged,setLogged]=useState(isLoggedIn());
   const[mode,setMode]=useState('login'); // login | register
   const[email,setEmail]=useState('');
@@ -303,7 +308,9 @@ function AccountSection(){
       {/* Пригласить супруга */}
       {fam?.role==='owner'&&<div style={{background:C.cream,borderRadius:10,padding:'10px 12px',marginBottom:8}}>
         <div style={{fontSize:12,fontWeight:600,color:C.text}}>Пригласить в семью</div>
-        {inviteCode
+        {!isPro
+          ?<div style={{fontSize:11,color:C.muted,marginTop:4}}>Общий бюджет на нескольких участников — в подписке Pro.</div>
+          :inviteCode
           ?<div style={{display:'flex',alignItems:'center',gap:8,marginTop:6}}>
              <span style={{fontFamily:MONO,fontSize:20,fontWeight:600,letterSpacing:3,color:C.orangeD}}>{inviteCode}</span>
              <span style={{fontSize:11,color:C.muted}}>— назовите этот код супругу</span>

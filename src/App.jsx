@@ -10,7 +10,8 @@ const BudgetScreen=lazy(()=>import('./screens/Budget').then(m=>({default:m.Budge
 const HealthScreen=lazy(()=>import('./screens/Health').then(m=>({default:m.HealthScreen})));
 const SettingsScreen=lazy(()=>import('./screens/Settings').then(m=>({default:m.SettingsScreen})));
 import {EditPaymentModal,AddExtraModal,AddTxModal,EditCatModal,EditTxModal,EditIncomeModal,WithdrawPiggyModal,TabBar} from './modals';
-import { isLoggedIn, loadCloudState, saveCloudState, authMe, resendVerification } from './api';
+import { isLoggedIn, loadCloudState, saveCloudState, authMe, resendVerification, billingStatus } from './api';
+import { markLocalTrialStart, getLocalPlan, isProPlan } from './lib/plan';
 import { SplashScreen } from './SplashScreen';
 import { StartLoginForm } from './StartLoginForm';
 import { AddToHomeScreenPrompt } from './AddToHomeScreenPrompt';
@@ -50,6 +51,16 @@ export default function App(){
     else document.documentElement.setAttribute('data-theme',theme);
   },[theme]);
   const setTheme=v=>{setThemeRaw(v);try{localStorage.setItem('ff_theme',v);}catch{}};
+  // ── Тариф: для залогиненных — реальный статус с сервера, для локального
+  // режима без аккаунта — локальный 30-дневный триал (см. lib/plan.js).
+  const[billingPlan,setBillingPlan]=useState(null);
+  useEffect(()=>{
+    if(!isLoggedIn())return;
+    billingStatus().then(setBillingPlan).catch(()=>{});
+  },[]);
+  // До ответа сервера считаем trial — чтобы не мигало платным экраном, пока грузится.
+  const effectivePlan=isLoggedIn()?(billingPlan?.plan||'trial'):getLocalPlan();
+  const isPro=isProPlan(effectivePlan);
   const[tab,setTab]=useState('today');
   const[tourStep,setTourStep]=useState(-1); // -1 = тур выключен
   const[showSplash,setShowSplash]=useState(true); // загрузочный экран при старте приложения
@@ -361,6 +372,7 @@ useEffect(() => {
     const newState={...data,weekItems:generateAllWeeks(data.planned),streak:1,budgetStartDate:new Date().toISOString()};
     setAppState(newState);
     setOnboarded(true);
+    if(!isLoggedIn())markLocalTrialStart(); // старт локального 30-дневного триала (не для демо)
   };
   // Быстрая отметка выплаты одним тапом (подсказка «зарплата не отмечена»)
   const handleQuickMark=label=>setAppState(prev=>({...prev,payments:{...prev.payments,[label]:{...(prev.payments?.[label]||{}),isDone:true}}}));
@@ -579,10 +591,10 @@ useEffect(() => {
       <div style={{flex:1,display:'flex',flexDirection:'column',minHeight:0}}>
         {tab==='today'&&<TodayScreen state={appState} onToggle={handleToggle} onAdd={()=>setShowAdd(true)} onEditPayment={handleEditPayment} onEditTx={handleEditTx} onQuickMark={handleQuickMark} onWithdrawPiggy={()=>setShowWithdrawPiggy(true)} tourStep={tourStep} freeSpendableNow={cashFlowProjection.freeSpendableNow}/>}
         <Suspense fallback={null}>
-          {tab==='plan'&&<PlanScreen state={appState} onToggle={handleToggle} onAdd={(wk)=>{setAddWeek(wk);setShowAdd(true);}} onEditTx={handleEditTx} weeksSummary={weeksSummary} negativeWeek={cashFlowProjection.negativeWeek}/>}
+          {tab==='plan'&&<PlanScreen state={appState} onToggle={handleToggle} onAdd={(wk)=>{setAddWeek(wk);setShowAdd(true);}} onEditTx={handleEditTx} weeksSummary={weeksSummary} negativeWeek={cashFlowProjection.negativeWeek} isPro={isPro} onUpgrade={()=>setTab('settings')}/>}
           {tab==='budget'&&<BudgetScreen state={appState} onEditPlanned={item=>{setEditItem(item);setShowEdit(true);}} onAddPlanned={handleAddPlanned} onEditPayment={handleEditPayment} onAddExtra={(data)=>{if(data&&data.amount){handleAddExtra(data);}else{setShowAddExtra(true);}}} onWithdrawPiggy={()=>setShowWithdrawPiggy(true)} onSetGoal={handleSetGoal} onAddGoalToPlan={handleEditPlanned}/>}
-          {tab==='health'&&<HealthScreen state={appState}/>}
-          {tab==='settings'&&<SettingsScreen state={appState} onEditCat={item=>{setEditItem(item||null);setShowEdit(true);}} onAddCat={handleAddPlanned} onEditIncome={handleEditIncome} onAddIncome={handleAddIncomeSource} onUpdateMember={handleUpdateMember} onAddMember={handleAddMember} onRemoveMember={handleRemoveMember} theme={theme} onSetTheme={setTheme}/>}
+          {tab==='health'&&<HealthScreen state={appState} isPro={isPro} onUpgrade={()=>setTab('settings')}/>}
+          {tab==='settings'&&<SettingsScreen state={appState} onEditCat={item=>{setEditItem(item||null);setShowEdit(true);}} onAddCat={handleAddPlanned} onEditIncome={handleEditIncome} onAddIncome={handleAddIncomeSource} onUpdateMember={handleUpdateMember} onAddMember={handleAddMember} onRemoveMember={handleRemoveMember} theme={theme} onSetTheme={setTheme} isPro={isPro}/>}
         </Suspense>
       </div>
       <TabBar active={tab} onPress={setTab}/>
