@@ -59,7 +59,7 @@ export function EditIncomeModal({visible,income,member,onClose,onSave}){
           <div style={{...s.row,borderBottom:`1px solid ${C.border}`,justifyContent:'space-between'}}>
             <span style={{fontSize:14,color:C.muted}}>{incomeType==='manual'?'Доход в месяц (на руки)':incomeType==='self'?'Доход в месяц (до налога)':'Доход до вычета налога (НДФЛ)'}</span>
             <div style={{display:'flex',alignItems:'center',gap:4}}>
-              <input type="text" inputMode="numeric" value={gross} onChange={e=>setGross(e.target.value)} style={{width:100,textAlign:'right',border:'none',fontSize:13,outline:'none',fontFamily:'inherit'}}/>
+              <input type="text" inputMode="numeric" value={gross} onChange={e=>setGross(e.target.value)} placeholder="0" style={{width:100,textAlign:'right',border:'none',borderBottom:`1.5px dashed ${C.borderS}`,fontSize:13,outline:'none',fontFamily:'inherit'}}/>
               <span style={{fontSize:12,color:C.muted}}>₽</span>
             </div>
           </div>
@@ -68,13 +68,21 @@ export function EditIncomeModal({visible,income,member,onClose,onSave}){
             <div style={{...s.row,background:C.greenL,borderBottom:'none',justifyContent:'space-between'}}><span style={{fontSize:11,color:C.muted}}>{incomeType==='manual'?'На руки/мес':incomeType==='self'?`После налога ${parseFloat(taxRate)||6}%`:'Net/мес (среднее)'}</span><span style={{fontSize:14,fontWeight:700,color:C.green}}>{fmt(avgNet)}</span></div>
           </>}
         </div>
-        <DayPicker selected={salaryDays} onToggle={d=>setSalaryDays(p=>p.includes(d)?p.filter(x=>x!==d):[...p,d].sort((a,b)=>a-b))} title="📅 Дни зарплаты"/>
-        <DayPicker selected={advanceDays} onToggle={d=>setAdvanceDays(p=>p.includes(d)?p.filter(x=>x!==d):[...p,d].sort((a,b)=>a-b))} title="💸 Дни аванса"/>
-        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
-          <span style={{fontSize:11,color:C.muted,flex:1}}>% аванса</span>
-          <input type="text" inputMode="numeric" value={advancePct} onChange={e=>setAdvancePct(e.target.value)} style={{width:50,textAlign:'center',border:`1px solid ${C.border}`,borderRadius:6,padding:'4px 8px',fontSize:13,outline:'none',fontFamily:'inherit'}}/>
-          <span style={{fontSize:13,color:C.muted}}>%</span>
-        </div>
+        <DayPicker selected={salaryDays} onToggle={d=>setSalaryDays(p=>p.includes(d)?p.filter(x=>x!==d):[...p,d].sort((a,b)=>a-b))} title={incomeType==='employed'?'📅 Дни зарплаты':'📅 День поступления'}/>
+        {incomeType==='employed'&&<>
+          <DayPicker selected={advanceDays} onToggle={d=>setAdvanceDays(p=>p.includes(d)?p.filter(x=>x!==d):[...p,d].sort((a,b)=>a-b))} title="💸 Дни аванса"/>
+          <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:14}}>
+            <span style={{fontSize:11,color:C.muted,flex:1}}>% аванса</span>
+            <input type="text" inputMode="numeric" value={advancePct} onChange={e=>setAdvancePct(e.target.value)} style={{width:50,textAlign:'center',border:`1px solid ${C.border}`,borderRadius:6,padding:'4px 8px',fontSize:13,outline:'none',fontFamily:'inherit'}}/>
+            <span style={{fontSize:13,color:C.muted}}>%</span>
+          </div>
+        </>}
+        {(incomeType==='self'||incomeType==='manual')&&(
+          <div style={{...s.card,background:C.blueL,border:`1px solid ${C.blueB}`,padding:12,marginBottom:12}}>
+            <div style={{fontSize:12,fontWeight:700,color:C.blue,marginBottom:6}}>💡 Как считаем нерегулярный доход</div>
+            <div style={{fontSize:11.5,color:C.blue,lineHeight:1.5}}>Отметьте день, к которому обычно набирается вся сумма (например, конец месяца) — так прогноз учтёт этот доход заранее. А в баланс сумма попадёт только когда вы внесёте её вручную: «Поток» → «+ Добавить запись» → Доход, по мере фактических поступлений. Наберётся больше ожидаемого — учтётся всё. Меньше — недостающее просто не войдёт в баланс, и это нормально.</div>
+          </div>
+        )}
         <div style={{...s.card,background:C.blueL,border:`1px solid ${C.blueB}`,padding:12,marginBottom:12}}>
           <div style={{fontSize:12,fontWeight:700,color:C.blue,marginBottom:8}}>📅 Изменение вступит в силу с:</div>
           <div style={{display:'flex',gap:8,marginBottom:10}}>

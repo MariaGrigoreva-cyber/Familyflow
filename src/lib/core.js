@@ -14,10 +14,14 @@ const C = {
   purple:'var(--c-purple)',
   track:'var(--c-track)', cream:'var(--c-cream)',
 };
-const MONO = "'IBM Plex Mono', monospace";
+const MONO = "'Manrope', sans-serif";
 
-const fmt = n => new Intl.NumberFormat('ru-RU').format(Math.round(Math.abs(n))) + ' ₽';
-const fmtN = n => new Intl.NumberFormat('ru-RU').format(Math.round(Math.abs(n)));
+// Intl.NumberFormat('ru-RU') разделяет тысячи обычным неразрывным пробелом
+// (U+00A0) — в Manrope он выглядит широковато рядом с tabular-nums, меняем на
+// узкий неразрывный (U+202F), как в дизайн-инструкции.
+const THIN_NBSP = ' ';
+const fmt = n => new Intl.NumberFormat('ru-RU').format(Math.round(Math.abs(n))).replace(/ /g, THIN_NBSP) + ' ₽';
+const fmtN = n => new Intl.NumberFormat('ru-RU').format(Math.round(Math.abs(n))).replace(/ /g, THIN_NBSP);
 const uid = () => Math.random().toString(36).slice(2);
 
 const isoMondayOf = d => {
@@ -164,8 +168,12 @@ const computeBalances=(state)=>{
   const isPiggy=i=>i.catId==='piggy';
   const year=new Date().getFullYear();
 
-  // Все выплаты года с наложенными правками пользователя
-  const allPaymentsActual=incomes.flatMap(inc=>{
+  // Все выплаты года с наложенными правками пользователя. Нерегулярный доход
+  // (самозанятый/на руки) сюда не попадает вообще — плановый день для него лишь
+  // ориентир для прогноза (см. computeWeeksSummary), а в фактический баланс
+  // деньги идут только через ручные записи-доходы (txIncome ниже), иначе один и
+  // тот же доход считался бы дважды или "обещанные" деньги приходили бы сами.
+  const allPaymentsActual=incomes.filter(inc=>(inc.incomeType||'employed')==='employed').flatMap(inc=>{
     const sch=buildPaymentScheduleSpan(year,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc);
     return sch.map(p=>({...p,...(payments[p.displayLabel]||{})}));
   });
@@ -250,12 +258,27 @@ const computeBudgetMetrics=state=>{
   return{totalNet,monthlyExp,piggyMonthly,expWithoutPiggy,freeCash,totalSavings,savingsRate,isDeficit};
 };
 
+// Сколько из плановых выплат дохода засчитывать в неделю wS–wE. Наёмный доход —
+// как обычно, по графику. Нерегулярный доход (самозанятый/на руки) не привязан
+// к дню жёстко: пока неделя ещё не наступила, план — просто ориентир для
+// прогноза; как только неделя стала текущей или прошла, план для него больше не
+// считаем — только то, что реально внесено вручную (иначе задвоение с ручными
+// записями, а недополученное "по плану" никогда бы не сгорало).
+const scheduledIncomeForWeek=(inc,wS,wE,payments,curWk)=>{
+  if((inc.incomeType||'employed')!=='employed'&&weekKey(wS)<=curWk)return 0;
+  const yr=wS.getFullYear();
+  const sch=buildPaymentScheduleSpan(yr,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc)
+    .map(p=>({...p,...(payments[p.displayLabel]||{})}));
+  return sch.filter(p=>p.date>=wS&&p.date<=wE).reduce((s,p)=>s+(p.actualAmount||p.amount),0);
+};
+
 // Доход/план/факт по каждой существующей неделе weekItems — общая основа для сводок
 // Недель/Месяцев/Годов на Потоке и для прогноза накопительного баланса (см. ниже).
 const computeWeeksSummary=state=>{
   const{weekItems={},incomes=[],payments={},transactions=[],extraPayments=[]}=state;
   const extraIncomeInRange=(start,end)=>(extraPayments||[]).filter(p=>{const d=new Date(p.date);return d>=start&&d<=end;}).reduce((s,p)=>s+(p.actualAmount||p.amount),0);
   const allWeekKeys=Object.keys(weekItems).sort();
+  const curWk=todayKey();
   return allWeekKeys.map(wk=>{
     const items=weekItems[wk]||[];
     // Копилка входит в план и факт: это распределённые деньги бюджета
@@ -265,7 +288,7 @@ const computeWeeksSummary=state=>{
     const wPiggy=items.filter(x=>x.catId==='piggy').reduce((s,x)=>s+x.amount,0)
       +(transactions||[]).filter(t=>t.week===wk&&t.catId==='piggy').reduce((s,t)=>s+t.amount,0);
     const wS=weekKeyToDate(wk),wE=new Date(wS.getTime()+6*86400000);
-    const wInc=incomes.reduce((s,inc)=>{const yr=wS.getFullYear();const sch=buildPaymentScheduleSpan(yr,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc).map(p=>({...p,...(payments[p.displayLabel]||{})}));return s+sch.filter(p=>p.date>=wS&&p.date<=wE).reduce((ss,p)=>ss+(p.actualAmount||p.amount),0);},0);
+    const wInc=incomes.reduce((s,inc)=>s+scheduledIncomeForWeek(inc,wS,wE,payments,curWk),0);
     const txInc=(transactions||[]).filter(t=>t.week===wk&&t.type==='income').reduce((s,t)=>s+t.amount,0);
     const exInc=extraIncomeInRange(wS,wE);
     return{wk,wSp,wTot,wInc:wInc+txInc+exInc,bal:(wInc+txInc+exInc)-wTot,wPiggy};
@@ -445,4 +468,4 @@ const DEMO_MEMBERS=[{id:'m1',name:'Мария',avatar:'👩',color:'oklch(0.9 0.
 const DEMO_PLANNED=[{id:'p1',catId:'mortgage',name:'Ипотека',amount:55000,memberId:'m1',repeat:'monthly',days:[20]},{id:'p2',catId:'food',name:'Еда',amount:10000,memberId:'m1',repeat:'weekly',days:[]},{id:'p3',catId:'food',name:'Еда',amount:10000,memberId:'m2',repeat:'weekly',days:[]},{id:'p4',catId:'beauty',name:'Красота',amount:15000,memberId:'m1',repeat:'biweekly',days:[]},{id:'p5',catId:'edu',name:'Образование',amount:20000,memberId:'m2',repeat:'monthly',days:[1]},{id:'p6',catId:'piggy',name:'Копилка',amount:10000,memberId:'m1',repeat:'weekly',days:[]}];
 
 
-export {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,paymentTypeLabel,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,buildPaymentScheduleSpan,regenWeeksKeepDone,computeBalances,computeBudgetMetrics,computeWeeksSummary,projectCashFlow,compactWeekItemsForSave,isLegacyWeekKeyFormat,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,FUND_LABELS,getCatFund,PIE_COLORS,FACE_EMOJIS,MEMBER_TINTS,nextMemberTint,POLICY_ITEMS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED};
+export {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,paymentTypeLabel,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,buildPaymentScheduleSpan,regenWeeksKeepDone,computeBalances,computeBudgetMetrics,computeWeeksSummary,scheduledIncomeForWeek,projectCashFlow,compactWeekItemsForSave,isLegacyWeekKeyFormat,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,FUND_LABELS,getCatFund,PIE_COLORS,FACE_EMOJIS,MEMBER_TINTS,nextMemberTint,POLICY_ITEMS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED};

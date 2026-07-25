@@ -453,6 +453,71 @@ describe('computeBalances', () => {
   });
 });
 
+// Нерегулярный доход (самозанятый/на руки) не привязан к конкретному дню —
+// плановая "выплата" для него существует только как ориентир для прогноза
+// будущих недель (см. computeWeeksSummary), а в фактический баланс деньги
+// попадают исключительно через ручные записи-доходы. Раньше был риск, что
+// отметка isDone по плану задвоила бы доход с ручной записью или посчитала бы
+// деньги, которых по факту не было.
+describe('computeBalances — нерегулярный доход считается только по ручным записям', () => {
+  test('self-доход с отмеченной isDone плановой выплатой НЕ увеличивает баланс', () => {
+    const year = new Date().getFullYear();
+    const inc = { id: 'i1', memberId: 'm1', gross: 100000, incomeType: 'self', taxRate: '6', salaryDays: [28], advanceDays: [] };
+    const sch = buildPaymentScheduleSpan(year, inc.salaryDays, inc.advanceDays, 0, inc.gross, inc);
+    const past = sch.filter((p) => p.date < new Date()).sort((a, b) => b.date - a.date)[0];
+    const payments = { [past.displayLabel]: { isDone: true, actualAmount: 100000 } };
+    const state = {
+      incomes: [inc], weekItems: {}, startBalance: 0, payments, transactions: [],
+      budgetStartDate: new Date(2000, 0, 1).toISOString(), extraPayments: [],
+    };
+    const r = computeBalances(state);
+    expect(r.actualSalaryReceived).toBe(0);
+    expect(r.balance).toBe(0);
+  });
+
+  test('ручная запись-доход по-прежнему увеличивает баланс для self-дохода', () => {
+    const inc = { id: 'i1', memberId: 'm1', gross: 100000, incomeType: 'self', taxRate: '6', salaryDays: [28], advanceDays: [] };
+    const state = {
+      incomes: [inc], weekItems: {}, startBalance: 0, payments: {},
+      transactions: [{ type: 'income', amount: 40000, week: todayKey() }],
+      budgetStartDate: new Date(2000, 0, 1).toISOString(), extraPayments: [],
+    };
+    const r = computeBalances(state);
+    expect(r.txIncome).toBe(40000);
+    expect(r.balance).toBe(40000);
+  });
+});
+
+describe('computeWeeksSummary — нерегулярный доход учитывается в прогнозе только для будущих недель', () => {
+  const curWk = todayKey();
+  const nextWk = nextWeekKey(curWk);
+  const allDays = Array.from({ length: 31 }, (_, i) => i + 1); // любой день месяца — гарантированное попадание в любую неделю
+
+  test('self-доход: будущая неделя видит плановую сумму (ориентир прогноза)', () => {
+    const inc = { id: 'i1', memberId: 'm1', gross: 100000, incomeType: 'self', taxRate: '6', salaryDays: allDays, advanceDays: [] };
+    const state = { weekItems: { [nextWk]: [] }, incomes: [inc], payments: {}, transactions: [], extraPayments: [] };
+    const wk = computeWeeksSummary(state).find((d) => d.wk === nextWk);
+    expect(wk.wInc).toBeGreaterThan(0);
+  });
+
+  test('self-доход: текущая неделя игнорирует план, считает только ручные записи', () => {
+    const inc = { id: 'i1', memberId: 'm1', gross: 100000, incomeType: 'self', taxRate: '6', salaryDays: allDays, advanceDays: [] };
+    const state = {
+      weekItems: { [curWk]: [] }, incomes: [inc], payments: {},
+      transactions: [{ type: 'income', amount: 25000, week: curWk }], extraPayments: [],
+    };
+    const wk = computeWeeksSummary(state).find((d) => d.wk === curWk);
+    expect(wk.wInc).toBe(25000);
+  });
+
+  test('employed-доход: план учитывается и в текущей неделе (поведение не изменилось)', () => {
+    const inc = { id: 'i1', memberId: 'm1', gross: 100000, incomeType: 'employed', salaryDays: allDays, advanceDays: [] };
+    const state = { weekItems: { [curWk]: [] }, incomes: [inc], payments: {}, transactions: [], extraPayments: [] };
+    const wk = computeWeeksSummary(state).find((d) => d.wk === curWk);
+    expect(wk.wInc).toBeGreaterThan(0);
+  });
+});
+
 describe('buildDemoState — демо-данные структурно валидны', () => {
   test('не падает и возвращает согласованную структуру', () => {
     const demo = buildDemoState();

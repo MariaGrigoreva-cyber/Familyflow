@@ -178,7 +178,9 @@ export function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx,onQuick
   const upcoming=wItems.filter(i=>!i.isDone).slice(0,4);
   const doneCount=wItems.filter(i=>i.isDone).length;
   const now=new Date(); now.setHours(0,0,0,0); // начало дня чтобы сегодняшние выплаты не пропадали
-  const scheduledUpcoming=incomes.flatMap(inc=>{
+  // Нерегулярный доход (самозанятый/на руки) сюда не попадает — у него нет
+  // отдельного события выплаты для галочки, только ручные записи в «Потоке».
+  const scheduledUpcoming=incomes.filter(inc=>(inc.incomeType||'employed')==='employed').flatMap(inc=>{
     const m=members.find(x=>x.id===inc.memberId);
     return buildPaymentScheduleSpan(year,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc)
       .map(p=>({...p,memberName:m?.name||'',...(payments[p.displayLabel]||{})}));
@@ -225,7 +227,7 @@ export function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx,onQuick
       {/* Баланс — терракотовый hero */}
       <div data-tour="0" style={{background:C.orange,color:'#fff',borderRadius:18,padding:'20px 22px 18px',marginBottom:14,...glow(0)}}>
         <div style={{fontFamily:MONO,fontSize:10.5,letterSpacing:1.5,color:'rgba(255,255,255,.55)',textTransform:'uppercase'}}>ОСТАТОК НА РУКАХ</div>
-        <div style={{fontFamily:MONO,fontSize:40,fontWeight:500,letterSpacing:-1,lineHeight:1.1,marginTop:4}}>{balance<0?'−':''}{fmt(balance)}</div>
+        <div style={{fontFamily:MONO,fontSize:40,fontWeight:800,letterSpacing:-1,lineHeight:1.1,marginTop:4}}>{balance<0?'−':''}{fmt(balance)}</div>
         <div style={{display:'flex',gap:16,marginTop:14,fontFamily:MONO,fontSize:11.5,flexWrap:'wrap'}}>
           <span style={{color:'rgba(255,255,255,.85)'}}>+{fmtN(actualSalaryReceived+CB.txIncome)} <span style={{color:'rgba(255,255,255,.5)'}}>получено</span></span>
           <span style={{color:'rgba(255,255,255,.85)'}}>−{fmtN(allSpentTotal)} <span style={{color:'rgba(255,255,255,.5)'}}>потрачено</span></span>

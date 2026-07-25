@@ -11,13 +11,14 @@
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/apple-touch-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
     <title>Семейный поток</title>
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
       html, body { overflow-x: hidden; max-width: 100%; }
       body { font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-             background: var(--c-bg); -webkit-tap-highlight-color: transparent; }
+             background: var(--c-bg); -webkit-tap-highlight-color: transparent;
+             font-variant-numeric: tabular-nums; } /* цифры суммы одинаковой ширины — выравниваются в колонку */
       #root { min-height: 100dvh; }
       /* Палитра «Тёплый гроссбух» как CSS-переменные — светлая по умолчанию, тёмная по системной
          теме (пока пользователь не переключил вручную) и по явному data-theme со страницы. */
@@ -84,7 +85,9 @@
            экрана (особенно заметно при запуске PWA с домашнего экрана на iOS) сразу
            было видно фирменную заставку. React при монтировании заменит это содержимое
            реальным компонентом SplashScreen (App.jsx) — разметка и стили продублированы намеренно. -->
-      <div style="height:100dvh;max-width:480px;margin:0 auto;width:100%;box-sizing:border-box;background:var(--c-orange);display:flex;flex-direction:column;align-items:center;justify-content:center;">
+      <!-- #E15A33 — точный цвет фона, зашитый в icons/icon-192.png (не var(--c-orange),
+           иначе на стыке с картинкой виден шов из-за разницы оттенков). -->
+      <div style="height:100dvh;max-width:480px;margin:0 auto;width:100%;box-sizing:border-box;background:#E15A33;display:flex;flex-direction:column;align-items:center;justify-content:center;">
         <img src="/icons/icon-192.png" alt="" width="88" height="88" style="border-radius:26px;"/>
         <div style="font-size:32px;font-weight:600;letter-spacing:-.5px;color:#fff;margin-top:22px;">Семейный поток</div>
         <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:2.5px;color:rgba(255,255,255,.6);margin-top:8px;">ФИНАНСОВЫЙ ДИРЕКТОР СЕМЬИ</div>

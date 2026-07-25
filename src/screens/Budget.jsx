@@ -76,7 +76,9 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
   // Мемоизируем: иначе пересчитывался бы на каждый кейстрок в планировщике отпуска/цели
   // buildPaymentScheduleSpan уже покрывает year-1..year+1 — этого достаточно для окна в 365 дней
   // вперёд от budgetStart, включая выплаты, перенесённые праздниками через границу года.
-  const allPayments=useMemo(()=>incomes.flatMap(inc=>{const m=members.find(x=>x.id===inc.memberId);return buildPaymentScheduleSpan(budgetStart.getFullYear(),inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc).filter(p=>p.date>=budgetStart&&p.date<=budgetEnd).map(p=>({...p,memberName:m?.name||'',memberAvatar:m?.avatar||'',...(payments[p.displayLabel]||{})}));}).sort((a,b)=>a.date-b.date),
+  // Нерегулярный доход (самозанятый/на руки) сюда не попадает — у него нет
+  // отдельного события выплаты для галочки, только ручные записи в «Потоке».
+  const allPayments=useMemo(()=>incomes.filter(inc=>(inc.incomeType||'employed')==='employed').flatMap(inc=>{const m=members.find(x=>x.id===inc.memberId);return buildPaymentScheduleSpan(budgetStart.getFullYear(),inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc).filter(p=>p.date>=budgetStart&&p.date<=budgetEnd).map(p=>({...p,memberName:m?.name||'',memberAvatar:m?.avatar||'',...(payments[p.displayLabel]||{})}));}).sort((a,b)=>a.date-b.date),
     [incomes,members,payments,budgetStart.getFullYear()]);
   const upcomingAll=allPayments.filter(p=>p.date>=budgetStart);
   const upcoming=showAllUpcoming?upcomingAll:upcomingAll.slice(0,6);
@@ -88,7 +90,7 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
     <div style={{overflowY:'auto',flex:1,minHeight:0,WebkitOverflowScrolling:'touch'}}><div style={pad}>
       <div style={{paddingBottom:18,borderBottom:`1px solid ${C.border}`,marginBottom:16}}>
         <div style={{fontFamily:MONO,fontSize:10.5,letterSpacing:1.5,color:C.muted,textTransform:'uppercase',marginBottom:4}}>РАСХОДЫ ЗА ГОД · ПЛАН</div>
-        <div style={{fontFamily:MONO,fontSize:36,fontWeight:500,letterSpacing:-1,lineHeight:1.1,color:C.text}}>{fmt(totalYearlyExp)}</div>
+        <div style={{fontFamily:MONO,fontSize:36,fontWeight:800,letterSpacing:-1,lineHeight:1.1,color:C.text}}>{fmt(totalYearlyExp)}</div>
         <div style={{marginTop:14}}><PBar pct={totalYearlyIncome>0?(totalYearlyExp/totalYearlyIncome)*100:0} color={profit>=0?C.orange:C.red} h={8}/></div>
         <div style={{display:'flex',justifyContent:'space-between',marginTop:6,fontFamily:MONO,fontSize:10.5,color:C.muted}}>
           <span>{totalYearlyIncome>0?Math.round(totalYearlyExp/totalYearlyIncome*100):0}% ОТ ДОХОДА</span>

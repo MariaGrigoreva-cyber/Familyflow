@@ -35,15 +35,15 @@ export function EntryScreen({onDemo,onSetup,onLoginClick}){
         </button>
         <button onClick={onSetup} style={{width:'100%',display:'flex',alignItems:'center',gap:13,border:`1px solid ${C.border}`,background:'var(--c-surface)',borderRadius:14,padding:'14px 16px',cursor:'pointer',textAlign:'left',fontFamily:'inherit',boxSizing:'border-box'}}>
           <span style={{width:38,height:38,borderRadius:11,background:C.cream,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>⚙️</span>
-          <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:C.text}}>Настроить свой бюджет</div><div style={{fontSize:11.5,color:C.muted,marginTop:1}}>5 минут · доход, платежи, категории</div></div>
+          <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:C.text}}>Настроить свой бюджет</div><div style={{fontSize:11.5,color:C.muted,marginTop:1}}>Без регистрации · 5 минут · первые 30 дней — все функции, дальше бесплатная версия</div></div>
         </button>
         <button onClick={onLoginClick} style={{width:'100%',display:'flex',alignItems:'center',gap:13,border:`1px solid ${C.border}`,background:'var(--c-surface)',borderRadius:14,padding:'14px 16px',cursor:'pointer',textAlign:'left',fontFamily:'inherit',boxSizing:'border-box'}}>
           <span style={{width:38,height:38,borderRadius:11,background:C.cream,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>🔑</span>
           <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:C.text}}>Есть аккаунт / хочу зарегистрироваться</div><div style={{fontSize:11.5,color:C.muted,marginTop:1}}>войти или создать аккаунт — бюджет синхронизируется с облаком</div></div>
         </button>
       </div>
-      <div style={{textAlign:'center',marginTop:22,fontSize:11.5,color:C.muted}}>
-        Данные остаются на устройстве, если не включена синхронизация. <span onClick={()=>setPolicy(true)} style={{color:C.orangeD,textDecoration:'underline',cursor:'pointer'}}>Условия использования</span>
+      <div style={{textAlign:'center',marginTop:22,fontSize:11.5,color:C.muted,lineHeight:1.5}}>
+        Без регистрации бюджет хранится только на этом устройстве. При регистрации — шифруется и хранится на сервере в РФ. <span onClick={()=>setPolicy(true)} style={{color:C.orangeD,textDecoration:'underline',cursor:'pointer'}}>Условия использования</span>
       </div>
       <div style={{fontFamily:MONO,fontSize:9.5,color:C.faint,textAlign:'center',marginTop:12}}>152-ФЗ · ДАННЫЕ НЕ ПЕРЕДАЮТСЯ ТРЕТЬИМ ЛИЦАМ</div>
     </div>
@@ -204,7 +204,7 @@ export function Onboarding({onDone}){
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'13px 16px',borderBottom:`1px dashed ${C.border}`}}>
                   <span style={{fontSize:12.5,color:'var(--c-muted2)'}}>{(inc.incomeType||'employed')==='manual'?'Доход в месяц (на руки)':(inc.incomeType||'employed')==='self'?'Доход в месяц (до налога)':'Доход до вычета НДФЛ'}</span>
                   <div style={{display:'flex',alignItems:'center',gap:4}}>
-                    <input type="text" inputMode="numeric" value={inc.gross} onChange={e=>updInc(inc.id,'gross',e.target.value)} style={{width:100,textAlign:'right',border:'none',fontFamily:MONO,fontSize:16,fontWeight:600,outline:'none',color:C.text}}/>
+                    <input type="text" inputMode="numeric" value={inc.gross} onChange={e=>updInc(inc.id,'gross',e.target.value)} placeholder="0" style={{width:100,textAlign:'right',border:'none',borderBottom:`1.5px dashed ${C.borderS}`,fontFamily:MONO,fontSize:16,fontWeight:600,outline:'none',color:C.text}}/>
                     <span style={{fontFamily:MONO,fontSize:12,color:C.muted}}>₽</span>
                   </div>
                 </div>
@@ -240,35 +240,43 @@ export function Onboarding({onDone}){
                   })}
                 </div>
               )}
-              <DayPicker selected={inc.salaryDays} onToggle={d=>updInc(inc.id,'salaryDays',inc.salaryDays.includes(d)?inc.salaryDays.filter(x=>x!==d):[...inc.salaryDays,d].sort((a,b)=>a-b))} title="ДЕНЬ ЗАРПЛАТЫ"/>
-              <DayPicker selected={inc.advanceDays} onToggle={d=>updInc(inc.id,'advanceDays',inc.advanceDays.includes(d)?inc.advanceDays.filter(x=>x!==d):[...inc.advanceDays,d].sort((a,b)=>a-b))} title="ДЕНЬ АВАНСА"/>
-              <div style={{marginBottom:8}}>
-                <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
-                  <span style={{fontSize:12.5,color:'var(--c-muted2)',flex:1}}>Аванс</span>
-                  <div style={{display:'flex',gap:4}}>
-                    {[['pct','% от суммы'],['abs','Сумма ₽']].map(([mode,label])=>(
-                      <button key={mode} onClick={()=>updInc(inc.id,'advanceMode',mode)}
-                        style={{padding:'5px 10px',borderRadius:20,border:`1px solid ${(inc.advanceMode||'pct')===mode?C.orange:C.border}`,background:(inc.advanceMode||'pct')===mode?C.orange:'transparent',color:(inc.advanceMode||'pct')===mode?'#fff':C.muted,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}>
-                        {label}
-                      </button>
-                    ))}
+              <DayPicker selected={inc.salaryDays} onToggle={d=>updInc(inc.id,'salaryDays',inc.salaryDays.includes(d)?inc.salaryDays.filter(x=>x!==d):[...inc.salaryDays,d].sort((a,b)=>a-b))} title={iType==='employed'?'ДЕНЬ ЗАРПЛАТЫ':'ДЕНЬ ПОСТУПЛЕНИЯ'}/>
+              {iType==='employed'&&<>
+                <DayPicker selected={inc.advanceDays} onToggle={d=>updInc(inc.id,'advanceDays',inc.advanceDays.includes(d)?inc.advanceDays.filter(x=>x!==d):[...inc.advanceDays,d].sort((a,b)=>a-b))} title="ДЕНЬ АВАНСА"/>
+                <div style={{marginBottom:8}}>
+                  <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+                    <span style={{fontSize:12.5,color:'var(--c-muted2)',flex:1}}>Аванс</span>
+                    <div style={{display:'flex',gap:4}}>
+                      {[['pct','% от суммы'],['abs','Сумма ₽']].map(([mode,label])=>(
+                        <button key={mode} onClick={()=>updInc(inc.id,'advanceMode',mode)}
+                          style={{padding:'5px 10px',borderRadius:20,border:`1px solid ${(inc.advanceMode||'pct')===mode?C.orange:C.border}`,background:(inc.advanceMode||'pct')===mode?C.orange:'transparent',color:(inc.advanceMode||'pct')===mode?'#fff':C.muted,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
+                  {(inc.advanceMode||'pct')==='pct'
+                    ?<div style={{display:'flex',alignItems:'center',gap:8}}>
+                      <input type="text" inputMode="numeric" value={inc.advancePct} onChange={e=>updInc(inc.id,'advancePct',e.target.value)}
+                        style={{width:60,textAlign:'center',border:`1px solid ${C.border}`,borderRadius:8,padding:'6px 10px',fontFamily:MONO,fontSize:14,outline:'none'}}/>
+                      <span style={{fontFamily:MONO,fontSize:13,color:C.muted}}>%</span>
+                      {inc.advancePct&&gross>0&&<span style={{fontFamily:MONO,fontSize:11.5,color:C.muted,marginLeft:4}}>{fmtN(Math.round(avgNet*parseInt(inc.advancePct||0)/100))} / {fmtN(avgNet-Math.round(avgNet*parseInt(inc.advancePct||0)/100))}</span>}
+                    </div>
+                    :<div style={{display:'flex',alignItems:'center',gap:8}}>
+                      <input type="text" inputMode="numeric" value={inc.advanceAbs||''} onChange={e=>updInc(inc.id,'advanceAbs',e.target.value)}
+                        style={{width:120,textAlign:'right',border:`1px solid ${C.border}`,borderRadius:8,padding:'6px 10px',fontFamily:MONO,fontSize:14,outline:'none'}}/>
+                      <span style={{fontFamily:MONO,fontSize:13,color:C.muted}}>₽</span>
+                      {inc.advanceAbs&&gross>0&&<span style={{fontFamily:MONO,fontSize:11.5,color:C.muted,marginLeft:4}}>зарплата {fmtN(avgNet-parseInt(inc.advanceAbs||0))}</span>}
+                    </div>
+                  }
                 </div>
-                {(inc.advanceMode||'pct')==='pct'
-                  ?<div style={{display:'flex',alignItems:'center',gap:8}}>
-                    <input type="text" inputMode="numeric" value={inc.advancePct} onChange={e=>updInc(inc.id,'advancePct',e.target.value)}
-                      style={{width:60,textAlign:'center',border:`1px solid ${C.border}`,borderRadius:8,padding:'6px 10px',fontFamily:MONO,fontSize:14,outline:'none'}}/>
-                    <span style={{fontFamily:MONO,fontSize:13,color:C.muted}}>%</span>
-                    {inc.advancePct&&gross>0&&<span style={{fontFamily:MONO,fontSize:11.5,color:C.muted,marginLeft:4}}>{fmtN(Math.round(avgNet*parseInt(inc.advancePct||0)/100))} / {fmtN(avgNet-Math.round(avgNet*parseInt(inc.advancePct||0)/100))}</span>}
-                  </div>
-                  :<div style={{display:'flex',alignItems:'center',gap:8}}>
-                    <input type="text" inputMode="numeric" value={inc.advanceAbs||''} onChange={e=>updInc(inc.id,'advanceAbs',e.target.value)}
-                      style={{width:120,textAlign:'right',border:`1px solid ${C.border}`,borderRadius:8,padding:'6px 10px',fontFamily:MONO,fontSize:14,outline:'none'}}/>
-                    <span style={{fontFamily:MONO,fontSize:13,color:C.muted}}>₽</span>
-                    {inc.advanceAbs&&gross>0&&<span style={{fontFamily:MONO,fontSize:11.5,color:C.muted,marginLeft:4}}>зарплата {fmtN(avgNet-parseInt(inc.advanceAbs||0))}</span>}
-                  </div>
-                }
-              </div>
+              </>}
+              {(iType==='self'||iType==='manual')&&(
+                <div style={{...s.card,background:C.blueL,border:`1px solid ${C.blueB}`,padding:12,marginBottom:8}}>
+                  <div style={{fontSize:12,fontWeight:700,color:C.blue,marginBottom:6}}>💡 Как считаем нерегулярный доход</div>
+                  <div style={{fontSize:11.5,color:C.blue,lineHeight:1.5}}>Отметьте день, к которому обычно набирается вся сумма (например, конец месяца) — так прогноз учтёт этот доход заранее. А в баланс сумма попадёт только когда вы внесёте её вручную: «Поток» → «+ Добавить запись» → Доход, по мере фактических поступлений. Наберётся больше ожидаемого — учтётся всё. Меньше — недостающее просто не войдёт в баланс, и это нормально.</div>
+                </div>
+              )}
             </div>
           );
         })}
@@ -395,7 +403,7 @@ export function Onboarding({onDone}){
         <h2 style={{fontSize:24,fontWeight:600,letterSpacing:-.3,color:C.text,margin:'0 0 18px'}}>Ваш план готов</h2>
         <div style={{background:C.orange,color:'#fff',borderRadius:18,padding:20,marginBottom:18}}>
           <div style={{fontFamily:MONO,fontSize:10.5,letterSpacing:1.5,color:'rgba(255,255,255,.55)',textTransform:'uppercase'}}>БЮДЖЕТ В НЕДЕЛЮ</div>
-          <div style={{fontFamily:MONO,fontSize:38,fontWeight:500,letterSpacing:-1,marginTop:4}}>{fmtN(monthlyExp/4.3)} ₽</div>
+          <div style={{fontFamily:MONO,fontSize:38,fontWeight:800,letterSpacing:-1,marginTop:4}}>{fmtN(monthlyExp/4.3)} ₽</div>
           <div style={{display:'flex',gap:16,marginTop:12,fontFamily:MONO,fontSize:11,color:'rgba(255,255,255,.7)'}}>
             <span>≈{fmtN(monthlyExp)} / мес</span>
             <span>net {fmtN(totalNet)} / мес</span>
