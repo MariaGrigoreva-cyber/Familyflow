@@ -24,9 +24,7 @@ export function EntryScreen({onDemo,onSetup,onLoginClick}){
   return(
     <div style={{height:'100%',maxWidth:480,margin:'0 auto',width:'100%',background:C.bg,display:'flex',flexDirection:'column',justifyContent:'center',padding:24,boxSizing:'border-box',overflowY:'auto'}}>
       <div style={{display:'flex',alignItems:'center',gap:12}}>
-        <div style={{width:44,height:44,borderRadius:13,background:C.orange,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>
-          <svg width="24" height="24" viewBox="0 0 32 32" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><circle cx="15" cy="18" r="9.5"/><circle cx="20.5" cy="9.3" r="2" fill="#fff" stroke="none"/><rect x="23.5" y="15" width="5.5" height="6" rx="2.5"/><line x1="11" y1="6" x2="17.5" y2="6"/><circle cx="18.5" cy="15" r="1.5" fill="#fff" stroke="none"/><path d="M10.5 27 v2.5 M19.5 27 v2.5"/></svg>
-        </div>
+        <img src="/icons/icon-192.png" alt="" width={44} height={44} style={{borderRadius:13,flexShrink:0}}/>
         <div><div style={{fontSize:18,fontWeight:600,color:C.text}}>Семейный поток</div><div style={{fontFamily:MONO,fontSize:9.5,letterSpacing:1.5,color:C.muted,marginTop:2}}>ФИНАНСОВЫЙ ДИРЕКТОР СЕМЬИ</div></div>
       </div>
       <div style={{fontFamily:MONO,fontSize:10.5,letterSpacing:1.5,color:C.muted,margin:'30px 0 12px',textTransform:'uppercase'}}>КАК ХОТИТЕ НАЧАТЬ?</div>
