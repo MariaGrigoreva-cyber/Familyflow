@@ -10,15 +10,12 @@ root.render(
   </ErrorBoundary>
 );
 
-// Снимаем ранее установленный service worker у всех пользователей:
-// он кешировал старые сборки, из-за чего деплои не доезжали до браузера.
-// PWA-кеширование вернём позже осознанно — со стратегией обновления.
+// Чистим кеш от старой версии service worker'а (кеш-стратегия ломала деплои —
+// пользователи видели старую сборку) и регистрируем новый: он ничего не кеширует
+// и не перехватывает fetch, нужен только для push-уведомлений.
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker
-    .getRegistrations()
-    .then(regs => regs.forEach(r => r.unregister()))
-    .catch(() => {});
   if (window.caches?.keys) {
     caches.keys().then(keys => keys.forEach(k => caches.delete(k))).catch(() => {});
   }
+  navigator.serviceWorker.register('/service-worker.js').catch(() => {});
 }

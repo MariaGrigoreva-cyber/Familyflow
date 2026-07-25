@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import {C,MONO,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,EmojiPicker} from '../lib/ui';
 import {isLoggedIn,logout,register,login,familyMe,familyInvite,familyJoin,errText,changePassword,resetRequest,resetConfirm,saveCloudState,billingStatus,billingCheckout,billingCancelAutoRenew} from '../api';
+import {getPushState,enablePush,disablePush} from '../push';
 
 export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncome,onUpdateMember,onAddMember,onRemoveMember,theme,onSetTheme}){
   const{members,incomes,planned,familyName,customCats=[]}=state;
@@ -126,6 +127,11 @@ export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncom
         <SecTitle>ПОДПИСКА</SecTitle>
         <BillingSection/>
       </>}
+      {/* ═══ Push-уведомления ═══ */}
+      {isLoggedIn()&&<>
+        <SecTitle>УВЕДОМЛЕНИЯ</SecTitle>
+        <PushSection/>
+      </>}
       {/* ═══ Резервная копия ═══ */}
       <div style={{...s.card,background:C.yellowL,border:`1px solid ${C.yellowB}`,padding:'12px 14px',display:'flex',gap:10}}>
         <span style={{fontSize:16,flexShrink:0}}>⚠️</span>
@@ -241,6 +247,9 @@ function AccountSection(){
     try{
       if(mode==='register')await register(email.trim(),pass,undefined);
       else await login(email.trim(),pass);
+      // Сразу после входа предлагаем push — если браузер уже решал (разрешил/заблокировал),
+      // повторного системного запроса не будет, так что это безопасно дёргать каждый раз.
+      try{await enablePush();}catch{}
       // Перезагрузка подтянет облако через loadCloud в App
       window.location.reload();
     }catch(e){setErr(errText(e));setBusy(false);}
@@ -410,6 +419,48 @@ function BillingSection(){
           </div>
         </>
       )}
+      {err&&<div style={{fontSize:12,color:C.red,marginTop:8}}>{err}</div>}
+    </div>
+  );
+}
+
+// ── Push-уведомления: раз в неделю + напоминание о платеже ─────────────────
+function PushSection(){
+  const[state,setState]=useState('loading'); // loading|unsupported|denied|subscribed|not-subscribed
+  const[busy,setBusy]=useState(false);
+  const[err,setErr]=useState('');
+
+  useEffect(()=>{getPushState().then(setState).catch(()=>setState('unsupported'));},[]);
+
+  const toggle=async()=>{
+    setErr('');setBusy(true);
+    try{
+      if(state==='subscribed'){await disablePush();setState('not-subscribed');}
+      else{await enablePush();setState('subscribed');}
+    }catch(e){
+      if(e.message==='permission_denied')setState('denied');
+      else setErr('Не удалось включить уведомления');
+    }
+    setBusy(false);
+  };
+
+  if(state==='loading'||state==='unsupported')return null;
+
+  return(
+    <div style={{...s.card,padding:16}}>
+      <div style={{display:'flex',alignItems:'center',gap:12}}>
+        <span style={{fontSize:18}}>🔔</span>
+        <div style={{flex:1}}>
+          <div style={{fontSize:13,fontWeight:600,color:C.text}}>Push-уведомления</div>
+          <div style={{fontSize:11,color:C.muted,marginTop:1}}>
+            {state==='denied'?'Заблокированы в браузере — включите в его настройках сайта':'Раз в неделю и о плановых платежах'}
+          </div>
+        </div>
+        {state!=='denied'&&<button onClick={toggle} disabled={busy}
+          style={{padding:'8px 14px',borderRadius:20,border:state==='subscribed'?`1px solid ${C.border}`:'none',background:state==='subscribed'?'var(--c-surface)':C.orange,color:state==='subscribed'?C.muted:'#fff',fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',opacity:busy?.6:1,flexShrink:0}}>
+          {busy?'…':state==='subscribed'?'Отключить':'Включить'}
+        </button>}
+      </div>
       {err&&<div style={{fontSize:12,color:C.red,marginTop:8}}>{err}</div>}
     </div>
   );

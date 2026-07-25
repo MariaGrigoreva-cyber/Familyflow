@@ -56,6 +56,11 @@ export const billingStatus = () => req('/billing/status');
 export const billingCheckout = period => req('/billing/checkout', { method: 'POST', body: { period } });
 export const billingCancelAutoRenew = () => req('/billing/cancel-auto-renew', { method: 'POST' });
 
+// ── Push-уведомления ───────────────────────────────────────────────────────
+export const pushVapidPublicKey = () => req('/push/vapid-public-key', { auth: false });
+export const pushSubscribe = sub => req('/push/subscribe', { method: 'POST', body: sub });
+export const pushUnsubscribe = endpoint => req('/push/unsubscribe', { method: 'POST', body: { endpoint } });
+
 export const changePassword = (oldPassword, newPassword) =>
   req('/auth/change-password', { method: 'POST', body: { oldPassword, newPassword } });
 export const authMe = () => req('/auth/me');
