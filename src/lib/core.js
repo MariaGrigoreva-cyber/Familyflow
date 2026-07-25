@@ -119,7 +119,11 @@ const buildPaymentSchedule=(year,salaryDays=[],advanceDays=[],advancePct=40,mont
     const ndflMonth=k===0?12:k; // для декабря прошлого года — 12-й месяц прогрессии
     if(iType==='employed'){({monthlyNet,monthlyNDFL,bracket}=calcMonthlyNDFL(g,ndflMonth));}
     else{monthlyNet=calcNetFor({gross:g,incomeType:iType,taxRate:rate});monthlyNDFL=Math.max((g||0)-monthlyNet,0);bracket=iType==='self'?`${parseFloat(rate)||6}%`:'—';}
-    const advAmt=inc?calcAdvanceAmount(monthlyNet,inc):Math.round(monthlyNet*advancePct/100);
+    // Аванс — понятие только для наёмного дохода (ТК РФ, дважды в месяц).
+    // У самозанятых/на руки нет двух частей — вся сумма идёт одной выплатой,
+    // иначе доля "аванса" молча пропадала бы (advanceDays у них всегда пустой,
+    // отдельной записи для неё не создаётся).
+    const advAmt=iType==='employed'?(inc?calcAdvanceAmount(monthlyNet,inc):Math.round(monthlyNet*advancePct/100)):0;
     return monthCalc[k]={monthlyNet,monthlyNDFL,bracket,advAmt,salAmt:monthlyNet-advAmt};
   };
   for(let m=1;m<=12;m++){

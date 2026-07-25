@@ -124,6 +124,24 @@ describe('buildPaymentSchedule — базовая арифметика', () => {
     const febSalary = sch.find((p) => p.type === 'salary' && p.month === 2);
     expect(febSalary.date.getMonth()).toBeLessThanOrEqual(1); // январь(0) или февраль(1), но не март
   });
+
+  // Регрессия: у самозанятых/на руки нет аванса (advanceDays всегда пустой),
+  // но старый расчёт всё равно молча вычитал 40% как "аванс" — деньги пропадали.
+  test('доход "на руки" (manual) — вся сумма на дне поступления, без вычета аванса', () => {
+    const gross = 150000;
+    const inc = { gross, incomeType: 'manual', salaryDays: [10], advanceDays: [] };
+    const sch = buildPaymentSchedule(2027, [10], [], 40, gross, inc);
+    const salary = sch.find((p) => p.type === 'salary' && p.month === 6);
+    expect(salary.amount).toBe(gross);
+  });
+
+  test('доход "самозанятый" (self) — вся сумма за вычетом налога, без вычета аванса', () => {
+    const gross = 150000;
+    const inc = { gross, incomeType: 'self', taxRate: '6', salaryDays: [10], advanceDays: [] };
+    const sch = buildPaymentSchedule(2027, [10], [], 40, gross, inc);
+    const salary = sch.find((p) => p.type === 'salary' && p.month === 6);
+    expect(salary.amount).toBe(Math.round(gross * 0.94));
+  });
 });
 
 describe('calcAnnualNDFL / calcMonthlyNDFL — прогрессивная шкала НДФЛ', () => {

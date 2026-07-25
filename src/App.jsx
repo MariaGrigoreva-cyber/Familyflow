@@ -589,7 +589,7 @@ useEffect(() => {
         )}
       </div>
       <div style={{flex:1,display:'flex',flexDirection:'column',minHeight:0}}>
-        {tab==='today'&&<TodayScreen state={appState} onToggle={handleToggle} onAdd={()=>setShowAdd(true)} onEditPayment={handleEditPayment} onEditTx={handleEditTx} onQuickMark={handleQuickMark} onWithdrawPiggy={()=>setShowWithdrawPiggy(true)} tourStep={tourStep} freeSpendableNow={cashFlowProjection.freeSpendableNow}/>}
+        {tab==='today'&&<TodayScreen state={appState} onToggle={handleToggle} onAdd={()=>setShowAdd(true)} onEditPayment={handleEditPayment} onEditTx={handleEditTx} onQuickMark={handleQuickMark} onWithdrawPiggy={()=>setShowWithdrawPiggy(true)} tourStep={tourStep} freeSpendableNow={cashFlowProjection.freeSpendableNow} weeklyBalances={cashFlowProjection.weeklyBalances}/>}
         <Suspense fallback={null}>
           {tab==='plan'&&<PlanScreen state={appState} onToggle={handleToggle} onAdd={(wk)=>{setAddWeek(wk);setShowAdd(true);}} onEditTx={handleEditTx} weeksSummary={weeksSummary} negativeWeek={cashFlowProjection.negativeWeek} isPro={isPro} onUpgrade={()=>setTab('settings')}/>}
           {tab==='budget'&&<BudgetScreen state={appState} onEditPlanned={item=>{setEditItem(item);setShowEdit(true);}} onAddPlanned={handleAddPlanned} onEditPayment={handleEditPayment} onAddExtra={(data)=>{if(data&&data.amount){handleAddExtra(data);}else{setShowAddExtra(true);}}} onWithdrawPiggy={()=>setShowWithdrawPiggy(true)} onSetGoal={handleSetGoal} onAddGoalToPlan={handleEditPlanned}/>}

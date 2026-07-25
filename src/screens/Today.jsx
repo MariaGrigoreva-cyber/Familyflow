@@ -1,5 +1,5 @@
 // FamilyFlow — экран Сегодня
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,paymentTypeLabel,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,buildPaymentScheduleSpan,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad} from '../lib/ui';
 
@@ -157,7 +157,7 @@ const HOW_SLIDES=[
   ),
 ];
 
-export function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx,onQuickMark,onWithdrawPiggy,tourStep,freeSpendableNow=0}){
+export function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx,onQuickMark,onWithdrawPiggy,tourStep,freeSpendableNow=0,weeklyBalances=[]}){
   const{members,incomes,planned,weekItems,startBalance=0,payments={},customCats=[],transactions=[],budgetStartDate,extraPayments=[]}=state;
   const week=todayKey();
   const wItems=weekItems[week]||[];
@@ -195,6 +195,24 @@ export function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx,onQuick
   const[showFreeInfo,setShowFreeInfo]=useState(false);
   const[showHow,setShowHow]=useState(false);
   const[howSlide,setHowSlide]=useState(0);
+  // Симулятор «а если потратить ещё X сейчас» — та же идея, что демо на лендинге,
+  // но на реальном прогнозе баланса семьи вместо демо-цифр.
+  const[extraSpend,setExtraSpend]=useState(0);
+  const simBaseWeeks=useMemo(()=>weeklyBalances.filter(d=>d.wk>=week).slice(0,10),[weeklyBalances,week]);
+  const simMax=useMemo(()=>{
+    const peak=Math.max(1,...simBaseWeeks.map(d=>Math.abs(d.bal)));
+    return Math.max(20000,Math.ceil(peak/5000)*5000);
+  },[simBaseWeeks]);
+  const simStep=simMax>200000?5000:simMax>50000?2000:1000;
+  const sim=useMemo(()=>{
+    let firstNeg=null;
+    const rows=simBaseWeeks.map(d=>{
+      const v=d.bal-extraSpend,neg=v<0;
+      if(neg&&!firstNeg)firstNeg={num:parseWeekKey(d.wk).week,v};
+      return{wk:d.wk,num:parseWeekKey(d.wk).week,neg,h:Math.max(4,Math.round((Math.abs(v)/simMax)*52))};
+    });
+    return{rows,firstNeg};
+  },[simBaseWeeks,extraSpend,simMax]);
   const pad={padding:'16px 20px 90px'};
   // Подсветка блока при обучающем туре
   const glow=step=>tourStep===step?{animation:'ffTourGlow 1.4s ease infinite',position:'relative',zIndex:210}:{};
@@ -239,11 +257,34 @@ export function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx,onQuick
             <span style={{fontFamily:MONO,fontSize:13,fontWeight:600,color:'#fff'}}>{fmt(freeSpendableNow)}</span>
           </button>
           {showFreeInfo&&<div style={{background:'rgba(255,255,255,.08)',borderRadius:10,padding:'10px 13px',marginTop:6}}>
-            <div style={{fontSize:11.5,color:'rgba(255,255,255,.75)',lineHeight:'17px'}}>
+            <div style={{fontSize:11.5,color:'rgba(255,255,255,.75)',lineHeight:'17px',marginBottom:12}}>
               {freeSpendableNow>0
                 ?'Столько можно потратить дополнительно прямо сейчас — и накопительный баланс не уйдёт в минус ни на одной будущей неделе (с учётом уже запланированных трат и доходов).'
-                :'Сейчас свободных денег нет — весь буфер уже расписан планом на будущее. Подробнее — на вкладке «Поток» → «Недели».'}
+                :'Сейчас свободных денег нет — весь буфер уже расписан планом на будущее.'}
             </div>
+            {sim.rows.length>0&&<div style={{borderTop:'1px solid rgba(255,255,255,.15)',paddingTop:12}}>
+              <div style={{fontSize:11,color:'rgba(255,255,255,.6)',marginBottom:8}}>А если потратить сверх плана ещё:</div>
+              <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
+                <input type="range" min={0} max={simMax} step={simStep} value={extraSpend}
+                  onChange={e=>setExtraSpend(+e.target.value)}
+                  style={{flex:1,accentColor:'#fff'}}/>
+                <span style={{fontFamily:MONO,fontSize:13,fontWeight:600,color:'#fff',minWidth:76,textAlign:'right'}}>{fmtN(extraSpend)} ₽</span>
+              </div>
+              <div style={{fontSize:10,color:'rgba(255,255,255,.5)',marginBottom:6}}>Баланс на ближайшие 10 недель:</div>
+              <div style={{display:'flex',alignItems:'flex-end',gap:4,height:56,marginBottom:4}}>
+                {sim.rows.map(w=>(
+                  <div key={w.wk} style={{flex:1,display:'flex',justifyContent:'center'}}>
+                    <div style={{width:'100%',maxWidth:20,height:w.h,borderRadius:3,background:w.neg?'#7a281f':'rgba(255,255,255,.85)'}}/>
+                  </div>
+                ))}
+              </div>
+              <div style={{display:'flex',gap:4,marginBottom:10}}>
+                {sim.rows.map(w=><div key={w.wk} style={{flex:1,textAlign:'center',fontFamily:MONO,fontSize:8.5,color:'rgba(255,255,255,.5)'}}>{w.num}</div>)}
+              </div>
+              <div style={{fontSize:11.5,lineHeight:'16px',fontWeight:500,color:sim.firstNeg?'#ffd9cc':'#d7ffe6'}}>
+                {sim.firstNeg?`⚠ Кассовый разрыв в нед. ${sim.firstNeg.num}: −${fmt(sim.firstNeg.v)}`:'✓ Безопасно на все 10 недель вперёд'}
+              </div>
+            </div>}
           </div>}
         </div>
         {totalSaved>0&&<div data-tour="1" style={{...glow(1)}}>
@@ -277,7 +318,7 @@ export function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx,onQuick
           <div style={{...s.card,background:C.cream,border:`1px solid ${C.border}`,padding:'11px 13px',marginBottom:10,display:'flex',alignItems:'center',gap:10}}>
             <span style={{fontSize:18,flexShrink:0}}>💰</span>
             <div style={{flex:1}}>
-              <div style={{fontSize:13,fontWeight:600,color:C.text}}>{paymentTypeLabel(p)} {p.date.getDate()} {MONTH_SHORT[p.date.getMonth()]} не отмечена</div>
+              <div style={{fontSize:13,fontWeight:600,color:C.text}}>{p.isExtra?p.label:paymentTypeLabel(p)} {p.date.getDate()} {MONTH_SHORT[p.date.getMonth()]} не отмечена</div>
               <div style={{fontFamily:MONO,fontSize:11,color:C.text2,marginTop:1}}>{fmt(p.actualAmount||p.amount)} · получили её?</div>
             </div>
             <button onClick={()=>onQuickMark&&onQuickMark(p.displayLabel)}
@@ -309,7 +350,7 @@ export function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx,onQuick
             <button key={i} onClick={()=>onEditPayment(p)} style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'8px 0',border:'none',background:'none',borderBottom:i<allUpcomingPay.length-1?`1px dashed ${C.border}`:'none',cursor:'pointer',fontFamily:'inherit',textAlign:'left'}}>
               <span style={{fontFamily:MONO,fontSize:10.5,fontWeight:600,color:chipColor,background:chipBg,borderRadius:6,padding:'3px 7px',flexShrink:0}}>{shortDate}</span>
               <div style={{flex:1}}>
-                <div style={{fontSize:13.5,fontWeight:500,color:C.text}}>{paymentTypeLabel(p)}{showMember?` · ${p.memberName}`:''}</div>
+                <div style={{fontSize:13.5,fontWeight:500,color:C.text}}>{p.isExtra?p.label:paymentTypeLabel(p)}{showMember?` · ${p.memberName}`:''}</div>
                 {p.shifted&&<div style={{fontFamily:MONO,fontSize:10,color:C.yellow,marginTop:1}}>{p.note}</div>}
               </div>
               <span style={{fontFamily:MONO,fontSize:13,fontWeight:600,color:C.text}}>{fmtN(p.actualAmount||p.amount)}</span>
