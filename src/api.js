@@ -51,6 +51,11 @@ export const familyMe = () => req('/family/me');
 export const familyInvite = () => req('/family/invite', { method: 'POST' });
 export const familyJoin = code => req('/family/join', { method: 'POST', body: { code } });
 
+// ── Подписка ───────────────────────────────────────────────────────────────
+export const billingStatus = () => req('/billing/status');
+export const billingCheckout = period => req('/billing/checkout', { method: 'POST', body: { period } });
+export const billingCancelAutoRenew = () => req('/billing/cancel-auto-renew', { method: 'POST' });
+
 export const changePassword = (oldPassword, newPassword) =>
   req('/auth/change-password', { method: 'POST', body: { oldPassword, newPassword } });
 export const authMe = () => req('/auth/me');

@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import {C,MONO,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,EmojiPicker} from '../lib/ui';
-import {isLoggedIn,logout,register,login,familyMe,familyInvite,familyJoin,errText,changePassword,resetRequest,resetConfirm,saveCloudState} from '../api';
+import {isLoggedIn,logout,register,login,familyMe,familyInvite,familyJoin,errText,changePassword,resetRequest,resetConfirm,saveCloudState,billingStatus,billingCheckout,billingCancelAutoRenew} from '../api';
 
 export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncome,onUpdateMember,onAddMember,onRemoveMember,theme,onSetTheme}){
   const{members,incomes,planned,familyName,customCats=[]}=state;
@@ -121,6 +121,11 @@ export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncom
       {/* ═══ Аккаунт и синхронизация ═══ */}
       <SecTitle>АККАУНТ И СИНХРОНИЗАЦИЯ</SecTitle>
       <AccountSection/>
+      {/* ═══ Подписка ═══ */}
+      {isLoggedIn()&&<>
+        <SecTitle>ПОДПИСКА</SecTitle>
+        <BillingSection/>
+      </>}
       {/* ═══ Резервная копия ═══ */}
       <div style={{...s.card,background:C.yellowL,border:`1px solid ${C.yellowB}`,padding:'12px 14px',display:'flex',gap:10}}>
         <span style={{fontSize:16,flexShrink:0}}>⚠️</span>
@@ -312,6 +317,100 @@ function AccountSection(){
       </div>
       {err&&<div style={{fontSize:12,color:C.red,marginTop:8}}>{err}</div>}
       <ChangePasswordRow/>
+    </div>
+  );
+}
+
+// ── Подписка: статус тарифа, оформление Pro ────────────────────────────────
+function BillingSection(){
+  const[status,setStatus]=useState(null);
+  const[busy,setBusy]=useState(null); // 'monthly' | 'yearly' | 'cancel' | null
+  const[err,setErr]=useState('');
+
+  useEffect(()=>{
+    const cameFromCheckout=window.location.search.includes('billing=done');
+    billingStatus().then(setStatus).catch(()=>{});
+    if(cameFromCheckout){
+      // ЮKassa могла ещё не успеть прислать webhook — переспрашиваем статус чуть позже.
+      window.history.replaceState(null,'',window.location.pathname);
+      setTimeout(()=>{billingStatus().then(setStatus).catch(()=>{});},2500);
+    }
+  },[]);
+
+  const checkout=async period=>{
+    setErr('');setBusy(period);
+    try{
+      const r=await billingCheckout(period);
+      if(r.confirmationUrl)window.location.href=r.confirmationUrl;
+      else{setErr('Не удалось начать оплату');setBusy(null);}
+    }catch(e){setErr(errText(e));setBusy(null);}
+  };
+
+  const cancelAutoRenew=async()=>{
+    if(!window.confirm('Отключить автопродление? Подписка Pro останется активной до конца оплаченного периода, дальше списаний не будет.'))return;
+    setErr('');setBusy('cancel');
+    try{await billingCancelAutoRenew();setStatus(st=>({...st,autoRenew:false}));}
+    catch(e){setErr(errText(e));}
+    setBusy(null);
+  };
+
+  if(!status)return null;
+  const fmtDate=d=>d?new Date(d).toLocaleDateString('ru-RU'):'';
+  const daysLeft=d=>d?Math.max(0,Math.ceil((new Date(d)-new Date())/86400000)):0;
+
+  return(
+    <div style={{...s.card,padding:16}}>
+      {status.plan==='pro'?(
+        <>
+          <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:status.autoRenew?4:0}}>
+            <span style={{fontSize:18}}>⭐</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:13,fontWeight:600,color:C.green}}>Pro активен до {fmtDate(status.proUntil)}</div>
+              <div style={{fontSize:11,color:C.muted,marginTop:1}}>
+                {status.autoRenew
+                  ?`Автопродление включено · ${status.billingPeriod==='yearly'?'год':'месяц'} за ${fmtN(status.prices[status.billingPeriod]||0)} ₽`
+                  :'Автопродление отключено — доступ Pro закончится в указанную дату'}
+              </div>
+            </div>
+          </div>
+          {status.billingPeriod!=='yearly'&&<button onClick={()=>checkout('yearly')} disabled={!!busy}
+            style={{width:'100%',padding:12,borderRadius:12,border:'none',background:busy==='yearly'?C.borderS:C.orange,color:'#fff',fontSize:12.5,fontWeight:600,cursor:'pointer',fontFamily:'inherit',marginTop:10}}>
+            {busy==='yearly'?'Секунду…':`Перейти на годовой план · ${fmtN(status.prices.yearly)} ₽`}
+          </button>}
+          {status.autoRenew&&<>
+            <div style={{fontSize:11,color:C.muted,lineHeight:1.5,marginTop:10,marginBottom:10}}>Также можно отключить по ссылке в письме-напоминании, которое приходит за 2 дня до списания.</div>
+            <button onClick={cancelAutoRenew} disabled={!!busy}
+              style={{width:'100%',padding:11,borderRadius:12,border:`1px solid ${C.border}`,background:'var(--c-surface)',color:C.muted,fontSize:12.5,fontWeight:600,cursor:'pointer',fontFamily:'inherit',opacity:busy?.6:1}}>
+              {busy==='cancel'?'Секунду…':'Отключить автопродление'}
+            </button>
+          </>}
+        </>
+      ):(
+        <>
+          <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
+            <span style={{fontSize:18}}>{status.plan==='trial'?'⏳':'🔓'}</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:13,fontWeight:600,color:C.text}}>
+                {status.plan==='trial'?`Пробный период: ещё ${daysLeft(status.trialEndsAt)} дн.`:'Бесплатный тариф'}
+              </div>
+              <div style={{fontSize:11,color:C.muted,marginTop:1}}>
+                {status.plan==='trial'?`До ${fmtDate(status.trialEndsAt)} доступны все возможности Pro`:'Оформите Pro, чтобы снять ограничения'}
+              </div>
+            </div>
+          </div>
+          <div style={{display:'flex',gap:8}}>
+            <button onClick={()=>checkout('monthly')} disabled={!!busy}
+              style={{flex:1,padding:12,borderRadius:12,border:'none',background:busy?C.borderS:C.orange,color:'#fff',fontSize:12.5,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>
+              {busy==='monthly'?'Секунду…':`Месяц · ${fmtN(status.prices.monthly)} ₽`}
+            </button>
+            <button onClick={()=>checkout('yearly')} disabled={!!busy}
+              style={{flex:1,padding:12,borderRadius:12,border:`1.5px solid ${C.orange}`,background:'transparent',color:C.orangeD,fontSize:12.5,fontWeight:600,cursor:'pointer',fontFamily:'inherit',opacity:busy?.5:1}}>
+              {busy==='yearly'?'Секунду…':`Год · ${fmtN(status.prices.yearly)} ₽`}
+            </button>
+          </div>
+        </>
+      )}
+      {err&&<div style={{fontSize:12,color:C.red,marginTop:8}}>{err}</div>}
     </div>
   );
 }
