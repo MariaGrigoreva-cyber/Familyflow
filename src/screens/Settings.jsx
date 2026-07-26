@@ -411,10 +411,17 @@ function BillingSection(){
               </div>
             </div>
           </div>
-          {status.billingPeriod!=='yearly'&&<button onClick={()=>checkout('yearly')} disabled={!!busy}
-            style={{width:'100%',padding:12,borderRadius:12,border:'none',background:busy==='yearly'?C.borderS:C.orange,color:'#fff',fontSize:12.5,fontWeight:600,cursor:'pointer',fontFamily:'inherit',marginTop:10}}>
-            {busy==='yearly'?'Секунду…':`Перейти на годовой план · ${fmtN(status.prices.yearly)}`}
-          </button>}
+          {status.billingPeriod!=='yearly'&&<>
+            <label style={{display:'flex',gap:8,alignItems:'flex-start',fontSize:11,lineHeight:1.5,color:C.muted,marginTop:10,marginBottom:8,cursor:'pointer'}}>
+              <input type="checkbox" checked={autoChargeConsent} onChange={e=>setAutoChargeConsent(e.target.checked)}
+                style={{marginTop:2,flexShrink:0}}/>
+              <span>Согласен(-на) с автоматическим списанием за продление подписки до отмены — карта сохраняется, отменить можно в любой момент.</span>
+            </label>
+            <button onClick={()=>checkout('yearly')} disabled={!!busy||!autoChargeConsent}
+              style={{width:'100%',padding:12,borderRadius:12,border:'none',background:busy||!autoChargeConsent?C.borderS:C.orange,color:'#fff',fontSize:12.5,fontWeight:600,cursor:busy||!autoChargeConsent?'default':'pointer',fontFamily:'inherit'}}>
+              {busy==='yearly'?'Секунду…':`Перейти на годовой план · ${fmtN(status.prices.yearly)}`}
+            </button>
+          </>}
           {status.autoRenew&&<>
             <div style={{fontSize:11,color:C.muted,lineHeight:1.5,marginTop:10,marginBottom:10}}>Также можно отключить по ссылке в письме-напоминании, которое приходит за 2 дня до списания.</div>
             <button onClick={cancelAutoRenew} disabled={!!busy}
