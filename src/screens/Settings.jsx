@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import {C,MONO,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,EmojiPicker,ProInline} from '../lib/ui';
-import {isLoggedIn,logout,register,login,familyMe,familyInvite,familyJoin,errText,changePassword,resetRequest,resetConfirm,saveCloudState,billingStatus,billingCheckout,billingCancelAutoRenew,billingRefund} from '../api';
+import {isLoggedIn,logout,register,login,familyMe,familyInvite,familyJoin,errText,changePassword,deleteAccount,resetRequest,resetConfirm,saveCloudState,billingStatus,billingCheckout,billingCancelAutoRenew,billingRefund} from '../api';
 import {getPushState,enablePush,disablePush} from '../push';
 
 export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncome,onUpdateMember,onAddMember,onRemoveMember,theme,onSetTheme,isPro=true}){
@@ -340,6 +340,7 @@ function AccountSection({isPro=true}){
       </div>
       {err&&<div style={{fontSize:12,color:C.red,marginTop:8}}>{err}</div>}
       <ChangePasswordRow/>
+      <DeleteAccountRow/>
     </div>
   );
 }
@@ -531,6 +532,43 @@ function ChangePasswordRow(){
         <button onClick={async()=>{try{await changePassword(oldP,newP);setMsg('✓ Пароль изменён');setOldP('');setNewP('');}catch(e){setMsg(errText(e));}}}
           style={{flex:1,padding:10,borderRadius:9,border:'none',background:C.orange,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Сохранить</button>
         <button onClick={()=>setOpen(false)} style={{padding:'10px 14px',borderRadius:9,border:`1px solid ${C.border}`,background:'var(--c-surface)',fontSize:13,color:C.muted,cursor:'pointer',fontFamily:'inherit'}}>Отмена</button>
+      </div>
+    </div>
+  );
+}
+
+// ── Удаление аккаунта (свёрнутая строка, необратимо, требует пароль) ───────
+function DeleteAccountRow(){
+  const[open,setOpen]=useState(false);
+  const[pass,setPass]=useState('');
+  const[busy,setBusy]=useState(false);
+  const[msg,setMsg]=useState('');
+  if(!open)return(
+    <button onClick={()=>setOpen(true)} style={{background:'none',border:'none',padding:'10px 0 0',fontSize:12,color:C.red,cursor:'pointer',fontFamily:'inherit'}}>Удалить аккаунт ›</button>
+  );
+  const confirmDelete=async()=>{
+    if(!pass){setMsg('Введите пароль для подтверждения');return;}
+    if(!window.confirm('Аккаунт будет удалён безвозвратно. Если вы единственный участник семьи — бюджет и история платежей удалятся вместе с ней. Если в семье есть другие участники — они останутся, владельцем станет один из них. Продолжить?'))return;
+    setMsg('');setBusy(true);
+    try{
+      await deleteAccount(pass);
+      logout();
+      try{localStorage.removeItem('ff_state');}catch{}
+      window.location.reload();
+    }catch(e){setMsg(errText(e));setBusy(false);}
+  };
+  return(
+    <div style={{marginTop:10,paddingTop:10,borderTop:`1px solid ${C.border}`}}>
+      <div style={{fontSize:11,color:C.red,lineHeight:1.5,marginBottom:6}}>Удаление аккаунта необратимо: доступ и личные данные (152-ФЗ) будут удалены.</div>
+      <input type="password" placeholder="пароль для подтверждения" value={pass} onChange={e=>setPass(e.target.value)}
+        style={{width:'100%',boxSizing:'border-box',border:`1px solid ${C.redB}`,borderRadius:9,padding:'9px 12px',fontSize:16,outline:'none',fontFamily:'inherit',marginBottom:6}}/>
+      {msg&&<div style={{fontSize:12,color:C.red,marginBottom:6}}>{msg}</div>}
+      <div style={{display:'flex',gap:6}}>
+        <button onClick={confirmDelete} disabled={busy}
+          style={{flex:1,padding:10,borderRadius:9,border:'none',background:C.red,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit',opacity:busy?.6:1}}>
+          {busy?'Удаляем…':'Удалить аккаунт безвозвратно'}
+        </button>
+        <button onClick={()=>{setOpen(false);setPass('');setMsg('');}} style={{padding:'10px 14px',borderRadius:9,border:`1px solid ${C.border}`,background:'var(--c-surface)',fontSize:13,color:C.muted,cursor:'pointer',fontFamily:'inherit'}}>Отмена</button>
       </div>
     </div>
   );

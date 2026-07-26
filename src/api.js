@@ -63,8 +63,15 @@ export const pushVapidPublicKey = () => req('/push/vapid-public-key', { auth: fa
 export const pushSubscribe = sub => req('/push/subscribe', { method: 'POST', body: sub });
 export const pushUnsubscribe = endpoint => req('/push/unsubscribe', { method: 'POST', body: { endpoint } });
 
-export const changePassword = (oldPassword, newPassword) =>
-  req('/auth/change-password', { method: 'POST', body: { oldPassword, newPassword } });
+export async function changePassword(oldPassword, newPassword) {
+  const r = await req('/auth/change-password', { method: 'POST', body: { oldPassword, newPassword } });
+  // Смена пароля отзывает старый токен на сервере — сохраняем новый, иначе
+  // следующий же запрос текущей сессии получит 401 token_revoked.
+  if (r.token) localStorage.setItem(TOKEN_KEY, r.token);
+  return r;
+}
+export const deleteAccount = password =>
+  req('/auth/delete-account', { method: 'POST', body: { password } });
 export const authMe = () => req('/auth/me');
 export const resendVerification = () => req('/auth/resend-verification', { method: 'POST' });
 export const resetRequest = email =>
@@ -91,4 +98,6 @@ export const errText = e => ({
   no_refundable_payment: 'Нет платежа, доступного для возврата',
   refund_window_expired: 'Срок возврата (7 дней с оплаты) истёк',
   pro_required: 'Общий бюджет на нескольких участников — в подписке Pro',
+  token_revoked: 'Сессия завершена (пароль был изменён) — войдите заново',
+  bad_token: 'Сессия истекла — войдите заново',
 }[e?.message] || 'Ошибка сети — попробуйте ещё раз');
