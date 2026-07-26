@@ -4,6 +4,8 @@ import { C, MONO, POLICY_ITEMS } from './lib/core';
 import { Modal } from './lib/ui';
 import { login, register, errText, resetRequest, resetConfirm } from './api';
 
+const emailOk = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+
 export function StartLoginForm({onClose}){
   const[mode,setMode]=useState('login'); // login | register
   const[email,setEmail]=useState('');
@@ -15,6 +17,8 @@ export function StartLoginForm({onClose}){
   const[showPolicy,setShowPolicy]=useState(false);
   const[pdnConsent,setPdnConsent]=useState(false);
   const submit=async()=>{
+    if(!emailOk(email.trim())){setErr('Введите корректный email');return;}
+    if(mode==='register'&&pass.length<6){setErr('Пароль — минимум 6 символов');return;}
     if(mode==='register'&&!pdnConsent){setErr('Нужно согласиться на обработку персональных данных');return;}
     setErr('');setBusy(true);
     try{
@@ -24,12 +28,14 @@ export function StartLoginForm({onClose}){
     }catch(e){setErr(errText(e));setBusy(false);}
   };
   const askCode=async()=>{
+    if(!emailOk(email.trim())){setErr('Введите корректный email');return;}
     setErr('');setBusy(true);
     try{await resetRequest(email.trim());setStep('reset2');}
     catch(e){setErr(errText(e));}
     setBusy(false);
   };
   const confirmReset=async()=>{
+    if(pass.length<6){setErr('Пароль — минимум 6 символов');return;}
     setErr('');setBusy(true);
     try{
       await resetConfirm(email.trim(),code.trim(),pass); // pass = новый пароль на этом шаге
