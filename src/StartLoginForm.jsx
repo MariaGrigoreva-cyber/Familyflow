@@ -13,10 +13,12 @@ export function StartLoginForm({onClose}){
   const[step,setStep]=useState('login'); // login | reset1 | reset2
   const[code,setCode]=useState('');
   const[showPolicy,setShowPolicy]=useState(false);
+  const[pdnConsent,setPdnConsent]=useState(false);
   const submit=async()=>{
+    if(mode==='register'&&!pdnConsent){setErr('Нужно согласиться на обработку персональных данных');return;}
     setErr('');setBusy(true);
     try{
-      if(mode==='register')await register(email.trim(),pass,undefined);
+      if(mode==='register')await register(email.trim(),pass,undefined,pdnConsent);
       else await login(email.trim(),pass);
       window.location.reload(); // loadCloud восстановит бюджет и пропустит онбординг
     }catch(e){setErr(errText(e));setBusy(false);}
@@ -58,12 +60,14 @@ export function StartLoginForm({onClose}){
           onKeyDown={e=>e.key==='Enter'&&(step==='login'?submit():confirmReset())}
           style={{width:'100%',boxSizing:'border-box',background:'var(--c-surface)',border:`1px solid ${C.border}`,borderRadius:12,padding:'13px 15px',fontSize:14,color:C.text,outline:'none',fontFamily:'inherit',marginBottom:10}}/>}
         {err&&<div style={{fontSize:12,color:C.red,marginBottom:10}}>{err}</div>}
-        {step==='login'&&mode==='register'&&<div style={{fontSize:10.5,lineHeight:1.5,color:C.muted,marginBottom:10}}>
-          Регистрируясь, вы принимаете <span onClick={()=>setShowPolicy(true)} style={{color:C.orangeD,textDecoration:'underline',cursor:'pointer'}}>условия использования</span> и даёте согласие на обработку персональных данных (152-ФЗ).
-        </div>}
+        {step==='login'&&mode==='register'&&<label style={{display:'flex',gap:8,alignItems:'flex-start',fontSize:10.5,lineHeight:1.5,color:C.muted,marginBottom:10,cursor:'pointer'}}>
+          <input type="checkbox" checked={pdnConsent} onChange={e=>setPdnConsent(e.target.checked)}
+            style={{marginTop:2,flexShrink:0}}/>
+          <span>Принимаю <span onClick={e=>{e.preventDefault();setShowPolicy(true);}} style={{color:C.orangeD,textDecoration:'underline',cursor:'pointer'}}>условия использования</span> и даю согласие на обработку персональных данных (152-ФЗ).</span>
+        </label>}
         {step==='login'&&<>
-          <button onClick={submit} disabled={busy}
-            style={{width:'100%',padding:15,borderRadius:14,border:'none',background:busy?C.borderS:C.orange,color:'#fff',fontSize:14.5,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>
+          <button onClick={submit} disabled={busy||(mode==='register'&&!pdnConsent)}
+            style={{width:'100%',padding:15,borderRadius:14,border:'none',background:busy||(mode==='register'&&!pdnConsent)?C.borderS:C.orange,color:'#fff',fontSize:14.5,fontWeight:600,cursor:busy||(mode==='register'&&!pdnConsent)?'default':'pointer',fontFamily:'inherit'}}>
             {busy?'Секунду…':mode==='register'?'Создать аккаунт':'Войти'}
           </button>
           {mode==='login'&&<button onClick={()=>{setErr('');setPass('');setStep('reset1');}}

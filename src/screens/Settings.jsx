@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import {C,MONO,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,EmojiPicker,ProInline} from '../lib/ui';
-import {isLoggedIn,logout,register,login,familyMe,familyInvite,familyJoin,errText,changePassword,resetRequest,resetConfirm,saveCloudState,billingStatus,billingCheckout,billingCancelAutoRenew} from '../api';
+import {isLoggedIn,logout,register,login,familyMe,familyInvite,familyJoin,errText,changePassword,resetRequest,resetConfirm,saveCloudState,billingStatus,billingCheckout,billingCancelAutoRenew,billingRefund} from '../api';
 import {getPushState,enablePush,disablePush} from '../push';
 
 export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncome,onUpdateMember,onAddMember,onRemoveMember,theme,onSetTheme,isPro=true}){
@@ -243,14 +243,16 @@ function AccountSection({isPro=true}){
   const[inviteCode,setInviteCode]=useState('');
   const[joinCode,setJoinCode]=useState('');
   const[resetStep,setResetStep]=useState(0);
+  const[pdnConsent,setPdnConsent]=useState(false);
   const lastSync=(()=>{try{const t=localStorage.getItem('ff_cloud_updated_at');return t?new Date(t).toLocaleString('ru'):null;}catch{return null;}})();
 
   useEffect(()=>{if(logged)familyMe().then(setFam).catch(()=>{});},[logged]);
 
   const submit=async()=>{
+    if(mode==='register'&&!pdnConsent){setErr('Нужно согласиться на обработку персональных данных');return;}
     setErr('');setBusy(true);
     try{
-      if(mode==='register')await register(email.trim(),pass,undefined);
+      if(mode==='register')await register(email.trim(),pass,undefined,pdnConsent);
       else await login(email.trim(),pass);
       // Сразу после входа предлагаем push — если браузер уже решал (разрешил/заблокировал),
       // повторного системного запроса не будет, так что это безопасно дёргать каждый раз.
@@ -272,9 +274,14 @@ function AccountSection({isPro=true}){
         style={{width:'100%',boxSizing:'border-box',border:`1px solid ${C.border}`,borderRadius:12,padding:'12px 14px',fontSize:14,outline:'none',fontFamily:'inherit',marginBottom:8}}/>
       <input type="password" placeholder="пароль (мин. 6 символов)" value={pass} onChange={e=>setPass(e.target.value)}
         style={{width:'100%',boxSizing:'border-box',border:`1px solid ${C.border}`,borderRadius:12,padding:'12px 14px',fontSize:14,outline:'none',fontFamily:'inherit',marginBottom:10}}/>
+      {mode==='register'&&<label style={{display:'flex',gap:8,alignItems:'flex-start',fontSize:11,lineHeight:1.5,color:C.muted,marginBottom:10,cursor:'pointer'}}>
+        <input type="checkbox" checked={pdnConsent} onChange={e=>setPdnConsent(e.target.checked)}
+          style={{marginTop:2,flexShrink:0}}/>
+        <span>Принимаю условия использования и даю согласие на обработку персональных данных (152-ФЗ).</span>
+      </label>}
       {err&&<div style={{fontSize:12,color:C.red,marginBottom:8}}>{err}</div>}
-      <button onClick={submit} disabled={busy}
-        style={{width:'100%',padding:14,borderRadius:14,border:'none',background:busy?C.borderS:C.orange,color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>
+      <button onClick={submit} disabled={busy||(mode==='register'&&!pdnConsent)}
+        style={{width:'100%',padding:14,borderRadius:14,border:'none',background:busy||(mode==='register'&&!pdnConsent)?C.borderS:C.orange,color:'#fff',fontSize:14,fontWeight:600,cursor:busy||(mode==='register'&&!pdnConsent)?'default':'pointer',fontFamily:'inherit'}}>
         {busy?'Секунду…':mode==='register'?'Создать аккаунт':'Войти'}
       </button>
       <div style={{fontSize:11,color:C.muted,marginTop:8,lineHeight:1.5}}>
@@ -340,8 +347,10 @@ function AccountSection({isPro=true}){
 // ── Подписка: статус тарифа, оформление Pro ────────────────────────────────
 function BillingSection(){
   const[status,setStatus]=useState(null);
-  const[busy,setBusy]=useState(null); // 'monthly' | 'yearly' | 'cancel' | null
+  const[busy,setBusy]=useState(null); // 'monthly' | 'yearly' | 'cancel' | 'refund' | null
   const[err,setErr]=useState('');
+  const[ok,setOk]=useState('');
+  const[autoChargeConsent,setAutoChargeConsent]=useState(false);
 
   useEffect(()=>{
     const cameFromCheckout=window.location.search.includes('billing=done');
@@ -354,9 +363,10 @@ function BillingSection(){
   },[]);
 
   const checkout=async period=>{
+    if(!autoChargeConsent){setErr('Нужно согласиться с условиями автосписания');return;}
     setErr('');setBusy(period);
     try{
-      const r=await billingCheckout(period);
+      const r=await billingCheckout(period,autoChargeConsent);
       if(r.confirmationUrl)window.location.href=r.confirmationUrl;
       else{setErr('Не удалось начать оплату');setBusy(null);}
     }catch(e){setErr(errText(e));setBusy(null);}
@@ -370,9 +380,21 @@ function BillingSection(){
     setBusy(null);
   };
 
+  const refund=async()=>{
+    if(!window.confirm('Вернуть деньги за последнюю оплату? Доступ Pro закончится сразу, автопродление отключится.'))return;
+    setErr('');setOk('');setBusy('refund');
+    try{
+      await billingRefund();
+      setOk('Возврат оформлен — деньги вернутся на карту в течение нескольких дней.');
+      billingStatus().then(setStatus).catch(()=>{});
+    }catch(e){setErr(errText(e));}
+    setBusy(null);
+  };
+
   if(!status)return null;
   const fmtDate=d=>d?new Date(d).toLocaleDateString('ru-RU'):'';
   const daysLeft=d=>d?Math.max(0,Math.ceil((new Date(d)-new Date())/86400000)):0;
+  const refundEligible=status.lastPaymentAt&&(Date.now()-new Date(status.lastPaymentAt).getTime())<=7*86400000;
 
   return(
     <div style={{...s.card,padding:16}}>
@@ -400,6 +422,10 @@ function BillingSection(){
               {busy==='cancel'?'Секунду…':'Отключить автопродление'}
             </button>
           </>}
+          {refundEligible&&<button onClick={refund} disabled={!!busy}
+            style={{width:'100%',padding:11,borderRadius:12,border:`1px solid ${C.redB}`,background:'transparent',color:C.red,fontSize:12.5,fontWeight:600,cursor:'pointer',fontFamily:'inherit',opacity:busy?.6:1,marginTop:8}}>
+            {busy==='refund'?'Секунду…':'Вернуть деньги за последнюю оплату (7 дней с оплаты)'}
+          </button>}
         </>
       ):(
         <>
@@ -414,19 +440,25 @@ function BillingSection(){
               </div>
             </div>
           </div>
+          <label style={{display:'flex',gap:8,alignItems:'flex-start',fontSize:11,lineHeight:1.5,color:C.muted,marginBottom:10,cursor:'pointer'}}>
+            <input type="checkbox" checked={autoChargeConsent} onChange={e=>setAutoChargeConsent(e.target.checked)}
+              style={{marginTop:2,flexShrink:0}}/>
+            <span>Согласен(-на) с автоматическим списанием за продление подписки до отмены — карта сохраняется, отменить можно в любой момент.</span>
+          </label>
           <div style={{display:'flex',gap:8}}>
-            <button onClick={()=>checkout('monthly')} disabled={!!busy}
-              style={{flex:1,padding:12,borderRadius:12,border:'none',background:busy?C.borderS:C.orange,color:'#fff',fontSize:12.5,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>
+            <button onClick={()=>checkout('monthly')} disabled={!!busy||!autoChargeConsent}
+              style={{flex:1,padding:12,borderRadius:12,border:'none',background:busy||!autoChargeConsent?C.borderS:C.orange,color:'#fff',fontSize:12.5,fontWeight:600,cursor:busy||!autoChargeConsent?'default':'pointer',fontFamily:'inherit'}}>
               {busy==='monthly'?'Секунду…':`Месяц · ${fmtN(status.prices.monthly)}`}
             </button>
-            <button onClick={()=>checkout('yearly')} disabled={!!busy}
-              style={{flex:1,padding:12,borderRadius:12,border:`1.5px solid ${C.orange}`,background:'transparent',color:C.orangeD,fontSize:12.5,fontWeight:600,cursor:'pointer',fontFamily:'inherit',opacity:busy?.5:1}}>
+            <button onClick={()=>checkout('yearly')} disabled={!!busy||!autoChargeConsent}
+              style={{flex:1,padding:12,borderRadius:12,border:`1.5px solid ${C.orange}`,background:'transparent',color:C.orangeD,fontSize:12.5,fontWeight:600,cursor:busy||!autoChargeConsent?'default':'pointer',fontFamily:'inherit',opacity:busy||!autoChargeConsent?.5:1}}>
               {busy==='yearly'?'Секунду…':`Год · ${fmtN(status.prices.yearly)}`}
             </button>
           </div>
         </>
       )}
       {err&&<div style={{fontSize:12,color:C.red,marginTop:8}}>{err}</div>}
+      {ok&&<div style={{fontSize:12,color:C.green,marginTop:8}}>{ok}</div>}
     </div>
   );
 }

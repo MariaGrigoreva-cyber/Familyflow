@@ -30,8 +30,8 @@ async function req(path, { method = 'GET', body, auth = true } = {}) {
 }
 
 // ── Аккаунт ────────────────────────────────────────────────────────────────
-export async function register(email, password, familyName) {
-  const r = await req('/auth/register', { method: 'POST', auth: false, body: { email, password, familyName } });
+export async function register(email, password, familyName, pdnConsent) {
+  const r = await req('/auth/register', { method: 'POST', auth: false, body: { email, password, familyName, pdnConsent } });
   localStorage.setItem(TOKEN_KEY, r.token);
   return r;
 }
@@ -53,8 +53,10 @@ export const familyJoin = code => req('/family/join', { method: 'POST', body: { 
 
 // ── Подписка ───────────────────────────────────────────────────────────────
 export const billingStatus = () => req('/billing/status');
-export const billingCheckout = period => req('/billing/checkout', { method: 'POST', body: { period } });
+export const billingCheckout = (period, autoChargeConsent) =>
+  req('/billing/checkout', { method: 'POST', body: { period, autoChargeConsent } });
 export const billingCancelAutoRenew = () => req('/billing/cancel-auto-renew', { method: 'POST' });
+export const billingRefund = () => req('/billing/refund', { method: 'POST' });
 
 // ── Push-уведомления ───────────────────────────────────────────────────────
 export const pushVapidPublicKey = () => req('/push/vapid-public-key', { auth: false });
@@ -84,4 +86,9 @@ export const errText = e => ({
   no_family: 'Семья не найдена',
   mail_unavailable: 'Восстановление временно недоступно — напишите в поддержку',
   code_invalid: 'Код неверный или истёк — запросите новый',
+  pdn_consent_required: 'Нужно согласиться на обработку персональных данных',
+  auto_charge_consent_required: 'Нужно согласиться с условиями автосписания',
+  no_refundable_payment: 'Нет платежа, доступного для возврата',
+  refund_window_expired: 'Срок возврата (7 дней с оплаты) истёк',
+  pro_required: 'Общий бюджет на нескольких участников — в подписке Pro',
 }[e?.message] || 'Ошибка сети — попробуйте ещё раз');
