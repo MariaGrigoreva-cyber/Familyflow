@@ -9,15 +9,28 @@ export const isLoggedIn = () => !!getToken();
 export const logout = () => { try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem('ff_cloud_updated_at'); } catch {} };
 
 // Единая обёртка: ошибки несут status и body — это нужно для авторазрешения 409.
-async function req(path, { method = 'GET', body, auth = true } = {}) {
+async function req(path, { method = 'GET', body, auth = true, retries = 2 } = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (auth && getToken()) headers.Authorization = 'Bearer ' + getToken();
   const payload = body ? JSON.stringify(body) : undefined;
-  const res = await fetch(API_URL + path, {
-    method, headers, body: payload,
-    // keepalive даёт запросу дожить при сворачивании вкладки (лимит тела ~64КБ)
-    keepalive: method === 'PUT' && payload && payload.length < 60000 ? true : undefined,
-  });
+  let res;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      res = await fetch(API_URL + path, {
+        method, headers, body: payload,
+        // keepalive даёт запросу дожить при сворачивании вкладки (лимит тела ~64КБ)
+        keepalive: method === 'PUT' && payload && payload.length < 60000 ? true : undefined,
+      });
+      break;
+    } catch (e) {
+      // fetch кидает исключение только когда запрос вообще не дошёл до сервера
+      // (нет сети, обрыв соединения) — не на HTTP-ошибки вроде 4xx/5xx, так что
+      // повтор здесь безопасен даже для не-GET запросов. Мобильная сеть часто
+      // моргает на секунду — короткий повтор спасает от лишнего экрана с ошибкой.
+      if (attempt >= retries) throw Object.assign(new Error('network'), { status: 0 });
+      await new Promise(r => setTimeout(r, 400 * (attempt + 1)));
+    }
+  }
   let data = null;
   try { data = await res.json(); } catch {}
   if (!res.ok) {
