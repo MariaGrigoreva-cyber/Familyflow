@@ -5,6 +5,8 @@ import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,EmojiPicker,P
 import {isLoggedIn,logout,register,login,familyMe,familyInvite,familyJoin,errText,changePassword,deleteAccount,resetRequest,resetConfirm,saveCloudState,billingStatus,billingCheckout,billingCancelAutoRenew,billingRefund} from '../api';
 import {getPushState,enablePush,disablePush} from '../push';
 
+const emailOk = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+
 export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncome,onUpdateMember,onAddMember,onRemoveMember,theme,onSetTheme,isPro=true}){
   const scrollToTop=()=>{try{document.querySelector('[data-settings-scroll]')?.scrollTo({top:0,behavior:'smooth'});}catch{}};
   const{members,incomes,planned,familyName,customCats=[]}=state;
@@ -249,6 +251,8 @@ function AccountSection({isPro=true}){
   useEffect(()=>{if(logged)familyMe().then(setFam).catch(()=>{});},[logged]);
 
   const submit=async()=>{
+    if(!emailOk(email.trim())){setErr('Введите корректный email');return;}
+    if(mode==='register'&&pass.length<6){setErr('Пароль — минимум 6 символов');return;}
     if(mode==='register'&&!pdnConsent){setErr('Нужно согласиться на обработку персональных данных');return;}
     setErr('');setBusy(true);
     try{
@@ -345,21 +349,44 @@ function AccountSection({isPro=true}){
   );
 }
 
+// ── Плейсхолдер загрузки для карточек, которые ждут ответ сервера, чтобы не
+// показывать пустое место — статус подписки/push подтягивается асинхронно.
+function SkeletonCard({lines=2}){
+  const bar={height:12,borderRadius:6,background:C.border,animation:'ffPulse 1.2s ease-in-out infinite'};
+  return(
+    <div style={{...s.card,padding:16}}>
+      <style>{`@keyframes ffPulse{0%,100%{opacity:.35}50%{opacity:.8}}`}</style>
+      <div style={{display:'flex',alignItems:'center',gap:10}}>
+        <div style={{width:18,height:18,borderRadius:6,flexShrink:0,...bar}}/>
+        <div style={{flex:1}}>
+          <div style={{...bar,width:'55%'}}/>
+          {lines>1&&<div style={{...bar,width:'75%',marginTop:7}}/>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Подписка: статус тарифа, оформление Pro ────────────────────────────────
 function BillingSection(){
   const[status,setStatus]=useState(null);
+  const[loadFailed,setLoadFailed]=useState(false);
   const[busy,setBusy]=useState(null); // 'monthly' | 'yearly' | 'cancel' | 'refund' | null
   const[err,setErr]=useState('');
   const[ok,setOk]=useState('');
   const[autoChargeConsent,setAutoChargeConsent]=useState(false);
 
+  // Отдельный флаг ошибки — иначе после исчерпания retry в api.js секция
+  // осталась бы в виде вечного skeleton вместо понятного «не удалось загрузить».
+  const loadStatus=()=>{setLoadFailed(false);return billingStatus().then(setStatus).catch(()=>setLoadFailed(true));};
+
   useEffect(()=>{
     const cameFromCheckout=window.location.search.includes('billing=done');
-    billingStatus().then(setStatus).catch(()=>{});
+    loadStatus();
     if(cameFromCheckout){
       // ЮKassa могла ещё не успеть прислать webhook — переспрашиваем статус чуть позже.
       window.history.replaceState(null,'',window.location.pathname);
-      setTimeout(()=>{billingStatus().then(setStatus).catch(()=>{});},2500);
+      setTimeout(loadStatus,2500);
     }
   },[]);
 
@@ -392,7 +419,13 @@ function BillingSection(){
     setBusy(null);
   };
 
-  if(!status)return null;
+  if(!status&&loadFailed)return(
+    <div style={{...s.card,padding:16,display:'flex',alignItems:'center',gap:10}}>
+      <span style={{fontSize:12,color:C.muted,flex:1}}>Не удалось загрузить статус подписки</span>
+      <button onClick={loadStatus} style={{background:'none',border:`1px solid ${C.border}`,borderRadius:20,padding:'5px 12px',fontSize:12,color:C.orangeD,cursor:'pointer',fontFamily:'inherit',flexShrink:0}}>Повторить</button>
+    </div>
+  );
+  if(!status)return <SkeletonCard/>;
   const fmtDate=d=>d?new Date(d).toLocaleDateString('ru-RU'):'';
   const daysLeft=d=>d?Math.max(0,Math.ceil((new Date(d)-new Date())/86400000)):0;
   const refundEligible=status.lastPaymentAt&&(Date.now()-new Date(status.lastPaymentAt).getTime())<=7*86400000;
@@ -491,7 +524,8 @@ function PushSection(){
     setBusy(false);
   };
 
-  if(state==='loading'||state==='unsupported')return null;
+  if(state==='loading')return <SkeletonCard lines={1}/>;
+  if(state==='unsupported')return null;
 
   return(
     <div style={{...s.card,padding:16}}>
@@ -589,7 +623,7 @@ function ResetFlow({email:initialEmail,onDone,onClose}){
       {step===1&&<>
         <input type="email" placeholder="email аккаунта" value={email} onChange={e=>setEmail(e.target.value)} style={inp}/>
         {msg&&<div style={{fontSize:12,color:C.red,marginBottom:6}}>{msg}</div>}
-        <button disabled={busy} onClick={async()=>{setBusy(true);setMsg('');try{await resetRequest(email.trim());setStep(2);}catch(e){setMsg(errText(e));}setBusy(false);}}
+        <button disabled={busy} onClick={async()=>{if(!emailOk(email.trim())){setMsg('Введите корректный email');return;}setBusy(true);setMsg('');try{await resetRequest(email.trim());setStep(2);}catch(e){setMsg(errText(e));}setBusy(false);}}
           style={{width:'100%',padding:11,borderRadius:9,border:'none',background:C.orange,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>
           {busy?'Отправляем…':'Прислать код на почту'}</button>
       </>}
@@ -598,7 +632,7 @@ function ResetFlow({email:initialEmail,onDone,onClose}){
         <input inputMode="numeric" placeholder="код из письма (6 цифр)" value={code} onChange={e=>setCode(e.target.value)} style={{...inp,letterSpacing:4}}/>
         <input type="password" placeholder="новый пароль (мин. 6)" value={newP} onChange={e=>setNewP(e.target.value)} style={inp}/>
         {msg&&<div style={{fontSize:12,color:C.red,marginBottom:6}}>{msg}</div>}
-        <button disabled={busy} onClick={async()=>{setBusy(true);setMsg('');try{await resetConfirm(email.trim(),code.trim(),newP);onDone();}catch(e){setMsg(errText(e));setBusy(false);}}}
+        <button disabled={busy} onClick={async()=>{if(newP.length<6){setMsg('Пароль — минимум 6 символов');return;}setBusy(true);setMsg('');try{await resetConfirm(email.trim(),code.trim(),newP);onDone();}catch(e){setMsg(errText(e));setBusy(false);}}}
           style={{width:'100%',padding:11,borderRadius:9,border:'none',background:C.green,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>
           {busy?'Проверяем…':'Сменить пароль и войти'}</button>
       </>}
