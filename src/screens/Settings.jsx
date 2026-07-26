@@ -373,7 +373,7 @@ function BillingSection(){
   };
 
   const cancelAutoRenew=async()=>{
-    if(!window.confirm('Отключить автопродление? Подписка Pro останется активной до конца оплаченного периода, дальше списаний не будет.'))return;
+    if(!window.confirm('Отвязать карту и отключить автопродление? Подписка Pro останется активной до конца оплаченного периода, дальше списаний не будет.'))return;
     setErr('');setBusy('cancel');
     try{await billingCancelAutoRenew();setStatus(st=>({...st,autoRenew:false}));}
     catch(e){setErr(errText(e));}
@@ -423,10 +423,10 @@ function BillingSection(){
             </button>
           </>}
           {status.autoRenew&&<>
-            <div style={{fontSize:11,color:C.muted,lineHeight:1.5,marginTop:10,marginBottom:10}}>Также можно отключить по ссылке в письме-напоминании, которое приходит за 2 дня до списания.</div>
+            <div style={{fontSize:11,color:C.muted,lineHeight:1.5,marginTop:10,marginBottom:10}}>Отвязать карту можно в любой момент — здесь или по ссылке в письме-напоминании, которое приходит за 2 дня до списания.</div>
             <button onClick={cancelAutoRenew} disabled={!!busy}
               style={{width:'100%',padding:11,borderRadius:12,border:`1px solid ${C.border}`,background:'var(--c-surface)',color:C.muted,fontSize:12.5,fontWeight:600,cursor:'pointer',fontFamily:'inherit',opacity:busy?.6:1}}>
-              {busy==='cancel'?'Секунду…':'Отключить автопродление'}
+              {busy==='cancel'?'Секунду…':'Отвязать карту и отключить автопродление'}
             </button>
           </>}
           {refundEligible&&<button onClick={refund} disabled={!!busy}
