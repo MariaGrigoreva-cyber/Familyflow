@@ -236,6 +236,14 @@ export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncom
 // ── Аккаунт: вход/регистрация, статус синхронизации, приглашения ──────────
 function AccountSection({isPro=true}){
   const[logged,setLogged]=useState(isLoggedIn());
+  // logged читается только при монтировании — без этого автовыход по 401 (см. api.js)
+  // не отразился бы здесь, пока экран открыт, и висел бы "Синхронизация включена"
+  // для уже мёртвой сессии.
+  useEffect(()=>{
+    const onLogout=()=>setLogged(false);
+    window.addEventListener('ff:logout',onLogout);
+    return()=>window.removeEventListener('ff:logout',onLogout);
+  },[]);
   const[mode,setMode]=useState('login'); // login | register
   const[email,setEmail]=useState('');
   const[pass,setPass]=useState('');

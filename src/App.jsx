@@ -10,7 +10,7 @@ const BudgetScreen=lazy(()=>import('./screens/Budget').then(m=>({default:m.Budge
 const HealthScreen=lazy(()=>import('./screens/Health').then(m=>({default:m.HealthScreen})));
 const SettingsScreen=lazy(()=>import('./screens/Settings').then(m=>({default:m.SettingsScreen})));
 import {EditPaymentModal,AddExtraModal,AddTxModal,EditCatModal,EditTxModal,EditIncomeModal,WithdrawPiggyModal,TabBar} from './modals';
-import { isLoggedIn, loadCloudState, saveCloudState, authMe, resendVerification, billingStatus } from './api';
+import { isLoggedIn, loadCloudState, saveCloudState, authMe, resendVerification, billingStatus, errText } from './api';
 import { markLocalTrialStart, getLocalPlan, isProPlan } from './lib/plan';
 import { SplashScreen } from './SplashScreen';
 import { StartLoginForm } from './StartLoginForm';
@@ -163,7 +163,9 @@ useEffect(() => {
       setCloudError(null);
     } catch (error) {
       console.error('Cloud load failed:', error);
-      setCloudError('Не удалось загрузить данные из облака');
+      // 401 при первой загрузке значит, что сохранённый токен уже мёртв (api.js его
+      // уже вычистил) — сказать пользователю это, а не общее "не удалось загрузить".
+      setCloudError(error.status === 401 ? errText(error) : 'Не удалось загрузить данные из облака');
     } finally {
       if (!cancelled) {
         setCloudReady(true);
@@ -232,7 +234,13 @@ useEffect(() => {
             localStorage.setItem('ff_cloud_updated_at', r.updatedAt);
           }
         }
-      } catch {}
+      } catch (error) {
+        // Сетевые сбои фонового пулла нарочно не показываем — обычный шум при
+        // недоступности сети. Но 401 значит, что сессия точно умерла (токен уже
+        // вычищен в api.js) — это стоит показать, иначе пользователь не поймёт,
+        // почему бюджет перестал синхронизироваться между устройствами.
+        if (error.status === 401) setCloudError(errText(error));
+      }
     };
     document.addEventListener('visibilitychange', pull);
     window.addEventListener('focus', pull);
@@ -336,6 +344,15 @@ useEffect(() => {
         ? 'Данные обновились с другого устройства. Если только что что-то меняли здесь — проверьте и повторите.'
         : null
     );
+    return;
+  }
+
+  // 401 — токен уже отозван/невалиден (api.js сам вычистил его из localStorage);
+  // дальше isLoggedIn() будет false, и этот эффект перестанет пытаться сохранять
+  // в облако сам, но пользователю нужно явно сказать, что нужно войти заново —
+  // иначе выглядит так же, как временная сетевая проблема.
+  if (error.status === 401) {
+    setCloudError(errText(error));
     return;
   }
 

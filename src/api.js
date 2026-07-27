@@ -6,7 +6,13 @@ const API_URL = process.env.REACT_APP_API_URL
 const TOKEN_KEY = 'ff_token';
 export const getToken = () => { try { return localStorage.getItem(TOKEN_KEY); } catch { return null; } };
 export const isLoggedIn = () => !!getToken();
-export const logout = () => { try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem('ff_cloud_updated_at'); } catch {} };
+// Компоненты вроде AccountSection читают isLoggedIn() только при монтировании —
+// событие даёт им шанс среагировать на разлогин, случившийся не по их же клику
+// (например, автовыход ниже по 401 из другой вкладки/эффекта).
+export const logout = () => {
+  try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem('ff_cloud_updated_at'); } catch {}
+  try { window.dispatchEvent(new Event('ff:logout')); } catch {}
+};
 
 // Единая обёртка: ошибки несут status и body — это нужно для авторазрешения 409.
 async function req(path, { method = 'GET', body, auth = true, retries = 2 } = {}) {
@@ -34,6 +40,10 @@ async function req(path, { method = 'GET', body, auth = true, retries = 2 } = {}
   let data = null;
   try { data = await res.json(); } catch {}
   if (!res.ok) {
+    // 401 на авторизованный запрос всегда значит "токен мёртв" (bad_token/token_revoked —
+    // см. middleware/auth.js в API): чистим его сразу, а не только когда пользователь
+    // сам заметит ошибку, иначе каждый следующий запрос молча повторяет то же самое.
+    if (res.status === 401 && auth) logout();
     const err = new Error(data?.error || ('http_' + res.status));
     err.status = res.status;
     err.body = data;
