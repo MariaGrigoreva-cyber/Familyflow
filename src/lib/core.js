@@ -420,8 +420,8 @@ const getCatFund=(catId,customCats=[])=>{
   if(!cat)return null;
   return FUND_LABELS.find(f=>f.colors.includes(cat.color))||null;
 };
-const PRIVACY_URL='https://myfamilyflow.ru/privacy';
-const TERMS_URL='https://myfamilyflow.ru/terms';
+const PRIVACY_URL='https://myfamilyflow.ru/privacy.html';
+const TERMS_URL='https://myfamilyflow.ru/terms.html';
 const PIE_COLORS=['oklch(0.62 0.13 40)','oklch(0.72 0.11 60)','oklch(0.55 0.12 150)','oklch(0.75 0.12 85)','oklch(0.65 0.08 250)','oklch(0.5 0.12 40)','oklch(0.6 0.1 300)','oklch(0.45 0.11 150)','oklch(0.55 0.09 250)','oklch(0.6 0.11 85)'];
 // Эмодзи-лица для аватара участника семьи (выбор в онбординге и настройках)
 const FACE_EMOJIS=['👩','👨','🧑','👵','👴','🧓','👧','👦','👶','👩‍🦰','👨‍🦰','👩‍🦱','👨‍🦱','👩‍🦳','👨‍🦳','👩‍🦲','👨‍🦲','🧔','👩‍🦽','👨‍🦽','😀','😎','🤓','🥳','🙂','😇','🐱','🐶'];

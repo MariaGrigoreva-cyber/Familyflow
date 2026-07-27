@@ -18,8 +18,8 @@ describe('EntryScreen', () => {
 
   test('ссылки на условия использования и политику конфиденциальности ведут на реальные страницы', () => {
     render(<EntryScreen onDemo={() => {}} onSetup={() => {}} onLoginClick={() => {}} />);
-    expect(screen.getByText('Условия использования')).toHaveAttribute('href', 'https://myfamilyflow.ru/terms');
-    expect(screen.getByText('Политика конфиденциальности')).toHaveAttribute('href', 'https://myfamilyflow.ru/privacy');
+    expect(screen.getByText('Условия использования')).toHaveAttribute('href', 'https://myfamilyflow.ru/terms.html');
+    expect(screen.getByText('Политика конфиденциальности')).toHaveAttribute('href', 'https://myfamilyflow.ru/privacy.html');
   });
 });
 
