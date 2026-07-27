@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { C, fmt, uid, DEFAULT_CATS } from '../lib/core';
 import { s, Btn, Modal, Numpad } from '../lib/ui';
+import { alertAsync } from '../lib/confirm';
 
 export function AddTxModal({visible,onClose,onSave,members,planned,customCats=[]}){
   const[type,setType]=useState('expense');
@@ -15,7 +16,7 @@ export function AddTxModal({visible,onClose,onSave,members,planned,customCats=[]
     ?[{id:'salary',name:'Зарплата',emoji:'💰'},...allCats]
     :[...allCats.filter(c=>activeCatIds.includes(c.id)),...allCats.filter(c=>!activeCatIds.includes(c.id))];
   const save=()=>{
-    const n=parseInt(amount)||0;if(!n){alert('Введите сумму');return;}
+    const n=parseInt(amount)||0;if(!n){alertAsync('Введите сумму');return;}
     const cat=[...allCats,{id:'salary',name:'Зарплата',emoji:'💰'}].find(c=>c.id===catId);
     onSave({id:uid(),catId,name:cat?.name||'',amount:n,memberId:who,type,note,isDone:true});
     setAmount('');setNote('');onClose();

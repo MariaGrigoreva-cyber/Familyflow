@@ -82,13 +82,12 @@ test('переключение вкладок через нижнюю панел
 
 test('выход из демо-режима требует подтверждения и возвращает к онбордингу', async () => {
   const user = userEvent.setup();
-  jest.spyOn(window, 'confirm').mockReturnValue(true);
   render(<App />);
   await user.click(await screen.findByText('Демо-данные', {}, { timeout: 2000 }));
   await screen.findByText('ДЕМО · СЕМЬЯ ИВАНОВЫХ');
   await user.click(screen.getByText('СВОИ ДАННЫЕ'));
+  await user.click(await screen.findByText('Подтвердить'));
   expect(await screen.findByText('Семья и стартовый баланс')).toBeInTheDocument();
-  window.confirm.mockRestore();
 });
 
 test('залогиненный пользователь: сбой загрузки из облака показывает баннер с ошибкой', async () => {

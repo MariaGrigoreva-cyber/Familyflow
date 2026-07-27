@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { C, fmt, weekKey, getNDFLDesc, INCOME_TYPES, calcNetFor } from '../lib/core';
 import { s, Btn, Modal, DayPicker } from '../lib/ui';
+import { alertAsync } from '../lib/confirm';
 
 export function EditIncomeModal({visible,income,member,onClose,onSave}){
   const[name,setName]=useState('');
@@ -19,7 +20,7 @@ export function EditIncomeModal({visible,income,member,onClose,onSave}){
   const grossN=parseInt(gross)||0;
   const avgNet=calcNetFor({gross:grossN,incomeType,taxRate});
   const effWeekK=weekKey(new Date(effYear,effMonth-1,effDay));
-  const doSave=()=>{if(!grossN){alert('Введите сумму');return;}onSave({...income,name:name.trim(),gross:grossN,net:avgNet,salaryDays,advanceDays,advancePct,incomeType,taxRate,effectiveFrom:{day:effDay,month:effMonth,year:effYear,weekKey:effWeekK}});onClose();};
+  const doSave=()=>{if(!grossN){alertAsync('Введите сумму');return;}onSave({...income,name:name.trim(),gross:grossN,net:avgNet,salaryDays,advanceDays,advancePct,incomeType,taxRate,effectiveFrom:{day:effDay,month:effMonth,year:effYear,weekKey:effWeekK}});onClose();};
   return(
     <Modal visible={visible} onClose={onClose} title={`${member.avatar} ${member.name}`} onSave={doSave}>
       <div style={{padding:16,paddingBottom:40}}>

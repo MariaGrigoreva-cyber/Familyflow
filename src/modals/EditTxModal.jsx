@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { C, weekLabel, getCat } from '../lib/core';
 import { s, Btn, Modal } from '../lib/ui';
+import { confirmAsync, alertAsync } from '../lib/confirm';
 
 export function EditTxModal({visible,item,onClose,onSave,onDelete,members,customCats=[]}){
   const[amount,setAmount]=useState('');
@@ -20,7 +21,7 @@ export function EditTxModal({visible,item,onClose,onSave,onDelete,members,custom
   const isIncome=item.type==='income';
   const doSave=()=>{
     const n=parseInt(amount)||0;
-    if(!n){alert('Введите сумму');return;}
+    if(!n){alertAsync('Введите сумму');return;}
     onSave({...item,amount:n,note,memberId,isDone});
     onClose();
   };
@@ -61,7 +62,7 @@ export function EditTxModal({visible,item,onClose,onSave,onDelete,members,custom
         <textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="Комментарий" rows={2}
           style={{...s.input,resize:'none',marginBottom:14}}/>
         <Btn label="Сохранить" onClick={doSave}/>
-        <button onClick={()=>{if(window.confirm('Удалить запись?')){onDelete(item.id);onClose();}}}
+        <button onClick={async()=>{if(await confirmAsync('Удалить запись?',{danger:true})){onDelete(item.id);onClose();}}}
           style={{...s.btn,background:'transparent',border:`1px solid ${C.red}`,color:C.red,marginTop:8}}>
           Удалить
         </button>

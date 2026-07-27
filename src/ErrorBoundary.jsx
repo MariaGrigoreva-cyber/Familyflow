@@ -3,6 +3,7 @@
 // хуков-аналога у React пока нет.
 import React from 'react';
 import { C, MONO } from './lib/core';
+import { ConfirmHost, confirmAsync } from './lib/confirm';
 
 export class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -15,8 +16,8 @@ export class ErrorBoundary extends React.Component {
   componentDidCatch(error, info) {
     console.error('FamilyFlow crashed:', error, info.componentStack);
   }
-  handleResetLocalData = () => {
-    if (!window.confirm('Сбросить локально сохранённые данные и перезагрузить? Если вы вошли в аккаунт, бюджет восстановится из облака.')) return;
+  handleResetLocalData = async () => {
+    if (!await confirmAsync('Сбросить локально сохранённые данные и перезагрузить? Если вы вошли в аккаунт, бюджет восстановится из облака.', { danger: true })) return;
     try { localStorage.removeItem('ff_state'); } catch {}
     window.location.reload();
   };
@@ -35,6 +36,7 @@ export class ErrorBoundary extends React.Component {
         <button onClick={this.handleResetLocalData} style={{ marginTop: 14, background: 'none', border: 'none', fontFamily: MONO, fontSize: 11, color: C.muted, cursor: 'pointer', textDecoration: 'underline' }}>
           Не помогает — сбросить локальные данные
         </button>
+        <ConfirmHost/>
       </div>
     );
   }

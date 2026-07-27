@@ -389,13 +389,14 @@ export function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx,onQuick
               <button
                 onClick={()=>onToggle(week,item.id)}
                 onContextMenu={e=>{e.preventDefault();onEditTx&&onEditTx({...item,week});}}
+                aria-pressed={item.isDone} aria-label={`${item.isDone?'Отметить невыполненным':'Отметить выполненным'}: ${item.name}`}
                 style={{position:'relative',width:18,height:18,borderRadius:5,border:`1.5px solid ${item.isDone?C.green:C.borderS}`,background:item.isDone?C.green:'transparent',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0,cursor:'pointer',padding:0,WebkitTouchCallout:'none'}}>
                 <span style={{position:'absolute',inset:-13}}/>
                 {item.isDone&&<span style={{color:'#fff',fontSize:10}}>✓</span>}
               </button>
               <span style={{fontSize:13.5,fontWeight:500,flex:1,color:item.isDone?C.faint:C.text,textDecoration:item.isDone?'line-through':'none'}}>{cat?.emoji||'📦'} {item.name} {showMember&&<span style={{fontSize:11,color:C.muted,fontWeight:400,textDecoration:'none'}}>· {mem?.name||''}</span>}</span>
               <span style={{fontFamily:MONO,fontSize:12.5,fontWeight:600,color:item.isDone?C.faint:C.text,textDecoration:item.isDone?'line-through':'none'}}>{fmtN(item.amount)}</span>
-              <button onClick={()=>onEditTx&&onEditTx({...item,week})} style={{position:'relative',background:'none',border:'none',cursor:'pointer',padding:0,color:C.muted,fontSize:11}}><span style={{position:'absolute',inset:-13}}/>✏️</button>
+              <button onClick={()=>onEditTx&&onEditTx({...item,week})} aria-label={`Редактировать: ${item.name}`} style={{position:'relative',background:'none',border:'none',cursor:'pointer',padding:0,color:C.muted,fontSize:11}}><span style={{position:'absolute',inset:-13}}/>✏️</button>
             </div>
           );
         })

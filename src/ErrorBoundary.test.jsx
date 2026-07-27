@@ -40,27 +40,25 @@ test('«Перезагрузить» вызывает window.location.reload', a
 test('«Сбросить локальные данные» без подтверждения ничего не удаляет', async () => {
   const reload = jest.fn();
   Object.defineProperty(window, 'location', { value: { reload }, writable: true });
-  jest.spyOn(window, 'confirm').mockReturnValue(false);
   const removeItemSpy = jest.spyOn(Storage.prototype, 'removeItem');
   const user = userEvent.setup();
   render(<ErrorBoundary><Bomb /></ErrorBoundary>);
   await user.click(screen.getByText('Не помогает — сбросить локальные данные'));
+  await user.click(await screen.findByText('Отмена'));
   expect(removeItemSpy).not.toHaveBeenCalled();
   expect(reload).not.toHaveBeenCalled();
-  window.confirm.mockRestore();
   removeItemSpy.mockRestore();
 });
 
 test('«Сбросить локальные данные» с подтверждением удаляет ff_state и перезагружает', async () => {
   const reload = jest.fn();
   Object.defineProperty(window, 'location', { value: { reload }, writable: true });
-  jest.spyOn(window, 'confirm').mockReturnValue(true);
   const removeItemSpy = jest.spyOn(Storage.prototype, 'removeItem');
   const user = userEvent.setup();
   render(<ErrorBoundary><Bomb /></ErrorBoundary>);
   await user.click(screen.getByText('Не помогает — сбросить локальные данные'));
+  await user.click(await screen.findByText('Подтвердить'));
   expect(removeItemSpy).toHaveBeenCalledWith('ff_state');
   expect(reload).toHaveBeenCalledTimes(1);
-  window.confirm.mockRestore();
   removeItemSpy.mockRestore();
 });

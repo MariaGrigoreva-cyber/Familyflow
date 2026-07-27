@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { C, fmt, DEFAULT_CATS } from '../lib/core';
 import { s, Modal, Numpad } from '../lib/ui';
+import { alertAsync } from '../lib/confirm';
 
 export function WithdrawPiggyModal({visible,onClose,onSave,members,customCats=[],available=0}){
   const[amount,setAmount]=useState('');
@@ -10,8 +11,8 @@ export function WithdrawPiggyModal({visible,onClose,onSave,members,customCats=[]
   const allCats=[...DEFAULT_CATS,...customCats].filter(c=>c.id!=='piggy');
   const save=()=>{
     const n=parseInt(amount)||0;
-    if(!n){alert('Введите сумму');return;}
-    if(n>available){alert(`В копилке только ${fmt(available)}`);return;}
+    if(!n){alertAsync('Введите сумму');return;}
+    if(n>available){alertAsync(`В копилке только ${fmt(available)}`);return;}
     const cat=allCats.find(c=>c.id===catId);
     onSave({amount:n,catId,name:name||cat?.name||'Покупка из копилки',memberId});
     setAmount('');setName('');onClose();

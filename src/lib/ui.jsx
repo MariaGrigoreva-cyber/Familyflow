@@ -74,7 +74,7 @@ const Numpad=({value,onChange})=>{
       </div>
       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:1,background:C.border,borderRadius:12,overflow:'hidden',marginBottom:14}}>
         {['1','2','3','4','5','6','7','8','9','000','0','⌫'].map(k=>(
-          <button key={k} onClick={()=>press(k==='⌫'?'del':k)} style={{padding:'13px 0',background:'var(--c-surface)',border:'none',fontFamily:MONO,fontSize:20,color:C.text,cursor:'pointer'}}>{k}</button>
+          <button key={k} onClick={()=>press(k==='⌫'?'del':k)} aria-label={k==='⌫'?'Стереть цифру':undefined} style={{padding:'13px 0',background:'var(--c-surface)',border:'none',fontFamily:MONO,fontSize:20,color:C.text,cursor:'pointer'}}>{k}</button>
         ))}
       </div>
     </div>

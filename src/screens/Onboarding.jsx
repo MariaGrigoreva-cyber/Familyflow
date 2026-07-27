@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import {C,MONO,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,FUND_LABELS,getCatFund,PIE_COLORS,PRIVACY_URL,TERMS_URL,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,EmojiPicker} from '../lib/ui';
+import {alertAsync} from '../lib/confirm';
 
 export function EntryScreen({onDemo,onSetup,onLoginClick}){
   return(
@@ -51,7 +52,7 @@ export function Onboarding({onDone}){
   const updInc=(id,f,v)=>setIncomes(p=>p.map(i=>i.id===id?{...i,[f]:v}:i));
   const updCat=(catId,f,v)=>setCatSetup(p=>({...p,[catId]:{...(p[catId]||{}),[f]:v}}));
   const toggleCatDay=(catId,d)=>{const cur=catSetup[catId]?.days||[];updCat(catId,'days',cur.includes(d)?cur.filter(x=>x!==d):[...cur,d].sort((a,b)=>a-b));};
-  const removeMember=id=>{if(members.length<=1){alert('Должен остаться хотя бы один участник');return;}setMembers(p=>p.filter(m=>m.id!==id));setIncomes(p=>p.filter(i=>i.memberId!==id));};
+  const removeMember=id=>{if(members.length<=1){alertAsync('Должен остаться хотя бы один участник');return;}setMembers(p=>p.filter(m=>m.id!==id));setIncomes(p=>p.filter(i=>i.memberId!==id));};
   const addMember=()=>{const newId=uid();const tint=members.length%2===0?'oklch(0.9 0.04 40)':'oklch(0.9 0.04 85)';setMembers(p=>[...p,{id:newId,name:'',avatar:'🧑',color:tint}]);setIncomes(p=>[...p,{id:uid(),memberId:newId,gross:'',salaryDays:[],advanceDays:[],advancePct:'40'}]);};
   const activeMembers=members.filter(m=>m.name.trim());
   const memberIncomes=incomes.filter(i=>activeMembers.find(m=>m.id===i.memberId));
@@ -122,9 +123,9 @@ export function Onboarding({onDone}){
         <div style={{display:'flex',flexDirection:'column',gap:8,marginTop:20}}>
           {members.map(m=>(
             <div key={m.id} style={{display:'flex',alignItems:'center',gap:10}}>
-              <button onClick={()=>setEmojiPickerFor(m.id)} style={{width:42,height:42,borderRadius:'50%',background:m.color,border:'none',display:'flex',alignItems:'center',justifyContent:'center',fontSize:19,flexShrink:0,cursor:'pointer'}}>{m.avatar}</button>
+              <button onClick={()=>setEmojiPickerFor(m.id)} aria-label={`Изменить аватар: ${m.name||'участник'}`} style={{width:42,height:42,borderRadius:'50%',background:m.color,border:'none',display:'flex',alignItems:'center',justifyContent:'center',fontSize:19,flexShrink:0,cursor:'pointer'}}>{m.avatar}</button>
               <input type="text" value={m.name} onChange={e=>setMembers(p=>p.map(x=>x.id===m.id?{...x,name:e.target.value}:x))} placeholder="Имя участника" style={{...s.input,flex:1}}/>
-              <button onClick={()=>removeMember(m.id)} style={{position:'relative',width:30,height:30,borderRadius:'50%',border:`1px solid ${C.border}`,background:'var(--c-surface)',color:C.muted,fontSize:14,cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}><span style={{position:'absolute',inset:-7}}/>×</button>
+              <button onClick={()=>removeMember(m.id)} aria-label={`Удалить участника: ${m.name||'участник'}`} style={{position:'relative',width:30,height:30,borderRadius:'50%',border:`1px solid ${C.border}`,background:'var(--c-surface)',color:C.muted,fontSize:14,cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}><span style={{position:'absolute',inset:-7}}/>×</button>
             </div>
           ))}
           <button onClick={addMember} style={{textAlign:'center',border:`1.5px dashed ${C.borderS}`,borderRadius:12,padding:12,fontSize:13,fontWeight:600,color:C.orangeD,background:'none',cursor:'pointer',fontFamily:'inherit'}}>+ Добавить участника</button>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { C, fmt, uid, MONTH_FULL, MONTH_SHORT, DAYS_RU, getActualPayDate } from '../lib/core';
 import { s, Btn, Modal, DayPicker, Numpad } from '../lib/ui';
+import { alertAsync } from '../lib/confirm';
 
 export function AddExtraModal({visible,onClose,onSave,members,incomes=[]}){
   const now=new Date();
@@ -20,7 +21,7 @@ export function AddExtraModal({visible,onClose,onSave,members,incomes=[]}){
   const actualDate=getActualPayDate(selYear,selMonth,safeDay);
   const shifted=actualDate.getDate()!==safeDay||actualDate.getMonth()!==selMonth-1;
   const save=()=>{
-    const n=parseInt(amount)||0;if(!n){alert('Введите сумму');return;}
+    const n=parseInt(amount)||0;if(!n){alertAsync('Введите сумму');return;}
     const t=TYPES.find(x=>x.id===type);
     const fmtD=d=>`${d.getDate()} ${MONTH_SHORT[d.getMonth()]} ${d.getFullYear()}`;
     onSave({id:uid(),type,label:label||t?.label,amount:n,actualAmount:n,memberId,incomeId:incomeId||undefined,date:actualDate,isDone:false,isExtra:true,shifted,note:shifted?`перенос с ${safeDay} ${MONTH_SHORT[selMonth-1]}`:'',displayLabel:`${t?.emoji} ${label||t?.label} · ${fmtD(actualDate)}`,note2:''});

@@ -4,6 +4,7 @@ import {C,MONO,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,EmojiPicker,ProInline} from '../lib/ui';
 import {isLoggedIn,logout,register,login,familyMe,familyInvite,familyJoin,errText,changePassword,deleteAccount,resetRequest,resetConfirm,saveCloudState,billingStatus,billingCheckout,billingCancelAutoRenew,billingRefund} from '../api';
 import {getPushState,enablePush,disablePush} from '../push';
+import {confirmAsync,alertAsync} from '../lib/confirm';
 
 const emailOk = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
@@ -17,10 +18,32 @@ export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncom
   const pad={padding:'16px 20px 90px'};
   const startDate=state.budgetStartDate?new Date(state.budgetStartDate):null;
   const memberWord=members.length===1?'ЧЕЛОВЕК':'ЧЕЛОВЕКА';
+  // Для локального режима (без аккаунта) считаем, сколько дней назад делали
+  // резервную копию — статичное «очистка браузера всё сотрёт» легко проигнорировать,
+  // а конкретный срок и кнопка «сделать копию сейчас» прямо в предупреждении заметнее.
+  // Состояние (не просто чтение localStorage при рендере), чтобы карточка сразу
+  // отражала успешный экспорт, а не только после перезагрузки экрана.
+  const[lastExportAt,setLastExportAt]=useState(()=>{try{return localStorage.getItem('ff_last_export');}catch{return null;}});
+  const doExport=()=>{
+    try{
+      const data=localStorage.getItem('ff_state')||'{}';
+      const blob=new Blob([data],{type:'application/json'});
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      a.href=url;
+      a.download=`familyflow-backup-${new Date().toISOString().slice(0,10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      const now=new Date().toISOString();
+      localStorage.setItem('ff_last_export',now);
+      setLastExportAt(now);
+    }catch(e){alertAsync('Не удалось создать копию: '+e.message);}
+  };
+  const daysSinceExport=lastExportAt?Math.floor((Date.now()-new Date(lastExportAt).getTime())/86400000):null;
 
   return(
     <div data-settings-scroll style={{overflowY:'auto',flex:1,minHeight:0,WebkitOverflowScrolling:'touch'}}><div style={pad}>
-      <button onClick={()=>setShowFamilyEdit(v=>!v)} style={{width:'100%',display:'flex',alignItems:'center',gap:14,paddingBottom:showFamilyEdit?14:18,border:'none',background:'none',cursor:'pointer',fontFamily:'inherit',textAlign:'left'}}>
+      <button onClick={()=>setShowFamilyEdit(v=>!v)} aria-expanded={showFamilyEdit} aria-label={`Семья ${familyName} — редактировать участников`} style={{width:'100%',display:'flex',alignItems:'center',gap:14,paddingBottom:showFamilyEdit?14:18,border:'none',background:'none',cursor:'pointer',fontFamily:'inherit',textAlign:'left'}}>
         <div style={{display:'flex',flexShrink:0}}>
           {members.map((m,i)=><span key={m.id} style={{width:44,height:44,borderRadius:'50%',background:m.color,display:'flex',alignItems:'center',justifyContent:'center',fontSize:19,border:`2px solid ${C.bg}`,marginLeft:i>0?-10:0}}>{m.avatar}</span>)}
         </div>
@@ -34,9 +57,9 @@ export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncom
         <div style={{display:'flex',flexDirection:'column',gap:8}}>
           {members.map(m=>(
             <div key={m.id} style={{display:'flex',alignItems:'center',gap:10}}>
-              <button onClick={()=>setEmojiPickerFor(m.id)} style={{width:40,height:40,borderRadius:'50%',background:m.color,border:'none',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0,cursor:'pointer'}}>{m.avatar}</button>
+              <button onClick={()=>setEmojiPickerFor(m.id)} aria-label={`Изменить аватар: ${m.name||'участник'}`} style={{width:40,height:40,borderRadius:'50%',background:m.color,border:'none',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0,cursor:'pointer'}}>{m.avatar}</button>
               <input type="text" value={m.name} onChange={e=>onUpdateMember(m.id,'name',e.target.value)} placeholder="Имя участника" style={{...s.input,flex:1,padding:'10px 12px'}}/>
-              <button onClick={()=>onRemoveMember(m.id)} style={{position:'relative',width:28,height:28,borderRadius:'50%',border:`1px solid ${C.border}`,background:'var(--c-surface)',color:C.muted,fontSize:13,cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}><span style={{position:'absolute',inset:-8}}/>×</button>
+              <button onClick={()=>onRemoveMember(m.id)} aria-label={`Удалить участника: ${m.name||'участник'}`} style={{position:'relative',width:28,height:28,borderRadius:'50%',border:`1px solid ${C.border}`,background:'var(--c-surface)',color:C.muted,fontSize:13,cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}><span style={{position:'absolute',inset:-8}}/>×</button>
             </div>
           ))}
           {isPro
@@ -140,27 +163,28 @@ export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncom
         <PushSection/>
       </>}
       {/* ═══ Резервная копия ═══ */}
-      <div style={{...s.card,background:C.yellowL,border:`1px solid ${C.yellowB}`,padding:'12px 14px',display:'flex',gap:10}}>
-        <span style={{fontSize:16,flexShrink:0}}>⚠️</span>
-        <div>
-          <div style={{fontSize:13,fontWeight:600,color:C.yellow,marginBottom:2}}>Данные хранятся только на этом устройстве</div>
-          <div style={{fontSize:12,color:C.yellow,lineHeight:1.5}}>Очистка браузера удалит всё. Сохраните резервную копию.</div>
-        </div>
-      </div>
+      {!isLoggedIn()&&(()=>{
+        const urgent=daysSinceExport===null||daysSinceExport>7;
+        return(
+          <div style={{...s.card,background:urgent?C.redL:C.yellowL,border:`1px solid ${urgent?C.redB:C.yellowB}`,padding:'12px 14px',display:'flex',gap:10}}>
+            <span style={{fontSize:16,flexShrink:0}}>{urgent?'🚨':'⚠️'}</span>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:13,fontWeight:600,color:urgent?C.red:C.yellow,marginBottom:2}}>Данные хранятся только на этом устройстве</div>
+              <div style={{fontSize:12,color:urgent?C.red:C.yellow,lineHeight:1.5,marginBottom:8}}>
+                {lastExportAt
+                  ?`Последняя резервная копия — ${daysSinceExport===0?'сегодня':`${daysSinceExport} дн. назад`}. Очистка браузера или потеря телефона сотрёт всё, что добавлено с тех пор.`
+                  :'Резервной копии ещё нет. Очистка браузера или потеря телефона сотрёт всё без возможности восстановить.'}
+              </div>
+              <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                <button onClick={doExport} style={{padding:'7px 12px',borderRadius:10,border:'none',background:urgent?C.red:C.yellow,color:'#fff',fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Сделать копию сейчас</button>
+                <button onClick={scrollToTop} style={{padding:'7px 12px',borderRadius:10,border:`1px solid ${urgent?C.redB:C.yellowB}`,background:'none',color:urgent?C.red:C.yellow,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Завести аккаунт</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
       <SecTitle>РЕЗЕРВНАЯ КОПИЯ</SecTitle>
-      <button onClick={()=>{
-        try{
-          const data=localStorage.getItem('ff_state')||'{}';
-          const blob=new Blob([data],{type:'application/json'});
-          const url=URL.createObjectURL(blob);
-          const a=document.createElement('a');
-          a.href=url;
-          a.download=`familyflow-backup-${new Date().toISOString().slice(0,10)}.json`;
-          a.click();
-          URL.revokeObjectURL(url);
-          localStorage.setItem('ff_last_export',new Date().toISOString());
-        }catch(e){alert('Не удалось создать копию: '+e.message);}
-      }} style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'9px 0',background:'none',border:'none',borderBottom:`1px dashed ${C.border}`,cursor:'pointer',fontFamily:'inherit',textAlign:'left'}}>
+      <button onClick={doExport} style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'9px 0',background:'none',border:'none',borderBottom:`1px dashed ${C.border}`,cursor:'pointer',fontFamily:'inherit',textAlign:'left'}}>
         <span style={{fontSize:17}}>⬇️</span>
         <div style={{flex:1}}>
           <div style={{fontSize:13.5,color:C.text}}>Экспорт данных</div>
@@ -178,14 +202,14 @@ export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncom
         <input type="file" accept=".json,application/json" style={{display:'none'}} onChange={e=>{
           const f=e.target.files?.[0]; if(!f)return;
           const r=new FileReader();
-          r.onload=ev=>{
+          r.onload=async ev=>{
             try{
               const parsed=JSON.parse(ev.target.result);
               if(!parsed||typeof parsed!=='object'||!parsed.appState)throw new Error('это не файл Семейного потока');
-              if(!window.confirm('Заменить текущие данные данными из файла? Отменить будет нельзя.'))return;
+              if(!await confirmAsync('Заменить текущие данные данными из файла? Отменить будет нельзя.',{danger:true}))return;
               localStorage.setItem('ff_state',ev.target.result);
               window.location.reload();
-            }catch(err){alert('Не удалось импортировать: '+err.message);}
+            }catch(err){alertAsync('Не удалось импортировать: '+err.message);}
           };
           r.readAsText(f);
         }}/>
@@ -209,14 +233,14 @@ export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncom
           const msg=logged
             ?'Удалить все данные и начать заново?\n\nВНИМАНИЕ: бюджет будет стёрт и в облаке — у всех участников семьи. Это действие нельзя отменить.'
             :'Удалить все данные и начать заново?\nЭто действие нельзя отменить.';
-          if(!window.confirm(msg))return;
+          if(!await confirmAsync(msg,{danger:true}))return;
           window.__ffResetting=true; // блокируем автосейв и flush-on-hide до перезагрузки
           if(logged){
             try{
               // Осознанная перезапись облака пустым состоянием (без baseUpdatedAt)
               await saveCloudState({consented:true,onboarded:false,appState:{}});
             }catch(e){
-              if(!window.confirm('Не удалось очистить облако (нет сети?). Сбросить только на этом устройстве? Облачная копия вернётся при следующем входе.')){window.__ffResetting=false;return;}
+              if(!await confirmAsync('Не удалось очистить облако (нет сети?). Сбросить только на этом устройстве? Облачная копия вернётся при следующем входе.',{danger:true})){window.__ffResetting=false;return;}
             }
           }
           try{localStorage.removeItem('ff_state');localStorage.removeItem('ff_cloud_updated_at');}catch{}
@@ -315,8 +339,8 @@ function AccountSection({isPro=true}){
           <div style={{fontSize:13,fontWeight:600,color:C.green}}>Синхронизация включена</div>
           <div style={{fontSize:11,color:C.muted,marginTop:1}}>{lastSync?`Последнее сохранение: ${lastSync}`:'Ещё не синхронизировалось'}</div>
         </div>
-        <button onClick={()=>{
-          if(!window.confirm('Выйти из аккаунта? Локальная копия будет удалена с этого устройства. Данные сохранены в облаке и вернутся при следующем входе.'))return;
+        <button onClick={async()=>{
+          if(!await confirmAsync('Выйти из аккаунта? Локальная копия будет удалена с этого устройства. Данные сохранены в облаке и вернутся при следующем входе.'))return;
           logout();
           try{localStorage.removeItem('ff_state');}catch{}
           window.location.reload();
@@ -344,7 +368,7 @@ function AccountSection({isPro=true}){
           style={{flex:1,border:`1px solid ${C.border}`,borderRadius:9,padding:'9px 12px',fontSize:16,outline:'none',fontFamily:'inherit',letterSpacing:2}}/>
         <button onClick={async()=>{
             if(joinCode.length!==6)return;
-            if(!window.confirm('Присоединиться к другой семье? Ваш текущий облачный бюджет будет заменён общим.'))return;
+            if(!await confirmAsync('Присоединиться к другой семье? Ваш текущий облачный бюджет будет заменён общим.',{danger:true}))return;
             try{await familyJoin(joinCode);localStorage.removeItem('ff_cloud_updated_at');window.location.reload();}
             catch(e){setErr(errText(e));}
           }}
@@ -409,7 +433,7 @@ function BillingSection(){
   };
 
   const cancelAutoRenew=async()=>{
-    if(!window.confirm('Отвязать карту и отключить автопродление? Подписка Pro останется активной до конца оплаченного периода, дальше списаний не будет.'))return;
+    if(!await confirmAsync('Отвязать карту и отключить автопродление? Подписка Pro останется активной до конца оплаченного периода, дальше списаний не будет.'))return;
     setErr('');setBusy('cancel');
     try{await billingCancelAutoRenew();setStatus(st=>({...st,autoRenew:false}));}
     catch(e){setErr(errText(e));}
@@ -417,7 +441,7 @@ function BillingSection(){
   };
 
   const refund=async()=>{
-    if(!window.confirm('Вернуть деньги за последнюю оплату? Доступ Pro закончится сразу, автопродление отключится.'))return;
+    if(!await confirmAsync('Вернуть деньги за последнюю оплату? Доступ Pro закончится сразу, автопродление отключится.',{danger:true}))return;
     setErr('');setOk('');setBusy('refund');
     try{
       await billingRefund();
@@ -590,7 +614,7 @@ function DeleteAccountRow(){
   );
   const confirmDelete=async()=>{
     if(!pass){setMsg('Введите пароль для подтверждения');return;}
-    if(!window.confirm('Аккаунт будет удалён безвозвратно. Если вы единственный участник семьи — бюджет и история платежей удалятся вместе с ней. Если в семье есть другие участники — они останутся, владельцем станет один из них. Продолжить?'))return;
+    if(!await confirmAsync('Аккаунт будет удалён безвозвратно. Если вы единственный участник семьи — бюджет и история платежей удалятся вместе с ней. Если в семье есть другие участники — они останутся, владельцем станет один из них. Продолжить?',{danger:true}))return;
     setMsg('');setBusy(true);
     try{
       await deleteAccount(pass);

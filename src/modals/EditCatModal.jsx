@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { C, MONTH_FULL, MONTH_SHORT, REPEAT_OPTS, getCat } from '../lib/core';
 import { s, Btn, Modal, DayPicker } from '../lib/ui';
+import { confirmAsync, alertAsync } from '../lib/confirm';
 
 const EMOJIS=['🍽️','💄','👗','🏠','🎓','🏦','💳','🚌','🎬','🎁','💊','🏋️','🐾','🐷','📦','🛒','🚗','✈️','🎮','📚','🌿','🎨','💻','📱','🏊','🚴','🎯','🔧','🌸','🍕','☕','🧴','🎸','💈'];
 export function EditCatModal({visible,item,members,onClose,onSave,onDelete,customCats=[]}){
@@ -34,7 +35,7 @@ export function EditCatModal({visible,item,members,onClose,onSave,onDelete,custo
   const isNew=item.isNew,cat=getCat(item.catId,customCats)||{};
   const onceDateObj=new Date(onceYear,onceMonth-1,onceDay);
   const doSave=()=>{
-    if(isNew&&!catName.trim()){alert('Введите название');return;}
+    if(isNew&&!catName.trim()){alertAsync('Введите название');return;}
     onSave({
       ...item,
       name:isNew?catName.trim():item.name,
@@ -99,7 +100,7 @@ export function EditCatModal({visible,item,members,onClose,onSave,onDelete,custo
           </div>
         )}
         <Btn label={isNew?'Создать категорию':'Сохранить'} onClick={doSave}/>
-        {!isNew&&<button onClick={()=>{if(window.confirm('Удалить категорию?')){onDelete(item.id);onClose();}}} style={{...s.btn,background:'transparent',border:`1px solid ${C.orange}`,color:C.orange,marginTop:8}}>Удалить</button>}
+        {!isNew&&<button onClick={async()=>{if(await confirmAsync('Удалить категорию?',{danger:true})){onDelete(item.id);onClose();}}} style={{...s.btn,background:'transparent',border:`1px solid ${C.orange}`,color:C.orange,marginTop:8}}>Удалить</button>}
       </div>
     </Modal>
   );

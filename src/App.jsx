@@ -15,6 +15,7 @@ import { markLocalTrialStart, getLocalPlan, isProPlan } from './lib/plan';
 import { SplashScreen } from './SplashScreen';
 import { StartLoginForm } from './StartLoginForm';
 import { AddToHomeScreenPrompt } from './AddToHomeScreenPrompt';
+import { ConfirmHost, confirmAsync, alertAsync } from './lib/confirm';
 export default function App(){
   // ── localStorage: загружаем сохранённые данные при старте ──────────────
   const loadFromStorage = () => {
@@ -472,7 +473,7 @@ useEffect(() => {
   const handleUpdateMember=(id,field,value)=>setAppState(prev=>({...prev,members:prev.members.map(m=>m.id===id?{...m,[field]:value}:m)}));
   const handleAddMember=()=>setAppState(prev=>({...prev,members:[...prev.members,{id:uid(),name:'',avatar:'🧑',color:nextMemberTint(prev.members.length)}]}));
   const handleRemoveMember=id=>setAppState(prev=>{
-    if(prev.members.length<=1){alert('Должен остаться хотя бы один участник семьи');return prev;}
+    if(prev.members.length<=1){alertAsync('Должен остаться хотя бы один участник семьи');return prev;}
     const remaining=prev.members.filter(m=>m.id!==id);
     const fallbackId=remaining[0]?.id;
     const planned=prev.planned.map(p=>p.memberId===id?{...p,memberId:fallbackId}:p);
@@ -569,8 +570,8 @@ useEffect(() => {
     setTab('today');
     setTimeout(()=>setTourStep(0),700); // автозапуск тура
   };
-  const exitDemo=()=>{
-    if(!window.confirm('Выйти из демо и настроить свой бюджет? Демо-данные будут удалены.'))return;
+  const exitDemo=async()=>{
+    if(!await confirmAsync('Выйти из демо и настроить свой бюджет? Демо-данные будут удалены.'))return;
     try{localStorage.removeItem('ff_state');}catch{}
     setTourStep(-1);
     setAppState({familyName:'',startBalance:0,members:[{id:'m1',name:'',avatar:'👩',color:C.orange}],
@@ -589,6 +590,7 @@ useEffect(() => {
         />
       </Suspense>
       {startLogin&&<StartLoginForm onClose={()=>setStartLogin(false)}/>}
+      <ConfirmHost/>
     </div>
   );
   if(!onboarded)return(
@@ -596,6 +598,7 @@ useEffect(() => {
       <Suspense fallback={null}>
         <Onboarding onDone={handleOnboardingDone}/>
       </Suspense>
+      <ConfirmHost/>
     </div>
   );
   return(
@@ -609,7 +612,7 @@ useEffect(() => {
           <div style={{display:'flex',alignItems:'center',gap:8,background:C.yellowL,borderTop:`1px solid ${C.yellowB}`,borderBottom:`1px solid ${C.yellowB}`,padding:'7px 14px'}}>
             <span style={{fontSize:13}}>⚠️</span>
             <span style={{flex:1,fontSize:11,color:C.text2,lineHeight:1.4}}>{cloudError}</span>
-            <button onClick={()=>setCloudError(null)} style={{background:'none',border:'none',color:C.muted,fontSize:16,cursor:'pointer',padding:'0 4px',fontFamily:'inherit',lineHeight:1}}>×</button>
+            <button onClick={()=>setCloudError(null)} aria-label="Скрыть предупреждение" style={{background:'none',border:'none',color:C.muted,fontSize:16,cursor:'pointer',padding:'0 4px',fontFamily:'inherit',lineHeight:1}}>×</button>
           </div>
         )}
         {emailVerified===false&&!verifyDismissed&&(
@@ -617,7 +620,7 @@ useEffect(() => {
             <span style={{fontSize:13}}>✉️</span>
             <span style={{flex:1,fontSize:11,color:C.text2,lineHeight:1.4}}>{resendSent?'Письмо отправлено — проверьте почту.':'Подтвердите email, чтобы не потерять доступ при сбросе пароля.'}</span>
             {!resendSent&&<button onClick={handleResendVerify} disabled={resendBusy} style={{fontFamily:MONO,fontSize:10.5,fontWeight:600,color:C.text2,background:'var(--c-surface)',border:`1px solid ${C.yellowB}`,padding:'4px 10px',borderRadius:20,cursor:'pointer',flexShrink:0}}>{resendBusy?'…':'ОТПРАВИТЬ ПИСЬМО'}</button>}
-            <button onClick={()=>setVerifyDismissed(true)} style={{background:'none',border:'none',color:C.muted,fontSize:16,cursor:'pointer',padding:'0 4px',fontFamily:'inherit',lineHeight:1}}>×</button>
+            <button onClick={()=>setVerifyDismissed(true)} aria-label="Скрыть напоминание о подтверждении email" style={{background:'none',border:'none',color:C.muted,fontSize:16,cursor:'pointer',padding:'0 4px',fontFamily:'inherit',lineHeight:1}}>×</button>
           </div>
         )}
         {appState.demoMode&&(
@@ -641,6 +644,7 @@ useEffect(() => {
       </div>
       <TabBar active={tab} onPress={setTab}/>
       <AddToHomeScreenPrompt/>
+      <ConfirmHost/>
       <AddTxModal visible={showAdd} onClose={()=>setShowAdd(false)} onSave={handleAddTx} members={appState.members} planned={appState.planned} customCats={appState.customCats}/>
       <EditCatModal visible={showEdit} item={editItem} members={appState.members} customCats={appState.customCats} onClose={()=>{setShowEdit(false);setEditItem(null);}} onSave={item=>{const{isNew,...rest}=item||{};handleEditPlanned(isNew?{...rest,isNew:true}:rest);}} onDelete={handleDeletePlanned}/>
       <EditPaymentModal visible={showEditPay} payment={editPayment} onClose={()=>{setShowEditPay(false);setEditPayment(null);}} onSave={handleSavePayment} onDelete={handleDeleteExtra}/>

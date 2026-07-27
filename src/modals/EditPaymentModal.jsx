@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { C, fmt, paymentTypeLabel } from '../lib/core';
 import { s, Btn, Modal } from '../lib/ui';
+import { confirmAsync } from '../lib/confirm';
 
 export function EditPaymentModal({visible,payment,onClose,onSave,onDelete}){
   const[actual,setActual]=useState('');
@@ -33,7 +34,7 @@ export function EditPaymentModal({visible,payment,onClose,onSave,onDelete}){
         <textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="Например: премия включена" rows={2} style={{...s.input,marginBottom:16,resize:'none'}}/>
         <Btn label="Сохранить" onClick={()=>{onSave({...payment,actualAmount:parseInt(actual)||payment.amount,isDone:done,note2:note});onClose();}}/>
         {!['salary','advance'].includes(payment.type)&&onDelete&&(
-          <button onClick={()=>{if(confirm('Удалить эту выплату?')){onDelete(payment.id);onClose();}}} style={{width:'100%',padding:11,marginTop:8,borderRadius:10,border:'none',background:'none',color:C.red,fontSize:13,fontWeight:500,cursor:'pointer',fontFamily:'inherit'}}>
+          <button onClick={async()=>{if(await confirmAsync('Удалить эту выплату?',{danger:true})){onDelete(payment.id);onClose();}}} style={{width:'100%',padding:11,marginTop:8,borderRadius:10,border:'none',background:'none',color:C.red,fontSize:13,fontWeight:500,cursor:'pointer',fontFamily:'inherit'}}>
             Удалить выплату
           </button>
         )}

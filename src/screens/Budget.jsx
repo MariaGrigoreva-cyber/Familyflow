@@ -178,7 +178,7 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
         <div style={{...s.card,marginTop:10}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
             <div style={{fontSize:15,fontWeight:600,color:C.text}}>🎯 {goal?goal.name||'Цель накопления':'Новая цель накопления'}</div>
-            <button onClick={()=>setShowGoalPlanner(false)} style={{position:'relative',background:'none',border:'none',cursor:'pointer',fontSize:18,color:C.muted}}><span style={{position:'absolute',inset:-13}}/>×</button>
+            <button onClick={()=>setShowGoalPlanner(false)} aria-label="Закрыть" style={{position:'relative',background:'none',border:'none',cursor:'pointer',fontSize:18,color:C.muted}}><span style={{position:'absolute',inset:-13}}/>×</button>
           </div>
           {!goal?(
             <div style={{display:'flex',flexDirection:'column',gap:8}}>
@@ -239,7 +239,7 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
         <div style={{...s.card,marginTop:10}}>
           <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:12}}>
             <div style={{fontSize:15,fontWeight:600,color:C.text}}>✈️ Планировщик отпуска</div>
-            <button onClick={()=>setShowVacPlanner(false)} style={{position:'relative',background:'none',border:'none',cursor:'pointer',fontSize:18,color:C.muted}}><span style={{position:'absolute',inset:-13}}/>×</button>
+            <button onClick={()=>setShowVacPlanner(false)} aria-label="Закрыть" style={{position:'relative',background:'none',border:'none',cursor:'pointer',fontSize:18,color:C.muted}}><span style={{position:'absolute',inset:-13}}/>×</button>
           </div>
           {/* Источник данных */}
           <div style={{background:vacActual12?C.greenL:C.yellowL,border:`1px solid ${vacActual12?C.greenB:C.yellowB}`,borderRadius:12,padding:'10px 12px',marginBottom:12}}>
