@@ -26,7 +26,7 @@ export function EntryScreen({onDemo,onSetup,onLoginClick}){
         </button>
       </div>
       <div style={{textAlign:'center',marginTop:22,fontSize:11.5,color:C.muted,lineHeight:1.5}}>
-        Без регистрации бюджет хранится только на этом устройстве. При регистрации — шифруется и хранится на сервере в РФ. <a href={TERMS_URL} target="_blank" rel="noopener noreferrer" style={{color:C.orangeD}}>Условия использования</a> · <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer" style={{color:C.orangeD}}>Политика конфиденциальности</a>
+        Без регистрации бюджет хранится только на этом устройстве. При регистрации — шифруется и хранится на сервере в РФ. <a href={TERMS_URL} style={{color:C.orangeD}}>Условия использования</a> · <a href={PRIVACY_URL} style={{color:C.orangeD}}>Политика конфиденциальности</a>
       </div>
       <div style={{fontFamily:MONO,fontSize:9.5,color:C.faint,textAlign:'center',marginTop:12}}>152-ФЗ · ДАННЫЕ НЕ ПЕРЕДАЮТСЯ ТРЕТЬИМ ЛИЦАМ</div>
     </div>
