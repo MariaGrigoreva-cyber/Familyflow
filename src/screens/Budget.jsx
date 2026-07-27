@@ -292,9 +292,23 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
             const endD = new Date(startD); endD.setDate(endD.getDate()+vacDays-1);
             let vacWD=0;for(let d=new Date(startD);d<=endD&&d.getMonth()===vacM;d.setDate(d.getDate()+1)){const dw=d.getDay();if(dw!==0&&dw!==6)vacWD++;}
             const workedD=totalWD-vacWD;
+            const ratio=totalWD>0?workedD/totalWD:1;
+            // Аванс (обычно 25-е число) — оплата за первую половину месяца (дни 1-15).
+            // Зарплата (10-е число СЛЕДУЮЩЕГО месяца) — окончательный расчёт за месяц
+            // целиком (ст. 136 ТК РФ), поэтому её ищем по workMonth/workYear (месяцу,
+            // за который платят), а не по дате самой выплаты — иначе отпуск в августе
+            // задел бы «зарплату за июль», которая просто выплачивается 10 августа.
+            // Если отпуск не касается дней 1-15 — аванс не трогаем, меняется только
+            // зарплата; если касается — меняются оба.
+            const touchesFirstHalf = startD.getDate()<=15;
+            const inc0=incomes[0];
+            const schedule=inc0?buildPaymentScheduleSpan(vacY,inc0.salaryDays||[],inc0.advanceDays||[],parseInt(inc0.advancePct)||40,inc0.gross||0,inc0):[];
+            const salaryEntry=schedule.find(p=>p.type==='salary'&&p.workMonth===vacM+1&&p.workYear===vacY);
+            const advanceEntry=schedule.find(p=>p.type==='advance'&&p.date.getMonth()===vacM&&p.date.getFullYear()===vacY);
+            const newSalaryAmt=salaryEntry?Math.round(salaryEntry.amount*ratio):null;
+            const newAdvanceAmt=(touchesFirstHalf&&advanceEntry)?Math.round(advanceEntry.amount*ratio):null;
             const net=incomes[0]?calcNetFor(incomes[0]):0;
-            const salMonth=Math.round((net/totalWD)*workedD);
-            const totalMonth=vacNetAmt+salMonth;
+            const totalMonth=vacNetAmt+(newSalaryAmt??0)+(newAdvanceAmt??advanceEntry?.amount??0);
             const MONTHS_SHORT=['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
             return(
               <div style={{display:'flex',flexDirection:'column',gap:8}}>
@@ -304,10 +318,21 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
                     <span style={{fontSize:12,color:C.text2}}>{payD.getDate()} {MONTHS_SHORT[payD.getMonth()]} — отпускные</span>
                     <span style={{fontFamily:MONO,fontSize:13,fontWeight:600,color:C.text}}>{fmtN(vacNetAmt)}</span>
                   </div>
-                  <div style={{display:'flex',justifyContent:'space-between'}}>
-                    <span style={{fontSize:12,color:C.text2}}>{MONTHS_SHORT[vacM]} — зарплата ({workedD}/{totalWD} дней)</span>
-                    <span style={{fontFamily:MONO,fontSize:13,fontWeight:600,color:C.text}}>{fmtN(salMonth)}</span>
-                  </div>
+                  {newAdvanceAmt!=null&&(
+                    <div style={{display:'flex',justifyContent:'space-between',marginBottom:4}}>
+                      <span style={{fontSize:12,color:C.text2}}>Аванс за {MONTHS_SHORT[vacM]} — уменьшится</span>
+                      <span style={{fontFamily:MONO,fontSize:13,fontWeight:600,color:C.text}}>{fmtN(newAdvanceAmt)}</span>
+                    </div>
+                  )}
+                  {newSalaryAmt!=null&&(
+                    <div style={{display:'flex',justifyContent:'space-between'}}>
+                      <span style={{fontSize:12,color:C.text2}}>Зарплата за {MONTHS_SHORT[vacM]} — уменьшится ({workedD}/{totalWD} дней)</span>
+                      <span style={{fontFamily:MONO,fontSize:13,fontWeight:600,color:C.text}}>{fmtN(newSalaryAmt)}</span>
+                    </div>
+                  )}
+                  {!touchesFirstHalf&&advanceEntry&&(
+                    <div style={{fontSize:11,color:C.muted,marginTop:4}}>Аванс за {MONTHS_SHORT[vacM]} не меняется — отпуск не затрагивает дни до 15-го числа.</div>
+                  )}
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}>
                   <Stat label="средний дневной" value={fmtN(sdz)} color={C.borderS}/>
@@ -316,33 +341,22 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
                 </div>
               <button onClick={()=>{
                   // Добавляем отпускные как доп. выплату
-                  const basis2=vacActual12?parseInt(vacActual12):vacBasis12;
-                  const sdz2=basis2/12/29.3;
-                  const vacG=sdz2*vacDays;
-                  const vacN=Math.round(vacG-Math.round(vacG*0.13));
-                  const startD2=new Date(vacStart);
-                  const payD2=new Date(startD2);payD2.setDate(payD2.getDate()-3);
-                  const label=`Отпускные (${vacDays} дн. с ${startD2.getDate()}.${String(startD2.getMonth()+1).padStart(2,'0')})`;
-                  // Отпуск снижает и обычную зарплату за этот месяц — иначе выходит,
-                  // что за отпускные дни платят дважды (полный оклад + отпускные).
-                  // Пересчитываем фактическую сумму зарплаты/аванса, попадающих на
-                  // месяц отпуска, той же пропорцией отработанных дней, что и в
-                  // превью выше (workedD/totalWD) — сумма совпадёт с «итого в месяц».
-                  const inc0=incomes[0];
-                  const ratio=totalWD>0?workedD/totalWD:1;
+                  const vacN=vacNetAmt;
+                  const payD2=payD;
+                  const label=`Отпускные (${vacDays} дн. с ${startD.getDate()}.${String(startD.getMonth()+1).padStart(2,'0')})`;
+                  // Отпуск снижает и зарплату/аванс за этот месяц — иначе выходит, что
+                  // за отпускные дни платят дважды (полный оклад + отпускные сверху).
+                  // Какие именно выплаты меняются — см. комментарий выше про touchesFirstHalf.
                   const paymentOverrides={};
-                  if(inc0){
-                    buildPaymentScheduleSpan(vacY,inc0.salaryDays||[],inc0.advanceDays||[],parseInt(inc0.advancePct)||40,inc0.gross||0,inc0)
-                      .filter(p=>p.date.getMonth()===vacM&&p.date.getFullYear()===vacY)
-                      .forEach(p=>{paymentOverrides[p.displayLabel]={actualAmount:Math.round(p.amount*ratio)};});
-                  }
+                  if(salaryEntry) paymentOverrides[salaryEntry.displayLabel]={actualAmount:newSalaryAmt};
+                  if(newAdvanceAmt!=null) paymentOverrides[advanceEntry.displayLabel]={actualAmount:newAdvanceAmt};
                   onAddExtra({
                     id:uid(),
                     label,
                     amount:vacN,
                     date:payD2.toISOString(),
                     type:'vacation',
-                    note:`Расчёт по ТК РФ ст.139. СДЗ=${Math.round(sdz2)}/день × ${vacDays} дней`,
+                    note:`Расчёт по ТК РФ ст.139. СДЗ=${Math.round(sdz)}/день × ${vacDays} дней`,
                     paymentOverrides,
                   });
                   setVacAdded(true);
