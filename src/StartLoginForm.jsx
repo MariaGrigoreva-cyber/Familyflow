@@ -1,7 +1,6 @@
 // FamilyFlow — вход с стартового экрана: после успеха облако подтянет бюджет и флаги
 import React, { useState } from 'react';
-import { C, MONO, POLICY_ITEMS } from './lib/core';
-import { Modal } from './lib/ui';
+import { C, MONO, PRIVACY_URL, TERMS_URL } from './lib/core';
 import { login, register, errText, resetRequest, resetConfirm } from './api';
 
 const emailOk = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
@@ -14,7 +13,6 @@ export function StartLoginForm({onClose}){
   const[err,setErr]=useState('');
   const[step,setStep]=useState('login'); // login | reset1 | reset2
   const[code,setCode]=useState('');
-  const[showPolicy,setShowPolicy]=useState(false);
   const[pdnConsent,setPdnConsent]=useState(false);
   const submit=async()=>{
     if(!emailOk(email.trim())){setErr('Введите корректный email');return;}
@@ -69,7 +67,7 @@ export function StartLoginForm({onClose}){
         {step==='login'&&mode==='register'&&<label style={{display:'flex',gap:8,alignItems:'flex-start',fontSize:10.5,lineHeight:1.5,color:C.muted,marginBottom:10,cursor:'pointer'}}>
           <input type="checkbox" checked={pdnConsent} onChange={e=>setPdnConsent(e.target.checked)}
             style={{marginTop:2,flexShrink:0}}/>
-          <span>Принимаю <span onClick={e=>{e.preventDefault();setShowPolicy(true);}} style={{color:C.orangeD,textDecoration:'underline',cursor:'pointer'}}>условия использования</span> и даю согласие на обработку персональных данных (152-ФЗ).</span>
+          <span>Принимаю <a href={TERMS_URL} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()} style={{color:C.orangeD}}>условия использования</a> и даю согласие на <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()} style={{color:C.orangeD}}>обработку персональных данных</a> (152-ФЗ).</span>
         </label>}
         {step==='login'&&<>
           <button onClick={submit} disabled={busy||(mode==='register'&&!pdnConsent)}
@@ -96,16 +94,6 @@ export function StartLoginForm({onClose}){
           <span style={{fontSize:11.5,lineHeight:1.5,color:C.text2}}>После входа бюджет автоматически восстановится из облака — онбординг проходить не нужно.</span>
         </div>
       </div>
-      <Modal visible={showPolicy} onClose={()=>setShowPolicy(false)} title="Политика конфиденциальности">
-        <div style={{padding:'18px 16px 40px'}}>
-          {POLICY_ITEMS.map(([t,txt],i)=>(
-            <div key={i} style={{marginBottom:20}}>
-              <div style={{fontSize:14,fontWeight:600,color:C.text,marginBottom:6}}>{t}</div>
-              <div style={{fontSize:12,color:C.text2,lineHeight:1.6}}>{txt}</div>
-            </div>
-          ))}
-        </div>
-      </Modal>
     </div>
   );
 }

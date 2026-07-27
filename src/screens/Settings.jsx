@@ -1,6 +1,6 @@
 // FamilyFlow — экран Настройки
 import React, { useState, useEffect } from 'react';
-import {C,MONO,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
+import {C,MONO,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,PRIVACY_URL,TERMS_URL,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,EmojiPicker,ProInline} from '../lib/ui';
 import {isLoggedIn,logout,register,login,familyMe,familyInvite,familyJoin,errText,changePassword,deleteAccount,resetRequest,resetConfirm,saveCloudState,billingStatus,billingCheckout,billingCancelAutoRenew,billingRefund} from '../api';
 import {getPushState,enablePush,disablePush} from '../push';
@@ -281,7 +281,7 @@ function AccountSection({isPro=true}){
       {mode==='register'&&<label style={{display:'flex',gap:8,alignItems:'flex-start',fontSize:11,lineHeight:1.5,color:C.muted,marginBottom:10,cursor:'pointer'}}>
         <input type="checkbox" checked={pdnConsent} onChange={e=>setPdnConsent(e.target.checked)}
           style={{marginTop:2,flexShrink:0}}/>
-        <span>Принимаю условия использования и даю согласие на обработку персональных данных (152-ФЗ).</span>
+        <span>Принимаю <a href={TERMS_URL} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()} style={{color:C.orangeD}}>условия использования</a> и даю согласие на <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer" onClick={e=>e.stopPropagation()} style={{color:C.orangeD}}>обработку персональных данных</a> (152-ФЗ).</span>
       </label>}
       {err&&<div style={{fontSize:12,color:C.red,marginBottom:8}}>{err}</div>}
       <button onClick={submit} disabled={busy||(mode==='register'&&!pdnConsent)}

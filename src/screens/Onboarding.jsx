@@ -1,26 +1,9 @@
 // FamilyFlow — экран онбординг
 import React, { useState, useEffect } from 'react';
-import {C,MONO,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,FUND_LABELS,getCatFund,PIE_COLORS,POLICY_ITEMS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
+import {C,MONO,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,FUND_LABELS,getCatFund,PIE_COLORS,PRIVACY_URL,TERMS_URL,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,EmojiPicker} from '../lib/ui';
 
 export function EntryScreen({onDemo,onSetup,onLoginClick}){
-  const[policy,setPolicy]=useState(false);
-  if(policy)return(
-    <div style={{height:'100%',maxWidth:480,margin:'0 auto',width:'100%',boxSizing:'border-box',background:C.bg,display:'flex',flexDirection:'column'}}>
-      <div style={{display:'flex',alignItems:'center',gap:12,padding:'14px 16px',background:'var(--c-surface)',borderBottom:`1px solid ${C.border}`,position:'sticky',top:0,zIndex:10}}>
-        <button onClick={()=>setPolicy(false)} style={{background:'none',border:'none',cursor:'pointer',fontSize:13,color:C.orangeD,fontFamily:'inherit'}}>← Назад</button>
-        <span style={{fontSize:15,fontWeight:600,color:C.text}}>Политика конфиденциальности</span>
-      </div>
-      <div style={{padding:'18px 16px 40px',overflowY:'auto'}}>
-        {POLICY_ITEMS.map(([t,txt],i)=>(
-          <div key={i} style={{marginBottom:20}}>
-            <div style={{fontSize:14,fontWeight:600,color:C.text,marginBottom:6}}>{t}</div>
-            <div style={{fontSize:12,color:C.text2,lineHeight:1.6}}>{txt}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
   return(
     <div style={{height:'100%',maxWidth:480,margin:'0 auto',width:'100%',background:C.bg,display:'flex',flexDirection:'column',justifyContent:'center',padding:24,boxSizing:'border-box',overflowY:'auto'}}>
       <div style={{display:'flex',alignItems:'center',gap:12}}>
@@ -43,7 +26,7 @@ export function EntryScreen({onDemo,onSetup,onLoginClick}){
         </button>
       </div>
       <div style={{textAlign:'center',marginTop:22,fontSize:11.5,color:C.muted,lineHeight:1.5}}>
-        Без регистрации бюджет хранится только на этом устройстве. При регистрации — шифруется и хранится на сервере в РФ. <span onClick={()=>setPolicy(true)} style={{color:C.orangeD,textDecoration:'underline',cursor:'pointer'}}>Условия использования</span>
+        Без регистрации бюджет хранится только на этом устройстве. При регистрации — шифруется и хранится на сервере в РФ. <a href={TERMS_URL} target="_blank" rel="noopener noreferrer" style={{color:C.orangeD}}>Условия использования</a> · <a href={PRIVACY_URL} target="_blank" rel="noopener noreferrer" style={{color:C.orangeD}}>Политика конфиденциальности</a>
       </div>
       <div style={{fontFamily:MONO,fontSize:9.5,color:C.faint,textAlign:'center',marginTop:12}}>152-ФЗ · ДАННЫЕ НЕ ПЕРЕДАЮТСЯ ТРЕТЬИМ ЛИЦАМ</div>
     </div>

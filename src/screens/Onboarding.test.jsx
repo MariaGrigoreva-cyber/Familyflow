@@ -16,13 +16,10 @@ describe('EntryScreen', () => {
     expect(onLoginClick).toHaveBeenCalled();
   });
 
-  test('«Условия использования» открывает и закрывает политику', async () => {
-    const user = userEvent.setup();
+  test('ссылки на условия использования и политику конфиденциальности ведут на реальные страницы', () => {
     render(<EntryScreen onDemo={() => {}} onSetup={() => {}} onLoginClick={() => {}} />);
-    await user.click(screen.getByText('Условия использования'));
-    expect(screen.getByText('Политика конфиденциальности')).toBeInTheDocument();
-    await user.click(screen.getByText('← Назад'));
-    expect(screen.queryByText('Политика конфиденциальности')).not.toBeInTheDocument();
+    expect(screen.getByText('Условия использования')).toHaveAttribute('href', 'https://myfamilyflow.ru/terms');
+    expect(screen.getByText('Политика конфиденциальности')).toHaveAttribute('href', 'https://myfamilyflow.ru/privacy');
   });
 });
 
