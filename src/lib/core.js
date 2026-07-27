@@ -319,12 +319,22 @@ const projectCashFlow=(state,weeksSummary)=>{
   // которая для будущих недель по ошибке брала только уже отмеченные траты вместо
   // плана — из-за этого будущий минус не показывался как риск).
   const weeklyBalances=[];
-  for(const d of weeksSummary){
+  for(let i=0;i<weeksSummary.length;i++){
+    const d=weeksSummary[i];
     const isFuture=d.wk>curWk;
     bal=bal+d.wInc-(isFuture?d.wTot:d.wSp);
     weeklyBalances.push({wk:d.wk,bal,wTot:d.wTot});
     if(negativeWeek===null&&bal<0)negativeWeek={wk:d.wk,bal};
-    if(d.wk>=curWk)minFromNow=minFromNow===null?bal:Math.min(minFromNow,bal);
+    if(d.wk>=curWk){
+      // Запас прочности для "свободно сверх плана": баланс после этой недели
+      // должен покрывать целиком план СЛЕДУЮЩЕЙ недели, а не просто быть ≥0.
+      // Иначе трата "всех свободных" вгоняла бы ближайшую тесную неделю ровно
+      // в ноль — а это уже не запас, а хождение по грани: одна случайная трата
+      // сверх плана или доход, пришедший на день позже, и семья в минусе.
+      const nextWTot=weeksSummary[i+1]?.wTot??0;
+      const cushioned=bal-nextWTot;
+      minFromNow=minFromNow===null?cushioned:Math.min(minFromNow,cushioned);
+    }
   }
   const projectedFree=minFromNow===null?0:Math.round(minFromNow);
   return{negativeWeek,freeSpendableNow:Math.max(0,Math.min(cb.balance,projectedFree)),weeklyBalances};
