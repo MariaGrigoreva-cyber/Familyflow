@@ -323,13 +323,27 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
                   const startD2=new Date(vacStart);
                   const payD2=new Date(startD2);payD2.setDate(payD2.getDate()-3);
                   const label=`Отпускные (${vacDays} дн. с ${startD2.getDate()}.${String(startD2.getMonth()+1).padStart(2,'0')})`;
+                  // Отпуск снижает и обычную зарплату за этот месяц — иначе выходит,
+                  // что за отпускные дни платят дважды (полный оклад + отпускные).
+                  // Пересчитываем фактическую сумму зарплаты/аванса, попадающих на
+                  // месяц отпуска, той же пропорцией отработанных дней, что и в
+                  // превью выше (workedD/totalWD) — сумма совпадёт с «итого в месяц».
+                  const inc0=incomes[0];
+                  const ratio=totalWD>0?workedD/totalWD:1;
+                  const paymentOverrides={};
+                  if(inc0){
+                    buildPaymentScheduleSpan(vacY,inc0.salaryDays||[],inc0.advanceDays||[],parseInt(inc0.advancePct)||40,inc0.gross||0,inc0)
+                      .filter(p=>p.date.getMonth()===vacM&&p.date.getFullYear()===vacY)
+                      .forEach(p=>{paymentOverrides[p.displayLabel]={actualAmount:Math.round(p.amount*ratio)};});
+                  }
                   onAddExtra({
                     id:uid(),
                     label,
                     amount:vacN,
                     date:payD2.toISOString(),
                     type:'vacation',
-                    note:`Расчёт по ТК РФ ст.139. СДЗ=${Math.round(sdz2)}/день × ${vacDays} дней`
+                    note:`Расчёт по ТК РФ ст.139. СДЗ=${Math.round(sdz2)}/день × ${vacDays} дней`,
+                    paymentOverrides,
                   });
                   setVacAdded(true);
                   setTimeout(()=>setShowVacPlanner(false),1200);

@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BudgetScreen } from './Budget';
-import { buildDemoState } from '../lib/core';
+import { buildDemoState, buildPaymentScheduleSpan } from '../lib/core';
 
 const state = buildDemoState();
 const noop = () => {};
@@ -53,4 +53,25 @@ test('планировщик отпуска: ввод даты показыва�
   expect(await screen.findByText('Добавить отпускные в бюджет')).toBeInTheDocument();
   await user.click(screen.getByText('Добавить отпускные в бюджет'));
   expect(onAddExtra).toHaveBeenCalledWith(expect.objectContaining({ type: 'vacation' }));
+});
+
+test('планировщик отпуска: добавление отпускных урезает зарплату/аванс за этот месяц (не платит дважды)', async () => {
+  const user = userEvent.setup();
+  const onAddExtra = jest.fn();
+  const inc0 = state.incomes[0]; // Мария: salaryDays [10], advanceDays [25]
+  render(<BudgetScreen state={state} onEditPlanned={noop} onAddPlanned={noop} onEditPayment={noop} onAddExtra={onAddExtra} onWithdrawPiggy={noop} onSetGoal={noop} onAddGoalToPlan={noop} />);
+  await user.click(screen.getByText('✈️ Отпуск'));
+  const dateInput = document.querySelector('input[type="date"]');
+  await user.type(dateInput, '2027-06-01');
+  await user.click(await screen.findByText('Добавить отпускные в бюджет'));
+
+  const { paymentOverrides } = onAddExtra.mock.calls[0][0];
+  const juneSchedule = buildPaymentScheduleSpan(2027, inc0.salaryDays, inc0.advanceDays, inc0.advancePct, inc0.gross, inc0)
+    .filter(p => p.date.getMonth() === 5 && p.date.getFullYear() === 2027); // июнь — зарплата 10-го и аванс 25-го
+  expect(juneSchedule.length).toBeGreaterThan(0);
+  juneSchedule.forEach(p => {
+    expect(paymentOverrides[p.displayLabel]).toBeDefined();
+    expect(paymentOverrides[p.displayLabel].actualAmount).toBeLessThan(p.amount);
+    expect(paymentOverrides[p.displayLabel].actualAmount).toBeGreaterThan(0);
+  });
 });

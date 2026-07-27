@@ -430,21 +430,29 @@ useEffect(() => {
     });
   };
   const handleAddExtra=payment=>{
-    const label=payment.label||payment.name||'Доп. выплата';
+    const{paymentOverrides,...rest}=payment;
+    const label=rest.label||rest.name||'Доп. выплата';
     const ep={
-      ...payment,
-      id:payment.id||uid(),
+      ...rest,
+      id:rest.id||uid(),
       label,
-      amount:parseInt(payment.amount)||0,
-      date:payment.date||new Date().toISOString(),
-      memberId:payment.memberId||appState.members[0]?.id||'m1',
-      incomeId:payment.incomeId,
-      type:payment.type||'extra',
-      note:payment.note||'',
+      amount:parseInt(rest.amount)||0,
+      date:rest.date||new Date().toISOString(),
+      memberId:rest.memberId||appState.members[0]?.id||'m1',
+      incomeId:rest.incomeId,
+      type:rest.type||'extra',
+      note:rest.note||'',
       isExtra:true,
-      displayLabel:payment.displayLabel||label,
+      displayLabel:rest.displayLabel||label,
     };
-    setAppState(prev=>({...prev,extraPayments:[...prev.extraPayments,ep]}));
+    // Отпуск (см. Budget.jsx: планировщик отпуска) заодно урезает зарплату/аванс
+    // за месяц отпуска пропорционально отработанным дням — иначе за отпускные
+    // дни платили бы дважды (полный оклад поверх отпускных).
+    setAppState(prev=>({
+      ...prev,
+      extraPayments:[...prev.extraPayments,ep],
+      payments: paymentOverrides && Object.keys(paymentOverrides).length ? {...prev.payments,...paymentOverrides} : prev.payments,
+    }));
   };
   const handleWithdrawPiggy=({amount,catId,name,memberId})=>{
     const n=parseInt(amount)||0;
