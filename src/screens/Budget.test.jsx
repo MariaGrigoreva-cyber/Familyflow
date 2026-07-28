@@ -100,3 +100,46 @@ test('планировщик отпуска (начало после 15-го): �
   expect(paymentOverrides[juneSalary.displayLabel]).toBeDefined();
   expect(paymentOverrides[juneSalary.displayLabel].actualAmount).toBeLessThan(juneSalary.amount);
 });
+
+test('планировщик отпуска: зарплата считается от фактических дней за месяц, а не как доля от аванса (баг с переплатой)', async () => {
+  // Раньше формула брала долю отработанных дней ЗА ВЕСЬ месяц и умножала её на
+  // сумму «зарплаты» (которая сама по себе лишь фиксированный % оклада, а не
+  // «оплата второй половины по факту») — при 1 отработанном дне из 11 во второй
+  // половине месяца зарплата получалась почти в 2 раза меньше обычной, а должна
+  // быть примерно в 11 раз меньше половины оклада.
+  const user = userEvent.setup();
+  const onAddExtra = jest.fn();
+  const inc0 = state.incomes[0];
+  render(<BudgetScreen state={state} onEditPlanned={noop} onAddPlanned={noop} onEditPayment={noop} onAddExtra={onAddExtra} onWithdrawPiggy={noop} onSetGoal={noop} onAddGoalToPlan={noop} />);
+  await user.click(screen.getByText('✈️ Отпуск'));
+  const dateInput = document.querySelector('input[type="date"]');
+  await user.type(dateInput, '2027-06-16'); // с 16-го — первую половину не задевает вообще
+  await user.click(await screen.findByText('Добавить отпускные в бюджет'));
+
+  const { paymentOverrides } = onAddExtra.mock.calls[0][0];
+  const schedule = buildPaymentScheduleSpan(2027, inc0.salaryDays, inc0.advanceDays, inc0.advancePct, inc0.gross, inc0);
+  const juneAdvance = schedule.find(p => p.type === 'advance' && p.date.getMonth() === 5 && p.date.getFullYear() === 2027);
+  const juneSalary = schedule.find(p => p.type === 'salary' && p.workMonth === 6 && p.workYear === 2027);
+  expect(paymentOverrides[juneAdvance.displayLabel]).toBeUndefined(); // аванс не тронут
+
+  // Независимый расчёт «правильной» суммы за месяц по фактическим дням.
+  let totalWD = 0, vacWD = 0;
+  const start = new Date(2027, 5, 16), end = new Date(2027, 5, 29); // 14 дней с 16 июня
+  for (let day = 1; day <= 30; day++) {
+    const d = new Date(2027, 5, day);
+    if (d.getDay() === 0 || d.getDay() === 6) continue;
+    totalWD++;
+    if (d >= start && d <= end) vacWD++;
+  }
+  const workedD = totalWD - vacWD;
+  // Дневная ставка — от фактической суммы аванс+зарплата ИМЕННО этого месяца
+  // (прогрессивная шкала НДФЛ даёт разные суммы по месяцам), не от усреднённого
+  // calcNetFor.
+  const dailyRate = (juneAdvance.amount + juneSalary.amount) / totalWD;
+  const expectedSalary = Math.max(0, Math.round(dailyRate * workedD - juneAdvance.amount));
+
+  expect(paymentOverrides[juneSalary.displayLabel].actualAmount).toBe(expectedSalary);
+  // Сама регрессия: старая (ошибочная) формула здесь давала бы гораздо больше.
+  const buggyValue = Math.round(juneSalary.amount * (workedD / totalWD));
+  expect(paymentOverrides[juneSalary.displayLabel].actualAmount).toBeLessThan(buggyValue);
+});

@@ -286,28 +286,57 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
             const vacNdfl = Math.round(vacGross*0.13);
             const vacNetAmt = Math.round(vacGross-vacNdfl);
             const startD = new Date(vacStart);
+            // <input type="date"> отдаёт "YYYY-MM-DD" — new Date() парсит это как UTC-полночь,
+            // что для России (UTC+2..+12) даёт 03:00+ по местному времени. Ниже startD
+            // построчно сравнивается с датами на местную полночь (new Date(y,m,day)) —
+            // без нормализации 16 августа (местная полночь) оказывалось МЕНЬШЕ startD
+            // (16 августа 03:00), и первый день отпуска выпадал из подсчёта.
+            startD.setHours(0,0,0,0);
             const payD = new Date(startD); payD.setDate(payD.getDate()-3);
             const vacM = startD.getMonth(), vacY = startD.getFullYear();
-            const totalWD=(()=>{let c=0;const dm=new Date(vacY,vacM+1,0).getDate();for(let d=1;d<=dm;d++){const dw=new Date(vacY,vacM,d).getDay();if(dw!==0&&dw!==6)c++;}return c;})();
             const endD = new Date(startD); endD.setDate(endD.getDate()+vacDays-1);
-            let vacWD=0;for(let d=new Date(startD);d<=endD&&d.getMonth()===vacM;d.setDate(d.getDate()+1)){const dw=d.getDay();if(dw!==0&&dw!==6)vacWD++;}
-            const workedD=totalWD-vacWD;
-            const ratio=totalWD>0?workedD/totalWD:1;
-            // Аванс (обычно 25-е число) — оплата за первую половину месяца (дни 1-15).
+            const daysInMonth = new Date(vacY,vacM+1,0).getDate();
+            // Аванс и зарплата в приложении — это фиксированная доля месячного оклада
+            // (advancePct/остальное), а не отдельный расчёт «доплата за фактические дни
+            // второй половины». Поэтому долю отработанных дней за весь месяц (workedD/totalWD)
+            // нельзя просто умножать на сумму зарплаты — так получится, что 1 отработанный
+            // день во второй половине оплачивается почти как половина оклада.
+            // Правильно: сначала считаем, сколько реально положено за месяц по факту
+            // отработанных дней (дневная ставка × отработано), затем вычитаем уже
+            // выплаченный (возможно, тоже урезанный) аванс — остаток и есть зарплата.
+            // Аванс (обычно 25-е число) отдельно считаем по факту отработанных дней
+            // именно в первой половине (1-15) — не трогаем его, если отпуск эти дни не задевает.
+            let firstHalfTotalWD=0, firstHalfVacWD=0, secondHalfTotalWD=0, secondHalfVacWD=0;
+            for(let day=1; day<=daysInMonth; day++){
+              const d=new Date(vacY,vacM,day);
+              const dw=d.getDay();
+              if(dw===0||dw===6) continue;
+              const isVac=d>=startD&&d<=endD;
+              if(day<=15){ firstHalfTotalWD++; if(isVac) firstHalfVacWD++; }
+              else { secondHalfTotalWD++; if(isVac) secondHalfVacWD++; }
+            }
+            const totalWD=firstHalfTotalWD+secondHalfTotalWD;
+            const workedD=totalWD-firstHalfVacWD-secondHalfVacWD;
+            const touchesFirstHalf=firstHalfVacWD>0;
             // Зарплата (10-е число СЛЕДУЮЩЕГО месяца) — окончательный расчёт за месяц
             // целиком (ст. 136 ТК РФ), поэтому её ищем по workMonth/workYear (месяцу,
             // за который платят), а не по дате самой выплаты — иначе отпуск в августе
             // задел бы «зарплату за июль», которая просто выплачивается 10 августа.
-            // Если отпуск не касается дней 1-15 — аванс не трогаем, меняется только
-            // зарплата; если касается — меняются оба.
-            const touchesFirstHalf = startD.getDate()<=15;
             const inc0=incomes[0];
             const schedule=inc0?buildPaymentScheduleSpan(vacY,inc0.salaryDays||[],inc0.advanceDays||[],parseInt(inc0.advancePct)||40,inc0.gross||0,inc0):[];
             const salaryEntry=schedule.find(p=>p.type==='salary'&&p.workMonth===vacM+1&&p.workYear===vacY);
             const advanceEntry=schedule.find(p=>p.type==='advance'&&p.date.getMonth()===vacM&&p.date.getFullYear()===vacY);
-            const newSalaryAmt=salaryEntry?Math.round(salaryEntry.amount*ratio):null;
-            const newAdvanceAmt=(touchesFirstHalf&&advanceEntry)?Math.round(advanceEntry.amount*ratio):null;
-            const net=incomes[0]?calcNetFor(incomes[0]):0;
+            const net=incomes[0]?calcNetFor(incomes[0]):0; // усреднённый ориентир — только для строки «vs обычный» ниже
+            // Дневную ставку считаем от ФАКТИЧЕСКОЙ суммы аванс+зарплата именно этого
+            // месяца (не от усреднённого net) — из-за прогрессивной шкалы НДФЛ сумма
+            // по месяцам отличается, а calcNetFor даёт лишь усреднённую оценку за год.
+            const monthlyNetActual=(advanceEntry?.amount||0)+(salaryEntry?.amount||0);
+            const dailyRate=totalWD>0?monthlyNetActual/totalWD:0;
+            const salMonthTotal=Math.round(dailyRate*workedD); // корректная сумма за месяц целиком (аванс+зарплата)
+            const advanceRatio=firstHalfTotalWD>0?(firstHalfTotalWD-firstHalfVacWD)/firstHalfTotalWD:1;
+            const newAdvanceAmt=(touchesFirstHalf&&advanceEntry)?Math.round(advanceEntry.amount*advanceRatio):null;
+            const advancePaidForCalc=newAdvanceAmt??advanceEntry?.amount??0;
+            const newSalaryAmt=salaryEntry?Math.max(0,Math.round(salMonthTotal-advancePaidForCalc)):null;
             const totalMonth=vacNetAmt+(newSalaryAmt??0)+(newAdvanceAmt??advanceEntry?.amount??0);
             const MONTHS_SHORT=['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
             return(
