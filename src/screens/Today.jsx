@@ -251,10 +251,11 @@ export function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx,onQuick
           <span style={{color:'rgba(255,255,255,.85)'}}>−{fmtN(allSpentTotal)} <span style={{color:'rgba(255,255,255,.5)'}}>потрачено</span></span>
         </div>
         <div style={{marginTop:10}}>
-          <button onClick={()=>setShowFreeInfo(v=>!v)} style={{width:'100%',display:'flex',alignItems:'center',gap:10,background:'rgba(255,255,255,.12)',border:'none',borderRadius:12,padding:'10px 13px',cursor:'pointer',fontFamily:'inherit',boxSizing:'border-box'}}>
+          <button onClick={()=>setShowFreeInfo(v=>!v)} aria-expanded={showFreeInfo} style={{width:'100%',display:'flex',alignItems:'center',gap:10,background:'rgba(255,255,255,.12)',border:'none',borderRadius:12,padding:'10px 13px',cursor:'pointer',fontFamily:'inherit',boxSizing:'border-box'}}>
             <span style={{fontSize:14}}>💡</span>
             <span style={{flex:1,fontSize:12,color:'rgba(255,255,255,.8)',textAlign:'left'}}>Свободно сверх плана</span>
             <span style={{fontFamily:MONO,fontSize:13,fontWeight:600,color:'#fff'}}>{fmt(freeSpendableNow)}</span>
+            <span style={{fontSize:10,color:'rgba(255,255,255,.6)'}}>{showFreeInfo?'▲':'▼'}</span>
           </button>
           {showFreeInfo&&<div style={{background:'rgba(255,255,255,.08)',borderRadius:10,padding:'10px 13px',marginTop:6}}>
             <div style={{fontSize:11.5,color:'rgba(255,255,255,.75)',lineHeight:'17px',marginBottom:12}}>
@@ -288,10 +289,11 @@ export function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx,onQuick
           </div>}
         </div>
         {totalSaved>0&&<div data-tour="1" style={{...glow(1)}}>
-          <button onClick={()=>setShowPiggyInfo(v=>!v)} style={{width:'100%',display:'flex',alignItems:'center',gap:10,marginTop:14,background:'rgba(255,255,255,.12)',border:'none',borderRadius:12,padding:'10px 13px',cursor:'pointer',fontFamily:'inherit',boxSizing:'border-box'}}>
+          <button onClick={()=>setShowPiggyInfo(v=>!v)} aria-expanded={showPiggyInfo} style={{width:'100%',display:'flex',alignItems:'center',gap:10,marginTop:14,background:'rgba(255,255,255,.12)',border:'none',borderRadius:12,padding:'10px 13px',cursor:'pointer',fontFamily:'inherit',boxSizing:'border-box'}}>
             <PiggyLogo size={14}/>
             <span style={{flex:1,fontSize:12,color:'rgba(255,255,255,.8)',textAlign:'left'}}>Копилка — резерв, не тратим</span>
             <span style={{fontFamily:MONO,fontSize:13,fontWeight:600,color:'#fff'}}>{fmt(totalSaved)}</span>
+            <span style={{fontSize:10,color:'rgba(255,255,255,.6)'}}>{showPiggyInfo?'▲':'▼'}</span>
           </button>
           {showPiggyInfo&&<div style={{background:'rgba(255,255,255,.08)',borderRadius:10,padding:'10px 13px',marginTop:6}}>
             <div style={{fontSize:11.5,color:'rgba(255,255,255,.75)',lineHeight:'17px',marginBottom:8}}>Эти деньги переведены на отдельный накопительный счёт. Они не входят в «остаток на руках», потому что тратить их нельзя — это ваш резерв.</div>
@@ -358,7 +360,7 @@ export function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx,onQuick
           );
         })}
       </div>}
-      <button onClick={onAdd} style={{width:'100%',padding:13,borderRadius:12,border:'none',background:C.orange,color:'#fff',fontSize:13.5,fontWeight:600,cursor:'pointer',fontFamily:'inherit',marginTop:16}}>+ Добавить запись</button>
+      <button onClick={onAdd} style={{width:'100%',padding:13,borderRadius:12,border:'none',background:C.orange,color:'#fff',fontSize:13.5,fontWeight:600,cursor:'pointer',fontFamily:'inherit',marginTop:16}}>+ Добавить запись на эту неделю (нед. {parseWeekKey(week).week})</button>
       {weekTxs.length>0&&<>
         <SecTitle>ЗАПИСИ НЕДЕЛИ</SecTitle>
         {weekTxs.map((tx,i)=>{
@@ -375,6 +377,7 @@ export function TodayScreen({state,onToggle,onAdd,onEditPayment,onEditTx,onQuick
         })}
       </>}
       <SecTitle right={upcoming.length>0||doneCount>0?`${doneCount} / ${doneCount+upcoming.length} ✓`:null}>ПЛАТЕЖИ НЕДЕЛИ</SecTitle>
+      {upcoming.length>0&&<div style={{fontSize:11.5,color:C.muted,marginTop:-6,marginBottom:10,lineHeight:1.4}}>Не забудьте отметить галочкой, когда переведёте деньги — от этого зависит точность остатка на руках.</div>}
       {upcoming.length===0
         ?<div style={{...s.card,textAlign:'center',padding:24,background:C.greenL,border:`1px solid ${C.greenB}`}}>
           <div style={{fontSize:28,marginBottom:8}}>🎉</div>

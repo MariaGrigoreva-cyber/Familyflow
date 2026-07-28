@@ -97,7 +97,7 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
           <span>ДОХОД {fmtN(totalYearlyIncome)}</span>
         </div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginTop:16}}>
-          <Stat label="профицит / год" value={`${profit>=0?'+':'−'}${fmtN(Math.abs(profit))}`} color={C.green} valueColor={profit>=0?C.green:C.red}/>
+          <Stat label={`${profit>=0?'профицит':'дефицит'} / год`} value={`${profit>=0?'+':'−'}${fmtN(Math.abs(profit))}`} color={profit>=0?C.green:C.red} valueColor={profit>=0?C.green:C.red}/>
           <Stat label={<>копилка / год <PiggyLogo size={11} style={{marginLeft:2}}/></>} value={fmtN(piggyYearly)} color={C.yellow}/>
         </div>
         {fundSum>0&&<div style={{marginTop:16}}>

@@ -1,7 +1,7 @@
 // FamilyFlow — экран онбординг
 import React, { useState, useEffect } from 'react';
 import {C,MONO,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,FUND_LABELS,getCatFund,PIE_COLORS,PRIVACY_URL,TERMS_URL,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
-import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,EmojiPicker,CatIcon} from '../lib/ui';
+import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,DaySelect,Numpad,EmojiPicker,CatIcon} from '../lib/ui';
 import {alertAsync} from '../lib/confirm';
 
 export function EntryScreen({onDemo,onSetup,onLoginClick}){
@@ -58,7 +58,11 @@ export function Onboarding({onDone}){
   const toggleCatDay=(id,d)=>{const cur=selections.find(s=>s.id===id)?.days||[];updSel(id,'days',cur.includes(d)?cur.filter(x=>x!==d):[...cur,d].sort((a,b)=>a-b));};
   const removeMember=id=>{if(members.length<=1){alertAsync('Должен остаться хотя бы один участник');return;}setMembers(p=>p.filter(m=>m.id!==id));setIncomes(p=>p.filter(i=>i.memberId!==id));};
   const addMember=()=>{const newId=uid();const tint=members.length%2===0?'oklch(0.9 0.04 40)':'oklch(0.9 0.04 85)';setMembers(p=>[...p,{id:newId,name:'',avatar:'🧑',color:tint}]);setIncomes(p=>[...p,{id:uid(),memberId:newId,gross:'',salaryDays:[],advanceDays:[],advancePct:'40'}]);};
-  const activeMembers=members.filter(m=>m.name.trim());
+  // Имя участника необязательно — если его не ввели, дальше по шагам (доходы,
+  // категории) участник всё равно активен и получает подставное имя, чтобы
+  // страница с доходами не оставалась пустой и недоступной для ввода данных.
+  const dispName=m=>m.name.trim()||(members.length===1?'Я':`Участник ${members.findIndex(x=>x.id===m.id)+1}`);
+  const activeMembers=members;
   const memberIncomes=incomes.filter(i=>activeMembers.find(m=>m.id===i.memberId));
   // Автораспределение сумм по выбранным категориям: доход делится по методике 20/50/30
   // (Защита/Жизнь/Комфорт), а бюджет каждого фонда — поровну между выбранными в нём
@@ -91,16 +95,18 @@ export function Onboarding({onDone}){
     });
   };
   const finish=()=>{
-    const bm=members.filter(m=>m.name.trim());
+    // Пустое имя участника не отбрасывает его из семьи — подставляем то же
+    // имя, что уже показывали пользователю на шагах 2-3 (dispName), чтобы
+    // никто не «потерялся» только из-за пропущенного поля.
+    const finalMembers=members.map(m=>({...m,name:dispName(m)}));
     const bp=selections.map(setup=>{
       const cat=DEFAULT_CATS.find(c=>c.id===setup.catId);
       const rep=setup.repeat||'weekly';
       const onceDate=rep==='once'?new Date(setup.onceYear||new Date().getFullYear(),
         (setup.onceMonth||new Date().getMonth()+1)-1,setup.onceDay||new Date().getDate()).toISOString():undefined;
       return{id:uid(),catId:setup.catId,name:cat?.name||setup.catId,amount:parseInt(setup.amount)||0,
-        memberId:setup.memberId||bm[0]?.id||'m1',repeat:rep,days:setup.days||[],onceDate};
+        memberId:setup.memberId||finalMembers[0]?.id||'m1',repeat:rep,days:setup.days||[],onceDate};
     }).filter(p=>p.amount>0);
-    const finalMembers=bm.length?bm:[{id:'m1',name:'Я',avatar:'👤',color:C.orange}];
     const bi=incomes.filter(i=>finalMembers.find(m=>m.id===i.memberId)).map(i=>({...i,gross:parseInt(i.gross)||0,net:calcNetFor(i)}));
     onDone({familyName:familyName||'Моя семья',startBalance:parseInt(startBalance)||0,members:finalMembers,incomes:bi,planned:bp,customCats:[],payments:{},extraPayments:[],transactions:[]});
   };
@@ -160,7 +166,7 @@ export function Onboarding({onDone}){
             <div key={inc.id} style={{marginBottom:24}}>
               <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:14}}>
                 <span style={{width:34,height:34,borderRadius:'50%',background:m?.color||C.cream,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,flexShrink:0}}>{m?.avatar}</span>
-                <span style={{fontSize:15,fontWeight:600,color:C.text}}>{m?.name||`Участник ${idx+1}`}</span>
+                <span style={{fontSize:15,fontWeight:600,color:C.text}}>{m?dispName(m):`Участник ${idx+1}`}</span>
               </div>
               {/* Тип дохода */}
               <div style={{display:'flex',flexDirection:'column',gap:6,marginBottom:12}}>
@@ -227,9 +233,9 @@ export function Onboarding({onDone}){
                   })}
                 </div>
               )}
-              <DayPicker selected={inc.salaryDays} onToggle={d=>updInc(inc.id,'salaryDays',inc.salaryDays.includes(d)?inc.salaryDays.filter(x=>x!==d):[...inc.salaryDays,d].sort((a,b)=>a-b))} title={iType==='employed'?'ДЕНЬ ЗАРПЛАТЫ':'ДЕНЬ ПОСТУПЛЕНИЯ'}/>
+              <DaySelect value={inc.salaryDays[0]} onChange={d=>updInc(inc.id,'salaryDays',d?[d]:[])} title={iType==='employed'?'ДЕНЬ ЗАРПЛАТЫ':'ДЕНЬ ПОСТУПЛЕНИЯ'}/>
               {iType==='employed'&&<>
-                <DayPicker selected={inc.advanceDays} onToggle={d=>updInc(inc.id,'advanceDays',inc.advanceDays.includes(d)?inc.advanceDays.filter(x=>x!==d):[...inc.advanceDays,d].sort((a,b)=>a-b))} title="ДЕНЬ АВАНСА"/>
+                <DaySelect value={inc.advanceDays[0]} onChange={d=>updInc(inc.id,'advanceDays',d?[d]:[])} title="ДЕНЬ АВАНСА"/>
                 <div style={{marginBottom:8}}>
                   <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
                     <span style={{fontSize:12.5,color:'var(--c-muted2)',flex:1}}>Аванс</span>
@@ -313,7 +319,8 @@ export function Onboarding({onDone}){
           {selections.map(setup=>{
             const cat=DEFAULT_CATS.find(c=>c.id===setup.catId);const isOpen=openCat===setup.id;const rep=setup.repeat||'weekly';
             const dupCount=selections.filter(s=>s.catId===setup.catId).length;
-            const memberName=activeMembers.find(m=>m.id===setup.memberId)?.name;
+            const memberFor=activeMembers.find(m=>m.id===setup.memberId);
+            const memberName=memberFor&&dispName(memberFor);
             return(
               <div key={setup.id} style={{border:`1px solid ${C.border}`,background:'var(--c-surface)',borderRadius:14,marginBottom:8,overflow:'hidden'}}>
                 <div style={{display:'flex',alignItems:'center',gap:11,padding:'12px 15px'}}>
@@ -359,7 +366,7 @@ export function Onboarding({onDone}){
                   <div style={{display:'flex',alignItems:'center',gap:8}}>
                     <span style={{fontSize:12,color:'var(--c-muted2)',flex:1}}>Кто платит</span>
                     <div style={{display:'flex',gap:6}}>
-                      {activeMembers.map(m=><button key={m.id} onClick={()=>updSel(setup.id,'memberId',m.id)} style={{display:'flex',alignItems:'center',gap:5,padding:'5px 10px',borderRadius:8,border:`1px solid ${(setup.memberId||activeMembers[0]?.id)===m.id?C.orange:C.border}`,background:(setup.memberId||activeMembers[0]?.id)===m.id?C.orangeL:'var(--c-surface)',color:(setup.memberId||activeMembers[0]?.id)===m.id?C.orangeD:'var(--c-muted2)',fontSize:12,fontWeight:(setup.memberId||activeMembers[0]?.id)===m.id?600:400,cursor:'pointer',fontFamily:'inherit'}}>{m.avatar} {m.name}</button>)}
+                      {activeMembers.map(m=><button key={m.id} onClick={()=>updSel(setup.id,'memberId',m.id)} style={{display:'flex',alignItems:'center',gap:5,padding:'5px 10px',borderRadius:8,border:`1px solid ${(setup.memberId||activeMembers[0]?.id)===m.id?C.orange:C.border}`,background:(setup.memberId||activeMembers[0]?.id)===m.id?C.orangeL:'var(--c-surface)',color:(setup.memberId||activeMembers[0]?.id)===m.id?C.orangeD:'var(--c-muted2)',fontSize:12,fontWeight:(setup.memberId||activeMembers[0]?.id)===m.id?600:400,cursor:'pointer',fontFamily:'inherit'}}>{m.avatar} {dispName(m)}</button>)}
                     </div>
                   </div>
                 </div>}
@@ -401,7 +408,7 @@ export function Onboarding({onDone}){
         </div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:18}}>
           <Stat label="стартовый баланс" value={fmtN(sb)} color={C.borderS}/>
-          <Stat label="профицит / мес" value={`${profit>=0?'+':'−'}${fmtN(Math.abs(profit))}`} color={C.green} valueColor={profit>=0?C.green:C.red}/>
+          <Stat label={`${profit>=0?'профицит':'дефицит'} / мес`} value={`${profit>=0?'+':'−'}${fmtN(Math.abs(profit))}`} color={profit>=0?C.green:C.red} valueColor={profit>=0?C.green:C.red}/>
         </div>
         {fundBreakdown.length>0&&<div style={{display:'flex',flexDirection:'column',marginBottom:18}}>
           {fundBreakdown.map((g,i)=>(

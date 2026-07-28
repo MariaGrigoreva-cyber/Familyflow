@@ -58,7 +58,7 @@ test('«Настроить свой бюджет» запускает онбор
   await user.click(screen.getByText('Открыть Семейный поток →'));
 
   expect(await screen.findByText('ОСТАТОК НА РУКАХ')).toBeInTheDocument();
-  expect(screen.getByText('Сегодня')).toBeInTheDocument();
+  expect(screen.getByText(/^Сегодня/)).toBeInTheDocument();
 });
 
 test('переключение вкладок через нижнюю панель', async () => {

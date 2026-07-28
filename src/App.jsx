@@ -614,8 +614,8 @@ useEffect(() => {
     <div style={shell}>
       <div style={{background:'var(--c-surface)',flexShrink:0,position:'sticky',top:0,zIndex:50}}>
         <div style={{padding:'14px 20px 12px',display:'flex',justifyContent:'space-between',alignItems:'baseline'}}>
-          <span style={{fontSize:20,fontWeight:600,letterSpacing:-.2,color:C.text}}>{TAB_TITLES[tab]}</span>
-          <span style={{fontFamily:MONO,fontSize:11,color:C.muted}}>{(appState.familyName||'').toUpperCase()}{appState.familyName?' · НЕД ':''}{getISOWeek(new Date()).week}</span>
+          <span style={{fontSize:20,fontWeight:600,letterSpacing:-.2,color:C.text}}>{tab==='today'?`${TAB_TITLES[tab]} / Нед. ${getISOWeek(new Date()).week}`:TAB_TITLES[tab]}</span>
+          <span style={{fontFamily:MONO,fontSize:11,color:C.muted}}>{(appState.familyName||'').toUpperCase()}{appState.familyName&&tab!=='today'?' · НЕД ':''}{tab!=='today'?getISOWeek(new Date()).week:''}</span>
         </div>
         {cloudError&&(
           <div style={{display:'flex',alignItems:'center',gap:8,background:C.yellowL,borderTop:`1px solid ${C.yellowB}`,borderBottom:`1px solid ${C.yellowB}`,padding:'7px 14px'}}>

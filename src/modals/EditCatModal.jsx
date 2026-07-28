@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { C, MONTH_FULL, MONTH_SHORT, REPEAT_OPTS, getCat } from '../lib/core';
 import { s, Btn, Modal, DayPicker, CatIcon } from '../lib/ui';
 import { confirmAsync, alertAsync } from '../lib/confirm';
@@ -16,6 +16,7 @@ export function EditCatModal({visible,item,members,onClose,onSave,onDelete,custo
   const[onceDay,setOnceDay]=useState(now.getDate());
   const[onceMonth,setOnceMonth]=useState(now.getMonth()+1);
   const[onceYear,setOnceYear]=useState(now.getFullYear());
+  const amountRef=useRef(null);
   useEffect(()=>{
     if(item){
       setAmount(String(item.amount||0));
@@ -58,9 +59,9 @@ export function EditCatModal({visible,item,members,onClose,onSave,onDelete,custo
           </div>
         </>}
         <div style={s.card}>
-          <div style={{...s.row,borderBottom:`1px solid ${C.border}`,justifyContent:'space-between'}}>
+          <div onClick={()=>amountRef.current?.focus()} style={{...s.row,borderBottom:`1px solid ${C.border}`,justifyContent:'space-between',cursor:'text'}}>
             <span style={{fontSize:11,color:C.muted}}>Сумма</span>
-            <input type="text" inputMode="numeric" value={amount} onChange={e=>setAmount(e.target.value)} style={{width:80,textAlign:'right',border:'none',fontSize:13,outline:'none',fontFamily:'inherit'}}/>
+            <input ref={amountRef} type="text" inputMode="numeric" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="0" style={{width:90,textAlign:'right',border:'none',borderBottom:`1.5px dashed ${C.borderS}`,fontSize:14,fontWeight:600,outline:'none',fontFamily:'inherit',padding:'2px 0'}}/>
           </div>
           <div style={{...s.row,borderBottom:'none',justifyContent:'space-between'}}>
             <span style={{fontSize:11,color:C.muted}}>Кто платит</span>

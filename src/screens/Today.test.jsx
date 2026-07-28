@@ -19,7 +19,7 @@ test('«+ Добавить запись» вызывает onAdd', async () => {
   const user = userEvent.setup();
   const onAdd = jest.fn();
   render(<TodayScreen state={state} onToggle={noop} onAdd={onAdd} onEditPayment={noop} freeSpendableNow={freeSpendableNow} weeklyBalances={weeklyBalances} />);
-  await user.click(screen.getByText('+ Добавить запись'));
+  await user.click(screen.getByText(/\+ Добавить запись/));
   expect(onAdd).toHaveBeenCalled();
 });
 

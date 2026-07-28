@@ -75,6 +75,19 @@ const DayPicker=({selected,onToggle,title})=>(
     </div>
   </div>
 );
+// DaySelect — выпадающий список 1-31 для одного конкретного дня месяца (день
+// зарплаты/аванса и т.п.) — в отличие от DayPicker не занимает весь экран
+// сеткой из 31 кнопки, когда нужно выбрать всего одно число.
+const DaySelect=({value,onChange,title})=>(
+  <div style={{marginBottom:12}}>
+    {title&&<div style={{fontFamily:MONO,fontSize:9.5,color:C.muted,textTransform:'uppercase',letterSpacing:1,marginBottom:6}}>{title}</div>}
+    <select value={value||''} onChange={e=>onChange(e.target.value?parseInt(e.target.value):null)}
+      style={{...s.input,width:'auto',minWidth:120,cursor:'pointer',fontFamily:MONO,fontSize:13}}>
+      <option value="">Не выбрано</option>
+      {Array.from({length:31},(_,i)=>i+1).map(d=><option key={d} value={d}>{d} число</option>)}
+    </select>
+  </div>
+);
 const Numpad=({value,onChange})=>{
   const press=k=>{if(k==='del'){onChange(v=>v.slice(0,-1));return;}if((value||'').length>=9)return;onChange(v=>(v||'')+k);};
   const disp=value?new Intl.NumberFormat('ru-RU').format(parseInt(value)||0):'0';
@@ -127,4 +140,4 @@ const ProInline=({label='Доступно в Pro',onUpgrade})=>(
 // ════════════════════════════════════════════════════════════════════════
 // CONSENT
 
-export {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,EmojiPicker,ProLock,ProInline,PiggyLogo,CatIcon};
+export {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,DaySelect,Numpad,EmojiPicker,ProLock,ProInline,PiggyLogo,CatIcon};
