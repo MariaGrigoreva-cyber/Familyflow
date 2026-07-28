@@ -13,6 +13,18 @@ const s={
 };
 const merge=(...styles)=>Object.assign({},...styles.filter(Boolean));
 
+// Логотип приложения (копилка) — используется вместо 🐷-эмодзи везде, где речь
+// идёт именно о фиче «Копилка»: юникод-эмодзи выглядит по-разному на разных
+// платформах, а свой логотип — всегда одинаково и это же брендинг приложения.
+const PiggyLogo=({size=16,style:st})=>(
+  <img src="/icons/icon-192.png" alt="" width={size} height={size}
+    style={{borderRadius:'22%',display:'inline-block',verticalAlign:'middle',flexShrink:0,...st}}/>
+);
+// Иконка категории — для «Копилки» всегда логотип приложения, а не 🐷-эмодзи,
+// для остальных категорий — их обычный emoji (как и раньше).
+const CatIcon=({cat,size=16,fallback='📦'})=>
+  cat?.id==='piggy'?<PiggyLogo size={size}/>:<>{cat?.emoji||fallback}</>;
+
 const Btn=({label,onClick,ghost,disabled,style:st})=>(
   <button onClick={disabled?undefined:onClick} disabled={disabled}
     style={merge(s.btn,ghost&&{background:'transparent',border:`1px solid ${C.border}`,color:C.orange},disabled&&{opacity:.4,cursor:'default'},st)}>
@@ -115,4 +127,4 @@ const ProInline=({label='Доступно в Pro',onUpgrade})=>(
 // ════════════════════════════════════════════════════════════════════════
 // CONSENT
 
-export {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,EmojiPicker,ProLock,ProInline};
+export {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,EmojiPicker,ProLock,ProInline,PiggyLogo,CatIcon};

@@ -1,7 +1,7 @@
 // FamilyFlow — экран Здоровье бюджета
 import React, { useState, useEffect, useMemo } from 'react';
 import {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBudgetMetrics,computeWeeksSummary,projectCashFlow,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
-import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,ProLock} from '../lib/ui';
+import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,ProLock,PiggyLogo} from '../lib/ui';
 
 export function HealthScreen({state,isPro=true,onUpgrade}){
   const[showScoreInfo,setShowScoreInfo]=useState(false);
@@ -59,7 +59,7 @@ export function HealthScreen({state,isPro=true,onUpgrade}){
     [freeCash>0&&!isDeficit?20:0,20,isDeficit?'Свободные средства не в счёт — годовой план в минусе':freeCash>0?'Есть свободные средства':'Нет свободных средств'],
     [cushionScore,20,`Копилка — ${Math.round(cushionMonths*10)/10} мес. расходов`],
   ];
-  const catData=allCats.map((cat,i)=>({label:cat.name,emoji:cat.emoji,value:planned.filter(p=>p.catId===cat.id).reduce((s,p)=>s+monthlyOf(p),0),color:PIE_COLORS[i%PIE_COLORS.length]})).filter(c=>c.value>0).sort((a,b)=>b.value-a.value);
+  const catData=allCats.map((cat,i)=>({label:cat.name,catId:cat.id,emoji:cat.emoji,value:planned.filter(p=>p.catId===cat.id).reduce((s,p)=>s+monthlyOf(p),0),color:PIE_COLORS[i%PIE_COLORS.length]})).filter(c=>c.value>0).sort((a,b)=>b.value-a.value);
   const totalExp=catData.reduce((s,c)=>s+c.value,0);
   const risks=[];
   if(freeCash<0)risks.push({icon:'🚨',text:`Расходы превышают доходы на ${fmt(Math.abs(freeCash))}/мес`,level:'red'});
@@ -127,14 +127,14 @@ export function HealthScreen({state,isPro=true,onUpgrade}){
         <Stat label="остаток / мес" value={`${freeCash>=0?'+':'−'}${fmtN(Math.abs(freeCash))}`} color={C.green} valueColor={freeCash>=0?C.green:C.red}/>
         <Stat label="сбережения" value={`${savingsRate}%`} color={C.green}/>
         <Stat label="расходы" value={`${expenseRatio}% дохода`} color={C.borderS}/>
-        <Stat label="копилка 🐷" value={`${monthlyExp>0?Math.round(cushion/monthlyExp*10)/10:0} мес`} color={C.yellow}/>
+        <Stat label={<>копилка <PiggyLogo size={11} style={{marginLeft:2}}/></>} value={`${monthlyExp>0?Math.round(cushion/monthlyExp*10)/10:0} мес`} color={C.yellow}/>
       </div>
       {/* Накопления Piggy Bank */}
       {(piggyActual>0||piggyMonthly>0)&&<>
         <SecTitle>НАКОПЛЕНИЯ</SecTitle>
         <div style={{...s.card,background:C.greenL,border:`1px solid ${C.greenB}`,padding:'14px 16px'}}>
           <div style={{display:'flex',alignItems:'center',gap:10}}>
-            <span style={{fontSize:22}}>🐷</span>
+            <PiggyLogo size={22}/>
             <div style={{flex:1}}>
               <div style={{fontSize:13.5,fontWeight:500,color:C.greenD}}>Копилка (Piggy Bank)</div>
               <div style={{fontSize:11,color:C.greenD,marginTop:1}}>накопительный счёт №2</div>
@@ -162,7 +162,7 @@ export function HealthScreen({state,isPro=true,onUpgrade}){
         {catData.slice(0,7).map((d,i)=>(
           <div key={i} style={{display:'flex',alignItems:'center',gap:10}}>
             <span style={{width:8,height:8,borderRadius:2,background:d.color,flexShrink:0}}/>
-            <span style={{fontSize:12.5,flex:1,color:C.text}}>{d.emoji} {d.label}</span>
+            <span style={{fontSize:12.5,flex:1,color:C.text}}>{d.catId==='piggy'?<PiggyLogo size={13} style={{marginRight:2}}/>:d.emoji} {d.label}</span>
             <span style={{fontFamily:MONO,fontSize:11.5,color:C.muted}}>{fmtN(d.value)}</span>
             <span style={{fontFamily:MONO,fontSize:11.5,fontWeight:600,color:C.text,width:36,textAlign:'right'}}>{totalExp>0?Math.round(d.value/totalExp*100):0}%</span>
           </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { C, MONTH_FULL, MONTH_SHORT, REPEAT_OPTS, getCat } from '../lib/core';
-import { s, Btn, Modal, DayPicker } from '../lib/ui';
+import { s, Btn, Modal, DayPicker, CatIcon } from '../lib/ui';
 import { confirmAsync, alertAsync } from '../lib/confirm';
 
 const EMOJIS=['🍽️','💄','👗','🏠','🎓','🏦','💳','🚌','🎬','🎁','💊','🏋️','🐾','🐷','📦','🛒','🚗','✈️','🎮','📚','🌿','🎨','💻','📱','🏊','🚴','🎯','🔧','🌸','🍕','☕','🧴','🎸','💈'];
@@ -47,7 +47,7 @@ export function EditCatModal({visible,item,members,onClose,onSave,onDelete,custo
     onClose();
   };
   return(
-    <Modal visible={visible} onClose={onClose} title={`${isNew?catEmoji:cat.emoji||'📦'} ${isNew?catName||'Новая категория':item.name}`} onSave={doSave}>
+    <Modal visible={visible} onClose={onClose} title={<>{isNew?catEmoji:<CatIcon cat={cat}/>} {isNew?catName||'Новая категория':item.name}</>} onSave={doSave}>
       <div style={{padding:16,paddingBottom:40}}>
         {isNew&&<>
           <div style={{fontSize:10,color:C.muted,textTransform:'uppercase',letterSpacing:.5,marginBottom:6}}>Название</div>

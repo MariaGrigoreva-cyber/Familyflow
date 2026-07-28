@@ -1,7 +1,7 @@
 // FamilyFlow — экран Бюджет
 import React, { useState, useEffect, useMemo } from 'react';
 import {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentScheduleSpan,regenWeeksKeepDone,computeBalances,computeBudgetMetrics,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,paymentTypeLabel,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
-import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad} from '../lib/ui';
+import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,PiggyLogo,CatIcon} from '../lib/ui';
 
 export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onAddExtra,onWithdrawPiggy,onSetGoal,onAddGoalToPlan}){
   const[showVacPlanner,setShowVacPlanner]=useState(false);
@@ -98,7 +98,7 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
         </div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginTop:16}}>
           <Stat label="профицит / год" value={`${profit>=0?'+':'−'}${fmtN(Math.abs(profit))}`} color={C.green} valueColor={profit>=0?C.green:C.red}/>
-          <Stat label="копилка / год 🐷" value={fmtN(piggyYearly)} color={C.yellow}/>
+          <Stat label={<>копилка / год <PiggyLogo size={11} style={{marginLeft:2}}/></>} value={fmtN(piggyYearly)} color={C.yellow}/>
         </div>
         {fundSum>0&&<div style={{marginTop:16}}>
           <div style={{display:'flex',height:10,borderRadius:5,overflow:'hidden'}}>
@@ -117,7 +117,7 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
         if(totalSaved<=0)return null;
         return(
           <button onClick={onWithdrawPiggy} style={{...s.card,display:'flex',alignItems:'center',gap:9,width:'100%',textAlign:'left',cursor:'pointer',background:C.greenL,border:`1px solid ${C.greenB}`,fontFamily:'inherit',boxSizing:'border-box'}}>
-            <span style={{fontSize:18}}>🐷</span>
+            <PiggyLogo size={18}/>
             <div style={{flex:1}}>
               <div style={{fontSize:12,fontWeight:600,color:C.greenD}}>В копилке {fmt(totalSaved)}</div>
               <div style={{fontSize:10,color:C.greenD}}>Нажмите, чтобы снять и потратить</div>
@@ -404,7 +404,7 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
       </div>
       {catTotals.map(({cat,monthly,yearly,hasOnce},idx)=>(
         <button key={cat.id} onClick={()=>onEditPlanned(planned.find(p=>p.catId===cat.id))} style={{display:'flex',alignItems:'center',gap:11,padding:'7px 0',width:'100%',textAlign:'left',cursor:'pointer',background:'none',border:'none',borderBottom:idx<catTotals.length-1?`1px dashed ${C.border}`:'none',fontFamily:'inherit'}}>
-          <span style={{width:26,height:26,borderRadius:8,background:cat.color,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,flexShrink:0}}>{cat.emoji}</span>
+          <span style={{width:26,height:26,borderRadius:8,background:cat.color,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,flexShrink:0}}><CatIcon cat={cat}/></span>
           <div style={{flex:1}}>
             <div style={{display:'flex',justifyContent:'space-between'}}>
               <span style={{fontSize:13.5,fontWeight:500,color:C.text}}>{cat.name}</span>

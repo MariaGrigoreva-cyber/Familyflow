@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { C, weekLabel, getCat } from '../lib/core';
-import { s, Btn, Modal } from '../lib/ui';
+import { s, Btn, Modal, CatIcon } from '../lib/ui';
 import { confirmAsync, alertAsync } from '../lib/confirm';
 
 export function EditTxModal({visible,item,onClose,onSave,onDelete,members,customCats=[]}){
@@ -27,7 +27,7 @@ export function EditTxModal({visible,item,onClose,onSave,onDelete,members,custom
   };
   return(
     <Modal visible={visible} onClose={onClose}
-      title={`${cat?.emoji||'📦'} ${item.name||cat?.name||'Запись'}`}
+      title={<><CatIcon cat={cat}/> {item.name||cat?.name||'Запись'}</>}
       onSave={doSave}>
       <div style={{padding:16,paddingBottom:40}}>
         <div style={{...s.card,background:isIncome?C.greenL:C.orangeL,border:`1px solid ${isIncome?C.greenB:C.orangeB}`,marginBottom:12,padding:10}}>

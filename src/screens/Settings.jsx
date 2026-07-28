@@ -1,10 +1,11 @@
 // FamilyFlow — экран Настройки
 import React, { useState, useEffect } from 'react';
 import {C,MONO,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,PRIVACY_URL,TERMS_URL,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
-import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,EmojiPicker,ProInline} from '../lib/ui';
+import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,EmojiPicker,ProInline,CatIcon} from '../lib/ui';
 import {isLoggedIn,logout,register,login,familyMe,familyInvite,familyJoin,errText,changePassword,deleteAccount,resetRequest,resetConfirm,saveCloudState,billingStatus,billingCheckout,billingCancelAutoRenew,billingRefund} from '../api';
 import {getPushState,enablePush,disablePush} from '../push';
 import {confirmAsync,alertAsync} from '../lib/confirm';
+import {exportFfStateAsXlsx,importFfStateFromXlsxArrayBuffer} from '../lib/excelBackup';
 
 const emailOk = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
@@ -26,12 +27,12 @@ export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncom
   const[lastExportAt,setLastExportAt]=useState(()=>{try{return localStorage.getItem('ff_last_export');}catch{return null;}});
   const doExport=()=>{
     try{
-      const data=localStorage.getItem('ff_state')||'{}';
-      const blob=new Blob([data],{type:'application/json'});
+      const raw=localStorage.getItem('ff_state')||'{}';
+      const blob=exportFfStateAsXlsx(JSON.parse(raw));
       const url=URL.createObjectURL(blob);
       const a=document.createElement('a');
       a.href=url;
-      a.download=`familyflow-backup-${new Date().toISOString().slice(0,10)}.json`;
+      a.download=`familyflow-backup-${new Date().toISOString().slice(0,10)}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
       const now=new Date().toISOString();
@@ -109,7 +110,7 @@ export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncom
               onClick={()=>onEditCat({id:uid(),catId:cat.id,name:cat.name,amount:0,memberId:members[0]?.id||'m1',repeat:'weekly',days:[],isNew:true,addedAt:new Date().toISOString()})}
               style={{display:'flex',flexDirection:'column',alignItems:'center',gap:6,background:'none',border:'none',cursor:'pointer',fontFamily:'inherit',opacity:active?1:.55}}>
               <div style={{position:'relative',width:54,height:54,borderRadius:16,background:active?cat.color:'var(--c-surface)',border:active?'none':`1.5px dashed ${C.borderS}`,boxSizing:'border-box',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24}}>
-                {cat.emoji}
+                <CatIcon cat={cat} size={24}/>
                 {active&&<span style={{position:'absolute',top:-5,right:-5,fontFamily:MONO,fontSize:9,fontWeight:600,color:'#fff',background:C.orange,borderRadius:8,padding:'2px 5px'}}>×{count}</span>}
               </div>
               <span style={{fontSize:10.5,fontWeight:500,color:active?C.text:'var(--c-muted2)'}}>{cat.name}</span>
@@ -129,7 +130,7 @@ export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncom
           const rep=REPEAT_OPTS.find(r=>r.id===p.repeat);
           return(
             <button key={p.id} onClick={()=>onEditCat(p)} style={{display:'flex',alignItems:'center',gap:11,padding:'9px 0',width:'100%',textAlign:'left',cursor:'pointer',background:'none',border:'none',borderBottom:idx<planned.length-1?`1px dashed ${C.border}`:'none',fontFamily:'inherit'}}>
-              <span style={{width:26,height:26,borderRadius:8,background:cat?.color||C.cream,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,flexShrink:0}}>{cat?.emoji||'📦'}</span>
+              <span style={{width:26,height:26,borderRadius:8,background:cat?.color||C.cream,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,flexShrink:0}}><CatIcon cat={cat}/></span>
               <div style={{flex:1,minWidth:0}}><div style={{fontSize:13.5,fontWeight:500,color:C.text}}>{p.name}</div><div style={{fontFamily:MONO,fontSize:10,color:C.muted,marginTop:1}}>{rep?.label}{p.days?.length>0?` · ${p.days.join(',')}`:''}{showMember?` · ${mem?.name}`:''}</div></div>
               <span style={{fontFamily:MONO,fontSize:12.5,fontWeight:600,color:C.text,marginRight:4}}>{fmtN(p.amount)}</span>
               <span style={{fontSize:13,color:C.muted}}>›</span>
@@ -188,7 +189,7 @@ export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncom
         <span style={{fontSize:17}}>⬇️</span>
         <div style={{flex:1}}>
           <div style={{fontSize:13.5,color:C.text}}>Экспорт данных</div>
-          <div style={{fontSize:11,color:C.muted,marginTop:1}}>скачать файл JSON с полной копией</div>
+          <div style={{fontSize:11,color:C.muted,marginTop:1}}>скачать файл Excel с полной копией</div>
         </div>
         <span style={{fontSize:13,color:C.muted}}>›</span>
       </button>
@@ -196,22 +197,25 @@ export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncom
         <span style={{fontSize:17}}>⬆️</span>
         <div style={{flex:1}}>
           <div style={{fontSize:13.5,color:C.text}}>Импорт данных</div>
-          <div style={{fontSize:11,color:C.muted,marginTop:1}}>восстановить из файла JSON</div>
+          <div style={{fontSize:11,color:C.muted,marginTop:1}}>восстановить из файла Excel</div>
         </div>
         <span style={{fontSize:13,color:C.muted}}>›</span>
-        <input type="file" accept=".json,application/json" style={{display:'none'}} onChange={e=>{
+        <input type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style={{display:'none'}} onChange={e=>{
           const f=e.target.files?.[0]; if(!f)return;
           const r=new FileReader();
           r.onload=async ev=>{
             try{
-              const parsed=JSON.parse(ev.target.result);
-              if(!parsed||typeof parsed!=='object'||!parsed.appState)throw new Error('это не файл Семейного потока');
+              const parsed=importFfStateFromXlsxArrayBuffer(ev.target.result);
+              if(!parsed?.appState?.members?.length)throw new Error('это не файл Семейного потока или он пуст');
               if(!await confirmAsync('Заменить текущие данные данными из файла? Отменить будет нельзя.',{danger:true}))return;
-              localStorage.setItem('ff_state',ev.target.result);
+              // weekItems в файле — только недели с отметками (см. lib/excelBackup.js);
+              // регенерируем полный набор недель от «план», как при обычной перезагрузке.
+              parsed.appState.weekItems=regenWeeksKeepDone(parsed.appState.planned||[],parsed.appState.weekItems);
+              localStorage.setItem('ff_state',JSON.stringify(parsed));
               window.location.reload();
             }catch(err){alertAsync('Не удалось импортировать: '+err.message);}
           };
-          r.readAsText(f);
+          r.readAsArrayBuffer(f);
         }}/>
       </label>
       <SecTitle>ПОДДЕРЖКА</SecTitle>

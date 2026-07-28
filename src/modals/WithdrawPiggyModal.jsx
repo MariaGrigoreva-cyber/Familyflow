@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { C, fmt, DEFAULT_CATS } from '../lib/core';
-import { s, Modal, Numpad } from '../lib/ui';
+import { s, Modal, Numpad, PiggyLogo } from '../lib/ui';
 import { alertAsync } from '../lib/confirm';
 
 export function WithdrawPiggyModal({visible,onClose,onSave,members,customCats=[],available=0}){
@@ -18,7 +18,7 @@ export function WithdrawPiggyModal({visible,onClose,onSave,members,customCats=[]
     setAmount('');setName('');onClose();
   };
   return(
-    <Modal visible={visible} onClose={onClose} title="🐷 Снять с копилки" onSave={save} saveLabel="Списать и потратить">
+    <Modal visible={visible} onClose={onClose} title={<><PiggyLogo size={16} style={{marginRight:5}}/>Снять с копилки</>} onSave={save} saveLabel="Списать и потратить">
       <div style={{padding:16,paddingBottom:40}}>
         <div style={{...s.card,background:C.greenL,border:`1px solid ${C.greenB}`,padding:'10px 12px',marginBottom:14,textAlign:'center'}}>
           <div style={{fontSize:11,color:C.green}}>Доступно в копилке</div>

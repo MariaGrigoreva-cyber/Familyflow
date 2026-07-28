@@ -1,7 +1,7 @@
 // FamilyFlow — экран онбординг
 import React, { useState, useEffect } from 'react';
 import {C,MONO,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,FUND_LABELS,getCatFund,PIE_COLORS,PRIVACY_URL,TERMS_URL,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
-import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,EmojiPicker} from '../lib/ui';
+import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,EmojiPicker,CatIcon} from '../lib/ui';
 import {alertAsync} from '../lib/confirm';
 
 export function EntryScreen({onDemo,onSetup,onLoginClick}){
@@ -43,15 +43,19 @@ export function Onboarding({onDone}){
   const[familyName,setFamilyName]=useState('');
   const[members,setMembers]=useState([{id:'m1',name:'',avatar:'👩',color:'oklch(0.9 0.04 40)'}]);
   const[incomes,setIncomes]=useState([{id:'i1',memberId:'m1',gross:'',salaryDays:[],advanceDays:[],advancePct:'40',advanceAbs:'',advanceMode:'pct'}]);
-  const[selectedCats,setSelectedCats]=useState(new Set());
-  const[catSetup,setCatSetup]=useState({});
-  const[openCat,setOpenCat]=useState(null);
+  // Список выборов категорий (не Set!) — одну и ту же категорию можно выбрать
+  // несколько раз (напр. «Еда» отдельно для каждого члена семьи), как это уже
+  // работает в Бюджете: там каждый клик по категории тоже создаёт новую запись,
+  // а не переключает единственную. Каждый выбор — отдельный id, а не catId.
+  const[selections,setSelections]=useState([]); // [{id, catId, amount, repeat, days, memberId, onceYear, onceMonth, onceDay}]
+  const[openCat,setOpenCat]=useState(null); // id конкретного выбора (не catId)
   const[emojiPickerFor,setEmojiPickerFor]=useState(null);
   const goNext=()=>setStep(p=>p+1);
   const goBack=()=>setStep(p=>Math.max(1,p-1));
   const updInc=(id,f,v)=>setIncomes(p=>p.map(i=>i.id===id?{...i,[f]:v}:i));
-  const updCat=(catId,f,v)=>setCatSetup(p=>({...p,[catId]:{...(p[catId]||{}),[f]:v}}));
-  const toggleCatDay=(catId,d)=>{const cur=catSetup[catId]?.days||[];updCat(catId,'days',cur.includes(d)?cur.filter(x=>x!==d):[...cur,d].sort((a,b)=>a-b));};
+  const updSel=(id,f,v)=>setSelections(p=>p.map(s=>s.id===id?{...s,[f]:v}:s));
+  const removeSel=id=>setSelections(p=>p.filter(s=>s.id!==id));
+  const toggleCatDay=(id,d)=>{const cur=selections.find(s=>s.id===id)?.days||[];updSel(id,'days',cur.includes(d)?cur.filter(x=>x!==d):[...cur,d].sort((a,b)=>a-b));};
   const removeMember=id=>{if(members.length<=1){alertAsync('Должен остаться хотя бы один участник');return;}setMembers(p=>p.filter(m=>m.id!==id));setIncomes(p=>p.filter(i=>i.memberId!==id));};
   const addMember=()=>{const newId=uid();const tint=members.length%2===0?'oklch(0.9 0.04 40)':'oklch(0.9 0.04 85)';setMembers(p=>[...p,{id:newId,name:'',avatar:'🧑',color:tint}]);setIncomes(p=>[...p,{id:uid(),memberId:newId,gross:'',salaryDays:[],advanceDays:[],advancePct:'40'}]);};
   const activeMembers=members.filter(m=>m.name.trim());
@@ -64,20 +68,23 @@ export function Onboarding({onDone}){
   // каждую неделю, а не раз в месяц, поэтому сумма фонда переводится в недельный эквивалент.
   const autoDistribute=()=>{
     const totalNet=memberIncomes.reduce((s,i)=>s+calcNetFor(i),0);
-    if(totalNet<=0||selectedCats.size===0)return;
-    setCatSetup(prev=>{
-      const next={...prev};
+    if(totalNet<=0||selections.length===0)return;
+    setSelections(prev=>{
+      const next=[...prev];
       FUND_LABELS.forEach(fund=>{
-        const catsInFund=Array.from(selectedCats).filter(catId=>getCatFund(catId)?.key===fund.key);
-        if(catsInFund.length===0)return;
+        // Считаем по КОЛИЧЕСТВУ ВЫБОРОВ в фонде, а не различных категорий — если
+        // «Еда» выбрана дважды (напр. отдельно на каждого), бюджет фонда делится
+        // на все выборы поровну, а не только между уникальными категориями.
+        const idxInFund=next.map((s,i)=>({s,i})).filter(({s})=>getCatFund(s.catId)?.key===fund.key).map(({i})=>i);
+        if(idxInFund.length===0)return;
         const fundBudgetMonthly=totalNet*fund.pct/100;
-        const perCatMonthly=fundBudgetMonthly/catsInFund.length;
+        const perSelMonthly=fundBudgetMonthly/idxInFund.length;
         const weekly=fund.key!=='defense';
-        const perCat=Math.round((weekly?perCatMonthly/4.3:perCatMonthly)/50)*50; // округляем до 50 ₽
-        catsInFund.forEach(catId=>{
-          next[catId]=weekly
-            ?{...(next[catId]||{}),amount:String(perCat),repeat:'weekly',days:[]}
-            :{...(next[catId]||{}),amount:String(perCat),repeat:'monthly',days:[1]};
+        const perSel=Math.round((weekly?perSelMonthly/4.3:perSelMonthly)/50)*50; // округляем до 50 ₽
+        idxInFund.forEach(i=>{
+          next[i]=weekly
+            ?{...next[i],amount:String(perSel),repeat:'weekly',days:[]}
+            :{...next[i],amount:String(perSel),repeat:'monthly',days:[1]};
         });
       });
       return next;
@@ -85,12 +92,12 @@ export function Onboarding({onDone}){
   };
   const finish=()=>{
     const bm=members.filter(m=>m.name.trim());
-    const bp=Array.from(selectedCats).map(catId=>{
-      const cat=DEFAULT_CATS.find(c=>c.id===catId);const setup=catSetup[catId]||{};
+    const bp=selections.map(setup=>{
+      const cat=DEFAULT_CATS.find(c=>c.id===setup.catId);
       const rep=setup.repeat||'weekly';
       const onceDate=rep==='once'?new Date(setup.onceYear||new Date().getFullYear(),
         (setup.onceMonth||new Date().getMonth()+1)-1,setup.onceDay||new Date().getDate()).toISOString():undefined;
-      return{id:uid(),catId,name:cat?.name||catId,amount:parseInt(setup.amount)||0,
+      return{id:uid(),catId:setup.catId,name:cat?.name||setup.catId,amount:parseInt(setup.amount)||0,
         memberId:setup.memberId||bm[0]?.id||'m1',repeat:rep,days:setup.days||[],onceDate};
     }).filter(p=>p.amount>0);
     const finalMembers=bm.length?bm:[{id:'m1',name:'Я',avatar:'👤',color:C.orange}];
@@ -279,19 +286,20 @@ export function Onboarding({onDone}){
           <span style={{fontSize:14,flexShrink:0}}>ℹ️</span>
           <span style={{fontSize:11.5,lineHeight:1.5,color:C.text2}}>Этот шаг можно пропустить — категории и суммы всегда можно добавить или изменить позже в разделе «Настройки».</span>
         </div>
+        <div style={{fontSize:11,color:'var(--c-muted2)',marginBottom:8}}>Можно выбрать одну категорию несколько раз — например, отдельно на каждого члена семьи.</div>
         <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'14px 8px',marginBottom:8}}>
-          {DEFAULT_CATS.map(cat=>{const active=selectedCats.has(cat.id);return(
-            <button key={cat.id} onClick={()=>{const n=new Set(selectedCats);active?n.delete(cat.id):n.add(cat.id);setSelectedCats(n);if(!active)setOpenCat(cat.id);}}
+          {DEFAULT_CATS.map(cat=>{const count=selections.filter(s=>s.catId===cat.id).length;const active=count>0;return(
+            <button key={cat.id} onClick={()=>{const id=uid();setSelections(p=>[...p,{id,catId:cat.id}]);setOpenCat(id);}}
               style={{display:'flex',flexDirection:'column',alignItems:'center',gap:6,background:'none',border:'none',cursor:'pointer',fontFamily:'inherit',opacity:active?1:.55}}>
               <div style={{position:'relative',width:54,height:54,borderRadius:16,background:active?cat.color:'var(--c-surface)',border:active?'none':`1.5px dashed ${C.borderS}`,boxSizing:'border-box',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24}}>
-                {cat.emoji}
-                {active&&<span style={{position:'absolute',top:-5,right:-5,width:16,height:16,borderRadius:'50%',background:C.orange,color:'#fff',fontSize:9,display:'flex',alignItems:'center',justifyContent:'center'}}>✓</span>}
+                <CatIcon cat={cat} size={24}/>
+                {active&&<span style={{position:'absolute',top:-5,right:-5,minWidth:16,height:16,borderRadius:8,padding:'0 3px',background:C.orange,color:'#fff',fontSize:9,fontWeight:600,display:'flex',alignItems:'center',justifyContent:'center'}}>{count>1?`×${count}`:'✓'}</span>}
               </div>
               <span style={{fontSize:10.5,fontWeight:500,color:active?C.text:'var(--c-muted2)'}}>{cat.name}</span>
             </button>
           );})}
         </div>
-        {selectedCats.size>0&&<>
+        {selections.length>0&&<>
           {memberIncomes.reduce((s,i)=>s+calcNetFor(i),0)>0&&(
             <button onClick={autoDistribute} style={{width:'100%',display:'flex',alignItems:'center',gap:10,border:`1.5px solid ${C.orange}`,background:C.orangeL,borderRadius:12,padding:'12px 14px',marginBottom:14,cursor:'pointer',fontFamily:'inherit',boxSizing:'border-box',textAlign:'left'}}>
               <span style={{fontSize:18,flexShrink:0}}>✨</span>
@@ -302,26 +310,31 @@ export function Onboarding({onDone}){
             </button>
           )}
           <SecTitle>НАСТРОЙТЕ СУММЫ</SecTitle>
-          {Array.from(selectedCats).map(catId=>{
-            const cat=DEFAULT_CATS.find(c=>c.id===catId);const setup=catSetup[catId]||{};const isOpen=openCat===catId;const rep=setup.repeat||'weekly';
+          {selections.map(setup=>{
+            const cat=DEFAULT_CATS.find(c=>c.id===setup.catId);const isOpen=openCat===setup.id;const rep=setup.repeat||'weekly';
+            const dupCount=selections.filter(s=>s.catId===setup.catId).length;
+            const memberName=activeMembers.find(m=>m.id===setup.memberId)?.name;
             return(
-              <div key={catId} style={{border:`1px solid ${C.border}`,background:'var(--c-surface)',borderRadius:14,marginBottom:8,overflow:'hidden'}}>
-                <button onClick={()=>setOpenCat(isOpen?null:catId)} style={{display:'flex',alignItems:'center',gap:11,padding:'12px 15px',width:'100%',background:'none',border:'none',cursor:'pointer',fontFamily:'inherit'}}>
-                  <span style={{width:30,height:30,borderRadius:9,background:cat?.color,display:'flex',alignItems:'center',justifyContent:'center',fontSize:15,flexShrink:0}}>{cat?.emoji}</span>
-                  <span style={{flex:1,fontSize:14,fontWeight:600,color:C.text,textAlign:'left'}}>{cat?.name}</span>
-                  {setup.amount&&<span style={{fontFamily:MONO,fontSize:14,fontWeight:600,color:C.text}}>{fmtN(parseInt(setup.amount))}</span>}
-                  <span style={{color:C.muted,fontSize:11}}>{isOpen?'▲':'▼'}</span>
-                </button>
+              <div key={setup.id} style={{border:`1px solid ${C.border}`,background:'var(--c-surface)',borderRadius:14,marginBottom:8,overflow:'hidden'}}>
+                <div style={{display:'flex',alignItems:'center',gap:11,padding:'12px 15px'}}>
+                  <button onClick={()=>setOpenCat(isOpen?null:setup.id)} style={{display:'flex',alignItems:'center',gap:11,flex:1,minWidth:0,background:'none',border:'none',cursor:'pointer',fontFamily:'inherit',padding:0}}>
+                    <span style={{width:30,height:30,borderRadius:9,background:cat?.color,display:'flex',alignItems:'center',justifyContent:'center',fontSize:15,flexShrink:0}}><CatIcon cat={cat}/></span>
+                    <span style={{flex:1,fontSize:14,fontWeight:600,color:C.text,textAlign:'left'}}>{cat?.name}{dupCount>1&&memberName?` · ${memberName}`:''}</span>
+                    {setup.amount&&<span style={{fontFamily:MONO,fontSize:14,fontWeight:600,color:C.text}}>{fmtN(parseInt(setup.amount))}</span>}
+                    <span style={{color:C.muted,fontSize:11}}>{isOpen?'▲':'▼'}</span>
+                  </button>
+                  <button onClick={()=>removeSel(setup.id)} aria-label={`Убрать: ${cat?.name||''}`} style={{position:'relative',width:22,height:22,borderRadius:'50%',border:`1px solid ${C.border}`,background:'none',color:C.muted,fontSize:12,cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}><span style={{position:'absolute',inset:-8}}/>×</button>
+                </div>
                 {isOpen&&<div style={{padding:'0 15px 14px',borderTop:`1px dashed ${C.border}`}}>
                   <div style={{display:'flex',alignItems:'center',marginBottom:10,gap:8,paddingTop:12}}>
                     <span style={{fontSize:12,color:'var(--c-muted2)',flex:1}}>Сумма</span>
-                    <input type="text" inputMode="numeric" value={setup.amount||''} onChange={e=>updCat(catId,'amount',e.target.value)} style={{width:90,textAlign:'right',border:`1px solid ${C.border}`,borderRadius:8,padding:'6px 10px',fontFamily:MONO,fontSize:14,outline:'none'}}/>
+                    <input type="text" inputMode="numeric" value={setup.amount||''} onChange={e=>updSel(setup.id,'amount',e.target.value)} style={{width:90,textAlign:'right',border:`1px solid ${C.border}`,borderRadius:8,padding:'6px 10px',fontFamily:MONO,fontSize:14,outline:'none'}}/>
                   </div>
                   <div style={{display:'flex',gap:6,marginBottom:10}}>
-                    {REPEAT_OPTS.map(r=><button key={r.id} onClick={()=>updCat(catId,'repeat',r.id)} style={{flex:1,textAlign:'center',fontFamily:MONO,fontSize:9.5,fontWeight:600,padding:'7px 2px',borderRadius:8,border:`1px solid ${rep===r.id?C.orange:C.border}`,background:rep===r.id?C.orange:'var(--c-surface)',color:rep===r.id?'#fff':'var(--c-muted2)',cursor:'pointer'}}>{r.label.toUpperCase()}</button>)}
+                    {REPEAT_OPTS.map(r=><button key={r.id} onClick={()=>updSel(setup.id,'repeat',r.id)} style={{flex:1,textAlign:'center',fontFamily:MONO,fontSize:9.5,fontWeight:600,padding:'7px 2px',borderRadius:8,border:`1px solid ${rep===r.id?C.orange:C.border}`,background:rep===r.id?C.orange:'var(--c-surface)',color:rep===r.id?'#fff':'var(--c-muted2)',cursor:'pointer'}}>{r.label.toUpperCase()}</button>)}
                   </div>
                   {rep==='monthly'&&<>
-                    <DayPicker selected={setup.days||[]} onToggle={d=>toggleCatDay(catId,d)} title={`ЧИСЛА: ${(setup.days||[]).length===0?'НЕ ВЫБРАНО':(setup.days||[]).join(', ')}`}/>
+                    <DayPicker selected={setup.days||[]} onToggle={d=>toggleCatDay(setup.id,d)} title={`ЧИСЛА: ${(setup.days||[]).length===0?'НЕ ВЫБРАНО':(setup.days||[]).join(', ')}`}/>
                     {(setup.days||[]).length>1&&<div style={{fontSize:11,color:C.green,marginTop:3}}>{(setup.days||[]).length} даты: {(setup.days||[]).join(', ')} числа</div>}
                   </>}
                   {rep==='once'&&(
@@ -329,15 +342,15 @@ export function Onboarding({onDone}){
                       <div style={{fontFamily:MONO,fontSize:10,fontWeight:600,letterSpacing:.5,color:C.text2,marginBottom:8,textTransform:'uppercase'}}>Дата платежа</div>
                       <div style={{display:'flex',gap:6,marginBottom:8}}>
                         {[new Date().getFullYear(),new Date().getFullYear()+1,new Date().getFullYear()+2].map(y=>(
-                          <button key={y} onClick={()=>updCat(catId,'onceYear',y)} style={{flex:1,padding:5,borderRadius:7,border:`1px solid ${(setup.onceYear||new Date().getFullYear())===y?C.orange:C.border}`,background:(setup.onceYear||new Date().getFullYear())===y?C.orange:'var(--c-surface)',color:(setup.onceYear||new Date().getFullYear())===y?'#fff':C.text,fontSize:11,fontWeight:(setup.onceYear||new Date().getFullYear())===y?600:400,cursor:'pointer',fontFamily:'inherit'}}>{y}</button>
+                          <button key={y} onClick={()=>updSel(setup.id,'onceYear',y)} style={{flex:1,padding:5,borderRadius:7,border:`1px solid ${(setup.onceYear||new Date().getFullYear())===y?C.orange:C.border}`,background:(setup.onceYear||new Date().getFullYear())===y?C.orange:'var(--c-surface)',color:(setup.onceYear||new Date().getFullYear())===y?'#fff':C.text,fontSize:11,fontWeight:(setup.onceYear||new Date().getFullYear())===y?600:400,cursor:'pointer',fontFamily:'inherit'}}>{y}</button>
                         ))}
                       </div>
                       <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8}}>
                         {MONTH_SHORT.map((name,i)=>{const m=i+1,active=(setup.onceMonth||new Date().getMonth()+1)===m;return(
-                          <button key={m} onClick={()=>updCat(catId,'onceMonth',m)} style={{padding:'3px 6px',borderRadius:6,border:`1px solid ${active?C.orange:C.border}`,background:active?C.orange:'var(--c-surface)',color:active?'#fff':C.text,fontSize:10,fontWeight:active?600:400,cursor:'pointer',fontFamily:'inherit',minWidth:'30%'}}>{name}</button>
+                          <button key={m} onClick={()=>updSel(setup.id,'onceMonth',m)} style={{padding:'3px 6px',borderRadius:6,border:`1px solid ${active?C.orange:C.border}`,background:active?C.orange:'var(--c-surface)',color:active?'#fff':C.text,fontSize:10,fontWeight:active?600:400,cursor:'pointer',fontFamily:'inherit',minWidth:'30%'}}>{name}</button>
                         );})}
                       </div>
-                      <DayPicker selected={[setup.onceDay||new Date().getDate()]} onToggle={d=>updCat(catId,'onceDay',d)}/>
+                      <DayPicker selected={[setup.onceDay||new Date().getDate()]} onToggle={d=>updSel(setup.id,'onceDay',d)}/>
                       <div style={{fontSize:11,color:C.orangeD,marginTop:4,fontWeight:600}}>
                         ✓ {setup.onceDay||new Date().getDate()} {MONTH_SHORT[(setup.onceMonth||new Date().getMonth()+1)-1]} {setup.onceYear||new Date().getFullYear()}
                       </div>
@@ -346,7 +359,7 @@ export function Onboarding({onDone}){
                   <div style={{display:'flex',alignItems:'center',gap:8}}>
                     <span style={{fontSize:12,color:'var(--c-muted2)',flex:1}}>Кто платит</span>
                     <div style={{display:'flex',gap:6}}>
-                      {activeMembers.map(m=><button key={m.id} onClick={()=>updCat(catId,'memberId',m.id)} style={{display:'flex',alignItems:'center',gap:5,padding:'5px 10px',borderRadius:8,border:`1px solid ${(setup.memberId||activeMembers[0]?.id)===m.id?C.orange:C.border}`,background:(setup.memberId||activeMembers[0]?.id)===m.id?C.orangeL:'var(--c-surface)',color:(setup.memberId||activeMembers[0]?.id)===m.id?C.orangeD:'var(--c-muted2)',fontSize:12,fontWeight:(setup.memberId||activeMembers[0]?.id)===m.id?600:400,cursor:'pointer',fontFamily:'inherit'}}>{m.avatar} {m.name}</button>)}
+                      {activeMembers.map(m=><button key={m.id} onClick={()=>updSel(setup.id,'memberId',m.id)} style={{display:'flex',alignItems:'center',gap:5,padding:'5px 10px',borderRadius:8,border:`1px solid ${(setup.memberId||activeMembers[0]?.id)===m.id?C.orange:C.border}`,background:(setup.memberId||activeMembers[0]?.id)===m.id?C.orangeL:'var(--c-surface)',color:(setup.memberId||activeMembers[0]?.id)===m.id?C.orangeD:'var(--c-muted2)',fontSize:12,fontWeight:(setup.memberId||activeMembers[0]?.id)===m.id?600:400,cursor:'pointer',fontFamily:'inherit'}}>{m.avatar} {m.name}</button>)}
                     </div>
                   </div>
                 </div>}
@@ -364,13 +377,12 @@ export function Onboarding({onDone}){
   // Та же группировка по фондам, что и в автораспределении на шаге 3 и на экране
   // Бюджет — единый источник (getCatFund), а не отдельный список catId здесь.
   const FUND_COLORS={defense:C.orange,life:'oklch(0.75 0.12 85)',comfort:C.blue};
-  const selArr=Array.from(selectedCats);
   const monthlyOfSetup=setup=>{const amt=parseInt(setup.amount)||0;return setup.repeat==='weekly'?amt*4.3:setup.repeat==='biweekly'?amt*2.15:setup.repeat==='once'?amt/12:amt;};
-  const monthlyExp=selArr.reduce((s,catId)=>s+monthlyOfSetup(catSetup[catId]||{}),0);
+  const monthlyExp=selections.reduce((s,setup)=>s+monthlyOfSetup(setup),0);
   const fundBreakdown=FUND_LABELS.map(fund=>{
-    const catsInFund=selArr.filter(catId=>getCatFund(catId)?.key===fund.key);
-    const monthly=catsInFund.reduce((s,catId)=>s+monthlyOfSetup(catSetup[catId]||{}),0);
-    const sub=catsInFund.map(catId=>DEFAULT_CATS.find(c=>c.id===catId)?.name).filter(Boolean).join(', ').toLowerCase();
+    const selInFund=selections.filter(s=>getCatFund(s.catId)?.key===fund.key);
+    const monthly=selInFund.reduce((s,setup)=>s+monthlyOfSetup(setup),0);
+    const sub=[...new Set(selInFund.map(s=>DEFAULT_CATS.find(c=>c.id===s.catId)?.name))].filter(Boolean).join(', ').toLowerCase();
     return{key:fund.key,n:fund.label,sub,monthly,col:FUND_COLORS[fund.key]};
   }).filter(g=>g.monthly>0);
   const sb=parseInt(startBalance)||0,profit=totalNet-monthlyExp;

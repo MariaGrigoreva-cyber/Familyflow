@@ -1,7 +1,7 @@
 // FamilyFlow — экран Денежный поток
 import React, { useState, useEffect, useMemo } from 'react';
 import {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,buildPaymentScheduleSpan,scheduledIncomeForWeek,regenWeeksKeepDone,computeBalances,computeBudgetMetrics,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
-import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,ProLock} from '../lib/ui';
+import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,ProLock,PiggyLogo,CatIcon} from '../lib/ui';
 
 const Chip=({active,onClick,children})=>(
   <button onClick={onClick} style={{flexShrink:0,fontFamily:MONO,fontSize:10.5,fontWeight:600,textTransform:'uppercase',padding:'6px 12px',borderRadius:20,border:`1px solid ${active?C.orange:C.border}`,background:active?C.orange:'var(--c-surface)',color:active?'#fff':'var(--c-muted2)',cursor:'pointer'}}>{children}</button>
@@ -89,7 +89,7 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx,weeksSummary,negativeW
                   <span style={{position:'absolute',inset:-13}}/>
                   {item.isDone&&<span style={{color:'#fff',fontSize:10}}>✓</span>}
                 </button>
-                <span style={{flex:1,fontSize:13.5,fontWeight:500,color:item.isDone?C.faint:C.text,textDecoration:item.isDone?'line-through':'none'}}>{cat?.emoji||'📦'} {item.name} {showMember&&<span style={{fontSize:11,color:C.muted,fontWeight:400,textDecoration:'none'}}>· {mem?.name||''}</span>}</span>
+                <span style={{flex:1,fontSize:13.5,fontWeight:500,color:item.isDone?C.faint:C.text,textDecoration:item.isDone?'line-through':'none'}}><CatIcon cat={cat}/> {item.name} {showMember&&<span style={{fontSize:11,color:C.muted,fontWeight:400,textDecoration:'none'}}>· {mem?.name||''}</span>}</span>
                 <span style={{fontFamily:MONO,fontSize:12.5,fontWeight:600,color:item.isDone?C.faint:C.text,textDecoration:item.isDone?'line-through':'none'}}>{fmtN(item.amount)}</span>
                 <button onClick={()=>onEditTx&&onEditTx({...item,week})} aria-label={`Редактировать: ${item.name}`} style={{position:'relative',background:'none',border:'none',cursor:'pointer',padding:0,color:C.muted,fontSize:11}}><span style={{position:'absolute',inset:-13}}/>✏️</button>
               </div>
@@ -142,7 +142,7 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx,weeksSummary,negativeW
                   <Stat label="план" value={wTot>0?fmtN(wTot):'—'} color={C.borderS}/>
                   <Stat label="факт" value={wSp>0?fmtN(wSp):'—'} color={C.orange} valueColor={wSp>0?C.orangeD:C.muted}/>
                 </div>
-                {wPiggy>0&&<div style={{fontSize:11,color:C.greenD,marginTop:8}}>🐷 в т.ч. копилка {fmtN(wPiggy)}</div>}
+                {wPiggy>0&&<div style={{fontSize:11,color:C.greenD,marginTop:8,display:'flex',alignItems:'center',gap:4}}><PiggyLogo size={12}/>в т.ч. копилка {fmtN(wPiggy)}</div>}
                 <div style={{fontFamily:MONO,fontSize:11.5,fontWeight:600,color:runPlus?C.green:C.red,marginTop:8}}>Накопительный баланс: {runPlus?'+':'−'}{fmtN(runningBalance)}</div>
               </button>
             );

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { C, fmt, uid, DEFAULT_CATS } from '../lib/core';
-import { s, Btn, Modal, Numpad } from '../lib/ui';
+import { s, Btn, Modal, Numpad, CatIcon } from '../lib/ui';
 import { alertAsync } from '../lib/confirm';
 
 export function AddTxModal({visible,onClose,onSave,members,planned,customCats=[]}){
@@ -50,7 +50,7 @@ export function AddTxModal({visible,onClose,onSave,members,planned,customCats=[]
         })()}
         <div style={{fontSize:10,color:C.muted,textTransform:'uppercase',letterSpacing:.5,marginBottom:6}}>Категория</div>
         <div style={{display:'flex',gap:7,overflowX:'auto',marginBottom:12,paddingBottom:4}}>
-          {cats.map(cat=><button key={cat.id} onClick={()=>setCatId(cat.id)} style={{display:'flex',alignItems:'center',gap:5,flexShrink:0,padding:'8px 11px',borderRadius:20,border:`1px solid ${catId===cat.id?C.orangeB:C.border}`,background:catId===cat.id?C.orangeL:'var(--c-surface)',color:catId===cat.id?C.orangeD:C.muted,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}><span style={{fontSize:15}}>{cat.emoji}</span>{cat.name}</button>)}
+          {cats.map(cat=><button key={cat.id} onClick={()=>setCatId(cat.id)} style={{display:'flex',alignItems:'center',gap:5,flexShrink:0,padding:'8px 11px',borderRadius:20,border:`1px solid ${catId===cat.id?C.orangeB:C.border}`,background:catId===cat.id?C.orangeL:'var(--c-surface)',color:catId===cat.id?C.orangeD:C.muted,fontSize:11,cursor:'pointer',fontFamily:'inherit'}}><span style={{fontSize:15}}><CatIcon cat={cat}/></span>{cat.name}</button>)}
         </div>
         <div style={{fontSize:10,color:C.muted,textTransform:'uppercase',letterSpacing:.5,marginBottom:6}}>Кто платит</div>
         <div style={{display:'flex',gap:4,marginBottom:12}}>
