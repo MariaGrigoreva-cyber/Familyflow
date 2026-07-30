@@ -44,7 +44,7 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx,weeksSummary,negativeW
   },[state.planned,state.customCats]);
   const TABS=[{id:'detail',label:'Неделя'},{id:'weeks',label:'Недели'},{id:'months',label:'Месяцы'},{id:'year',label:'Годы'}];
   const pad={padding:'16px 20px 90px'};
-  const navBtn={width:30,height:30,borderRadius:9,border:`1px solid ${C.border}`,background:'var(--c-surface)',color:'var(--c-muted2)',fontSize:13,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0};
+  const navBtn={width:42,height:42,borderRadius:13,border:`1px solid ${C.orangeB}`,background:C.orangeL,color:C.orangeD,fontSize:18,fontWeight:700,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0};
   return(
     <div style={{overflowY:'auto',flex:1,minHeight:0,WebkitOverflowScrolling:'touch'}}><div style={pad}>
       <div data-swipe-ignore style={{display:'flex',gap:6,overflowX:'auto',marginBottom:16,paddingBottom:4}}>
