@@ -9,6 +9,7 @@ const PlanScreen=lazy(()=>import('./screens/CashFlow').then(m=>({default:m.PlanS
 const BudgetScreen=lazy(()=>import('./screens/Budget').then(m=>({default:m.BudgetScreen})));
 const HealthScreen=lazy(()=>import('./screens/Health').then(m=>({default:m.HealthScreen})));
 const SettingsScreen=lazy(()=>import('./screens/Settings').then(m=>({default:m.SettingsScreen})));
+const TipsPhilosophyOverlay=lazy(()=>import('./TipsPhilosophy').then(m=>({default:m.TipsPhilosophyOverlay})));
 import {EditPaymentModal,AddExtraModal,AddTxModal,EditCatModal,EditTxModal,EditIncomeModal,WithdrawPiggyModal,TabBar} from './modals';
 import { isLoggedIn, loadCloudState, saveCloudState, authMe, resendVerification, billingStatus, errText } from './api';
 import { markLocalTrialStart, getLocalPlan, isProPlan } from './lib/plan';
@@ -69,6 +70,7 @@ export default function App(){
   const[startLogin,setStartLogin]=useState(false); // форма входа на стартовом экране
   const[showAdd,setShowAdd]=useState(false);
   const[addWeek,setAddWeek]=useState(null); // неделя для добавления транзакции
+  const[showTips,setShowTips]=useState(false); // оверлей советов/философии — по кнопке "?" на любой вкладке
   const[showEdit,setShowEdit]=useState(false);
   const[editItem,setEditItem]=useState(null);
   const[showEditPay,setShowEditPay]=useState(false);
@@ -643,7 +645,7 @@ useEffect(() => {
         )}
       </div>
       <div style={{flex:1,display:'flex',flexDirection:'column',minHeight:0}} onTouchStart={handleTabTouchStart} onTouchEnd={handleTabTouchEnd}>
-        {tab==='today'&&<TodayScreen state={appState} onToggle={handleToggle} onAdd={()=>setShowAdd(true)} onEditPayment={handleEditPayment} onEditTx={handleEditTx} onQuickMark={handleQuickMark} onWithdrawPiggy={()=>setShowWithdrawPiggy(true)} tourStep={tourStep} freeSpendableNow={cashFlowProjection.freeSpendableNow} weeklyBalances={cashFlowProjection.weeklyBalances}/>}
+        {tab==='today'&&<TodayScreen state={appState} onToggle={handleToggle} onEditPayment={handleEditPayment} onEditTx={handleEditTx} onQuickMark={handleQuickMark} onWithdrawPiggy={()=>setShowWithdrawPiggy(true)} tourStep={tourStep} freeSpendableNow={cashFlowProjection.freeSpendableNow} weeklyBalances={cashFlowProjection.weeklyBalances}/>}
         <Suspense fallback={null}>
           {tab==='plan'&&<PlanScreen state={appState} onToggle={handleToggle} onAdd={(wk)=>{setAddWeek(wk);setShowAdd(true);}} onEditTx={handleEditTx} weeksSummary={weeksSummary} negativeWeek={cashFlowProjection.negativeWeek} isPro={isPro} onUpgrade={()=>setTab('settings')}/>}
           {tab==='budget'&&<BudgetScreen state={appState} onEditPlanned={item=>{setEditItem(item);setShowEdit(true);}} onAddPlanned={handleAddPlanned} onEditPayment={handleEditPayment} onAddExtra={(data)=>{if(data&&data.amount){handleAddExtra(data);}else{setShowAddExtra(true);}}} onWithdrawPiggy={()=>setShowWithdrawPiggy(true)} onSetGoal={handleSetGoal} onAddGoalToPlan={handleEditPlanned}/>}
@@ -651,10 +653,15 @@ useEffect(() => {
           {tab==='settings'&&<SettingsScreen state={appState} onEditCat={item=>{setEditItem(item||null);setShowEdit(true);}} onAddCat={handleAddPlanned} onEditIncome={handleEditIncome} onAddIncome={handleAddIncomeSource} onUpdateMember={handleUpdateMember} onAddMember={handleAddMember} onRemoveMember={handleRemoveMember} theme={theme} onSetTheme={setTheme} isPro={isPro}/>}
         </Suspense>
       </div>
+      {tab==='today'&&<button onClick={()=>setShowAdd(true)} aria-label="Добавить запись"
+        style={{position:'absolute',right:16,bottom:'calc(78px + env(safe-area-inset-bottom))',width:52,height:52,borderRadius:26,border:'none',background:C.orange,color:'#fff',fontSize:26,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 6px 16px rgba(0,0,0,.18)',fontFamily:'inherit',zIndex:120}}>+</button>}
+      <button onClick={()=>setShowTips(true)} aria-label="Советы и как это работает" data-tour="2"
+        style={{position:'absolute',right:16,bottom:tab==='today'?'calc(138px + env(safe-area-inset-bottom))':'calc(78px + env(safe-area-inset-bottom))',width:48,height:48,borderRadius:24,border:`1px solid ${C.orangeB}`,background:'var(--c-surface)',color:C.orangeD,fontSize:19,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 4px 12px rgba(0,0,0,.12)',fontFamily:'inherit',zIndex:120,...(tourStep===2?{animation:'ffTourGlow 1.4s ease infinite'}:{})}}>?</button>
       <TabBar active={tab} onPress={setTab}/>
       <AddToHomeScreenPrompt/>
       <ConfirmHost/>
       <AddTxModal visible={showAdd} onClose={()=>setShowAdd(false)} onSave={handleAddTx} members={appState.members} planned={appState.planned} customCats={appState.customCats}/>
+      {showTips&&<Suspense fallback={null}><TipsPhilosophyOverlay onClose={()=>setShowTips(false)}/></Suspense>}
       <EditCatModal visible={showEdit} item={editItem} members={appState.members} customCats={appState.customCats} onClose={()=>{setShowEdit(false);setEditItem(null);}} onSave={item=>{const{isNew,...rest}=item||{};handleEditPlanned(isNew?{...rest,isNew:true}:rest);}} onDelete={handleDeletePlanned}/>
       <EditPaymentModal visible={showEditPay} payment={editPayment} onClose={()=>{setShowEditPay(false);setEditPayment(null);}} onSave={handleSavePayment} onDelete={handleDeleteExtra}/>
       <AddExtraModal visible={showAddExtra} onClose={()=>setShowAddExtra(false)} onSave={handleAddExtra} members={appState.members} incomes={appState.incomes}/>
@@ -674,7 +681,7 @@ useEffect(() => {
         const TOUR=[
           {icon:'💰',title:'Остаток на руках',body:'Главная цифра: сколько денег на основном счёте прямо сейчас. Формула: старт + получено − потрачено − копилка. Три мини-карточки под цифрой показывают слагаемые.'},
           {icon:<PiggyLogo size={22}/>,title:'Копилка — отдельно',body:'Деньги в копилке уже переведены на накопительный счёт. Они НЕ входят в «остаток на руках» — тратить их нельзя, это резерв. Поэтому зелёная строка отдельно.'},
-          {icon:'💡',title:'Советы',body:'Карточки с подсказками по приложению и личным финансам. Пролистайте их пальцем в сторону или дождитесь автоматической смены.'},
+          {icon:'💡',title:'Советы',body:'Кнопка «?» открывает подсказки по приложению и личным финансам — доступна с любой вкладки.'},
           {icon:'📅',title:'Выплаты — с переносами',body:'Если день зарплаты выпал на выходной — приложение само сдвигает её на рабочий день по производственному календарю РФ. Один тап — выплата отмечена как полученная.'},
         ];
         const st=TOUR[tourStep];
