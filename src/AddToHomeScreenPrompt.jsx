@@ -3,21 +3,42 @@
 // объяснить пользователю, как поставить иконку на экран — вот такая шторка
 // с ручными шагами через «Поделиться». На Android используем родной
 // beforeinstallprompt вместо самодельной инструкции — там это работает штатно.
+//
+// Встроенный браузер Telegram (и другие in-app браузеры) не даёт установить
+// PWA вообще — ни «Поделиться → На экран «Домой»» на iOS, ни
+// beforeinstallprompt на Android там не работают, потому что это не полноценный
+// Safari/Chrome, а урезанный WebView. Единственный выход — попросить открыть
+// страницу в системном браузере.
 import React, { useState, useEffect } from 'react';
 import { C, MONO } from './lib/core';
 
 const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 const isStandalone = () => window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
+// TelegramWebviewProxy — задокументированный глобал, который Telegram для Android
+// добавляет в свой встроенный браузер. На iOS у Telegram нет надёжного маркера в
+// window, поэтому там опираемся на UserAgent (часть версий Telegram его добавляет)
+// — если не поймали, пользователь просто увидит обычную iOS-инструкцию, которая
+// в Telegram не сработает, но хуже, чем сейчас (когда не показывается вовсе), не будет.
+const isTelegramWebview = () =>
+  typeof window.TelegramWebviewProxy !== 'undefined' ||
+  typeof window.TelegramWebviewProxyProto !== 'undefined' ||
+  /\bTelegram\b/i.test(navigator.userAgent);
+// Показываем не чаще раза за вкладку — иначе шторка выскакивала бы и на шаге
+// онбординга (стартовый баланс), и повторно сразу после его завершения.
+const SEEN_KEY = 'ff_a2hs_seen';
+const markSeen = () => { try { sessionStorage.setItem(SEEN_KEY, '1'); } catch {} };
+const alreadySeen = () => { try { return sessionStorage.getItem(SEEN_KEY) === '1'; } catch { return false; } };
 
 export function AddToHomeScreenPrompt(){
   const[show,setShow]=useState(false);
-  const[platform,setPlatform]=useState(null); // 'ios' | 'android'
+  const[platform,setPlatform]=useState(null); // 'ios' | 'android' | 'telegram'
   const[deferredPrompt,setDeferredPrompt]=useState(null);
 
   useEffect(()=>{
-    if(isStandalone())return;
-    if(isIOS()){setPlatform('ios');setShow(true);return;}
-    const onBIP=e=>{e.preventDefault();setDeferredPrompt(e);setPlatform('android');setShow(true);};
+    if(isStandalone()||alreadySeen())return;
+    if(isTelegramWebview()){setPlatform('telegram');setShow(true);markSeen();return;}
+    if(isIOS()){setPlatform('ios');setShow(true);markSeen();return;}
+    const onBIP=e=>{e.preventDefault();setDeferredPrompt(e);setPlatform('android');setShow(true);markSeen();};
     window.addEventListener('beforeinstallprompt',onBIP);
     return()=>window.removeEventListener('beforeinstallprompt',onBIP);
   },[]);
@@ -44,7 +65,15 @@ export function AddToHomeScreenPrompt(){
       <div style={{position:'absolute',inset:0,background:'rgba(28,25,22,0.45)'}}/>
       <div onClick={e=>e.stopPropagation()} style={{position:'relative',width:'100%',maxWidth:480,background:C.bg,borderRadius:'20px 20px 0 0',padding:'22px 20px 26px',boxSizing:'border-box'}}>
         <button onClick={()=>setShow(false)} aria-label="Закрыть" style={{position:'absolute',top:14,right:16,background:'none',border:'none',fontSize:20,color:C.muted,cursor:'pointer',lineHeight:1,padding:4}}>×</button>
-        {platform==='ios'?(
+        {platform==='telegram'?(
+          <>
+            <div style={{fontSize:15,fontWeight:600,color:C.text,marginBottom:16,paddingRight:26,lineHeight:1.4}}>Встроенный браузер Telegram не умеет ставить приложения на экран — откройте страницу в обычном браузере</div>
+            <Step n="1" text={<>Нажмите <b>⋯</b> в правом верхнем углу этого окна</>} icon="⋯"/>
+            <Step n="2" text={<>Выберите <b>«Открыть в браузере»</b> (или «Open in Safari»)</>} icon="🌐"/>
+            <div style={{fontSize:11.5,color:C.muted,marginTop:2,marginBottom:14,lineHeight:1.5}}>Дальше — как обычно: «Поделиться» → «На экран «Домой»» (iPhone) или кнопка «Установить» (Android).</div>
+            <button onClick={()=>setShow(false)} style={{width:'100%',padding:14,borderRadius:12,border:'none',background:C.orange,color:'#fff',fontWeight:600,fontSize:14.5,cursor:'pointer',fontFamily:'inherit'}}>Понятно</button>
+          </>
+        ):platform==='ios'?(
           <>
             <div style={{fontSize:15,fontWeight:600,color:C.text,marginBottom:16,paddingRight:26,lineHeight:1.4}}>Добавьте Семейный поток на <b>главный экран</b> — для быстрого доступа и уведомлений</div>
             <Step n="1" text={<>Нажмите на значок <b>Поделиться</b></>} icon="⬆️"/>

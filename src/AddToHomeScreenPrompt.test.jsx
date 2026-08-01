@@ -17,6 +17,9 @@ beforeEach(() => {
   setUserAgent(DESKTOP_UA);
   setStandalone(false);
   window.navigator.standalone = undefined;
+  delete window.TelegramWebviewProxy;
+  delete window.TelegramWebviewProxyProto;
+  sessionStorage.clear();
 });
 
 test('не показывается, если приложение уже запущено как standalone', () => {
@@ -64,5 +67,28 @@ test('крестик закрывает подсказку', async () => {
   const user = userEvent.setup();
   render(<AddToHomeScreenPrompt />);
   await user.click(screen.getByLabelText('Закрыть'));
+  expect(screen.queryByText('Понятно')).not.toBeInTheDocument();
+});
+
+test('в Telegram (Android, по TelegramWebviewProxy) просит открыть в браузере — даже на iOS-подобном UA', () => {
+  setUserAgent(IOS_UA);
+  window.TelegramWebviewProxy = {};
+  render(<AddToHomeScreenPrompt />);
+  expect(screen.getByText(/Открыть в браузере/)).toBeInTheDocument();
+  expect(screen.queryByText(/Добавьте Семейный поток на/)).not.toBeInTheDocument();
+});
+
+test('в Telegram (по UserAgent) тоже просит открыть в браузере', () => {
+  setUserAgent(IOS_UA + ' Telegram/10.0');
+  render(<AddToHomeScreenPrompt />);
+  expect(screen.getByText(/Открыть в браузере/)).toBeInTheDocument();
+});
+
+test('повторный рендер в той же сессии подсказку уже не показывает', () => {
+  setUserAgent(IOS_UA);
+  const { unmount } = render(<AddToHomeScreenPrompt />);
+  expect(screen.getByText('Понятно')).toBeInTheDocument();
+  unmount();
+  render(<AddToHomeScreenPrompt />);
   expect(screen.queryByText('Понятно')).not.toBeInTheDocument();
 });

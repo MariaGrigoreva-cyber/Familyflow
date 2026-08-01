@@ -609,6 +609,7 @@ useEffect(() => {
       <Suspense fallback={null}>
         <Onboarding onDone={handleOnboardingDone}/>
       </Suspense>
+      <AddToHomeScreenPrompt/>
       <ConfirmHost/>
     </div>
   );
