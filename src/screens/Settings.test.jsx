@@ -43,6 +43,7 @@ const baseProps = {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  localStorage.clear();
   api.isLoggedIn.mockReturnValue(false);
   Object.defineProperty(window, 'location', { value: { reload: jest.fn(), search: '', pathname: '/', href: '' }, writable: true });
   window.history.replaceState = jest.fn();
@@ -69,6 +70,35 @@ describe('SettingsScreen — базовые разделы (не залогин�
     // платежей — берём первое вхождение (сетка идёт в разметке раньше).
     await user.click(screen.getAllByText('Еда')[0]);
     expect(onEditCat).toHaveBeenCalledWith(expect.objectContaining({ catId: 'food', isNew: true }));
+  });
+
+  test('у встроенной категории нет кнопки «Удалить»', () => {
+    render(<SettingsScreen {...baseProps} />);
+    // «Еда» — встроенная категория (DEFAULT_CATS), не своя (customCats)
+    const foodTile = screen.getAllByText('Еда')[0].closest('div');
+    expect(foodTile.querySelector('button[aria-label*="Удалить категорию"]')).toBeNull();
+  });
+
+  test('своя категория без единой траты показывает «Удалить», подтверждение вызывает onDeleteCustomCat', async () => {
+    const user = userEvent.setup();
+    const onDeleteCustomCat = jest.fn();
+    const stateWithCustom = { ...state, customCats: [{ id: 'custom_hobby', name: 'Хобби', emoji: '🎨', color: 'oklch(0.94 0.02 250)' }] };
+    jest.spyOn(window, 'confirm').mockReturnValue(true);
+    render(<SettingsScreen {...baseProps} state={stateWithCustom} onDeleteCustomCat={onDeleteCustomCat} />);
+    await user.click(screen.getByLabelText('Удалить категорию: Хобби'));
+    expect(onDeleteCustomCat).toHaveBeenCalledWith('custom_hobby');
+    window.confirm.mockRestore();
+  });
+
+  test('отказ от подтверждения не вызывает onDeleteCustomCat', async () => {
+    const user = userEvent.setup();
+    const onDeleteCustomCat = jest.fn();
+    const stateWithCustom = { ...state, customCats: [{ id: 'custom_hobby', name: 'Хобби', emoji: '🎨', color: 'oklch(0.94 0.02 250)' }] };
+    jest.spyOn(window, 'confirm').mockReturnValue(false);
+    render(<SettingsScreen {...baseProps} state={stateWithCustom} onDeleteCustomCat={onDeleteCustomCat} />);
+    await user.click(screen.getByLabelText('Удалить категорию: Хобби'));
+    expect(onDeleteCustomCat).not.toHaveBeenCalled();
+    window.confirm.mockRestore();
   });
 
   test('клик по запланированному платежу открывает его на редактирование', async () => {
@@ -122,6 +152,29 @@ describe('SettingsScreen — базовые разделы (не залогин�
   test('ссылка поддержки ведёт на support@myfamilyflow.ru', () => {
     render(<SettingsScreen {...baseProps} />);
     expect(screen.getByText('Написать в поддержку').closest('a')).toHaveAttribute('href', expect.stringContaining('support@myfamilyflow.ru'));
+  });
+
+  test('ссылка на Telegram-канал ведёт на t.me/myfamilyflow', () => {
+    render(<SettingsScreen {...baseProps} />);
+    expect(screen.getByText('Канал в Telegram').closest('a')).toHaveAttribute('href', 'https://t.me/myfamilyflow');
+  });
+});
+
+describe('Приглашение подписаться на Telegram-канал — один раз', () => {
+  test('показывается при первом заходе и закрывается по «Не сейчас»', async () => {
+    const user = userEvent.setup();
+    render(<SettingsScreen {...baseProps} />);
+    expect(screen.getByText(/Подпишитесь на канал/)).toBeInTheDocument();
+    await user.click(screen.getByText('Не сейчас'));
+    expect(screen.queryByText(/Подпишитесь на канал/)).not.toBeInTheDocument();
+  });
+
+  test('повторный рендер (следующий заход) уже не показывает приглашение', () => {
+    const { unmount } = render(<SettingsScreen {...baseProps} />);
+    expect(screen.getByText(/Подпишитесь на канал/)).toBeInTheDocument();
+    unmount();
+    render(<SettingsScreen {...baseProps} />);
+    expect(screen.queryByText(/Подпишитесь на канал/)).not.toBeInTheDocument();
   });
 });
 

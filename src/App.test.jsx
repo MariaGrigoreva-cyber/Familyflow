@@ -20,6 +20,7 @@ jest.mock('./AddToHomeScreenPrompt', () => ({ AddToHomeScreenPrompt: () => null 
 beforeEach(() => {
   jest.clearAllMocks();
   localStorage.clear();
+  sessionStorage.clear();
   api.isLoggedIn.mockReturnValue(false);
   api.loadCloudState.mockResolvedValue({ data: {} });
   api.saveCloudState.mockResolvedValue({ updatedAt: new Date().toISOString() });
@@ -96,4 +97,35 @@ test('залогиненный пользователь: сбой загрузк
   localStorage.setItem('ff_state', JSON.stringify({ consented: true, onboarded: true, appState: buildDemoState() }));
   render(<App />);
   expect(await screen.findByText('Не удалось загрузить данные из облака', {}, { timeout: 2000 })).toBeInTheDocument();
+});
+
+test('просроченная неотмеченная выплата: вопрос «Пришла выплата?» всплывает сам, «Да, пришла» его закрывает', async () => {
+  const user = userEvent.setup();
+  const overdueState = {
+    ...buildDemoState(),
+    budgetStartDate: '2020-01-01T00:00:00.000Z',
+    incomes: [{ id: 'i1', memberId: 'm1', gross: 100000, salaryDays: [1], advanceDays: [15], advancePct: '40', advanceMode: 'pct' }],
+    payments: {},
+  };
+  localStorage.setItem('ff_state', JSON.stringify({ consented: true, onboarded: true, appState: overdueState }));
+  render(<App />);
+  expect(await screen.findByText('Пришла выплата?', {}, { timeout: 2000 })).toBeInTheDocument();
+  await user.click(screen.getByText('Да, пришла'));
+  expect(screen.queryByText('Пришла выплата?')).not.toBeInTheDocument();
+});
+
+test('просроченная неотмеченная выплата: «Ещё нет» закрывает вопрос без отметки', async () => {
+  const user = userEvent.setup();
+  const overdueState = {
+    ...buildDemoState(),
+    budgetStartDate: '2020-01-01T00:00:00.000Z',
+    incomes: [{ id: 'i1', memberId: 'm1', gross: 100000, salaryDays: [1], advanceDays: [15], advancePct: '40', advanceMode: 'pct' }],
+    payments: {},
+  };
+  localStorage.setItem('ff_state', JSON.stringify({ consented: true, onboarded: true, appState: overdueState }));
+  render(<App />);
+  expect(await screen.findByText('Пришла выплата?', {}, { timeout: 2000 })).toBeInTheDocument();
+  await user.click(screen.getByText('Ещё нет'));
+  expect(screen.queryByText('Пришла выплата?')).not.toBeInTheDocument();
+  expect(JSON.parse(localStorage.getItem('ff_state')).appState.payments).toEqual({});
 });

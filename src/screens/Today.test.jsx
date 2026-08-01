@@ -14,11 +14,23 @@ test('показывает остаток на руках', () => {
   expect(screen.getByText('ОСТАТОК НА РУКАХ')).toBeInTheDocument();
 });
 
-test('«Свободно сверх плана» разворачивает и сворачивает пояснение', async () => {
-  const user = userEvent.setup();
+test('«Свободно сверх плана» видна сразу, с бегунком, без разворачивания', () => {
   render(<TodayScreen state={state} onToggle={noop} onEditPayment={noop} freeSpendableNow={freeSpendableNow} weeklyBalances={weeklyBalances} />);
-  await user.click(screen.getByText('Свободно сверх плана'));
+  expect(screen.getByText('Свободно сверх плана')).toBeInTheDocument();
   expect(screen.getByText(/Столько можно потратить дополнительно|Сейчас свободных денег нет/)).toBeInTheDocument();
+  expect(document.querySelector('input[type="range"]')).toBeInTheDocument();
+});
+
+test('«Ближайшая выплата» показывает первую выплату и разворачивает остальные', async () => {
+  const user = userEvent.setup();
+  const onEditPayment = jest.fn();
+  render(<TodayScreen state={state} onToggle={noop} onEditPayment={onEditPayment} freeSpendableNow={freeSpendableNow} weeklyBalances={weeklyBalances} />);
+  expect(screen.getByText('Ближайшая выплата')).toBeInTheDocument();
+  const moreBtn = screen.getByLabelText('Показать остальные ближайшие выплаты');
+  await user.click(moreBtn);
+  expect(screen.getByLabelText('Показать остальные ближайшие выплаты')).toHaveAttribute('aria-expanded', 'true');
+  await user.click(screen.getByText('Ближайшая выплата').closest('button'));
+  expect(onEditPayment).toHaveBeenCalled();
 });
 
 test('отметка предстоящего платежа вызывает onToggle', async () => {

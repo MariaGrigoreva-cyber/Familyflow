@@ -7,4 +7,5 @@ export { EditCatModal } from './EditCatModal';
 export { EditTxModal } from './EditTxModal';
 export { WithdrawPiggyModal } from './WithdrawPiggyModal';
 export { EditIncomeModal } from './EditIncomeModal';
+export { SalaryCheckModal } from './SalaryCheckModal';
 export { TabBar } from './TabBar';

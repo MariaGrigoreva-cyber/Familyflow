@@ -1,6 +1,6 @@
 // FamilyFlow — экран Настройки
 import React, { useState, useEffect } from 'react';
-import {C,MONO,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,PRIVACY_URL,TERMS_URL,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
+import {C,MONO,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,PRIVACY_URL,TERMS_URL,TELEGRAM_URL,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,EmojiPicker,ProInline,CatIcon} from '../lib/ui';
 import {isLoggedIn,logout,register,login,familyMe,familyInvite,familyJoin,errText,changePassword,deleteAccount,resetRequest,resetConfirm,saveCloudState,billingStatus,billingCheckout,billingCancelAutoRenew,billingRefund} from '../api';
 import {getPushState,enablePush,disablePush} from '../push';
@@ -9,13 +9,26 @@ import {exportFfStateAsXlsx,importFfStateFromXlsxArrayBuffer} from '../lib/excel
 
 const emailOk = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
-export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncome,onUpdateMember,onAddMember,onRemoveMember,theme,onSetTheme,isPro=true}){
+export function SettingsScreen({state,onEditCat,onAddCat,onDeleteCustomCat,onEditIncome,onAddIncome,onUpdateMember,onAddMember,onRemoveMember,theme,onSetTheme,isPro=true}){
   const scrollToTop=()=>{try{document.querySelector('[data-settings-scroll]')?.scrollTo({top:0,behavior:'smooth'});}catch{}};
   const{members,incomes,planned,familyName,customCats=[]}=state;
   const allCats=[...DEFAULT_CATS,...customCats];
   const showMember=members.length>1; // при одном члене семьи не дублируем его имя в каждой строке
   const[showFamilyEdit,setShowFamilyEdit]=useState(false);
   const[emojiPickerFor,setEmojiPickerFor]=useState(null);
+  // Приглашение в Telegram-канал — один раз при первом заходе в Настройки,
+  // дальше не показываем (в отличие от AddToHomeScreenPrompt это не «в этой
+  // сессии», а «вообще один раз» — сама вкладка открывается не при первом
+  // запуске, так что сессионного флага недостаточно, нужен постоянный localStorage).
+  const[showTgPromo,setShowTgPromo]=useState(false);
+  useEffect(()=>{
+    try{
+      if(!localStorage.getItem('ff_tg_promo_seen')){
+        setShowTgPromo(true);
+        localStorage.setItem('ff_tg_promo_seen','1');
+      }
+    }catch{}
+  },[]);
   const pad={padding:'16px 20px 90px'};
   const startDate=state.budgetStartDate?new Date(state.budgetStartDate):null;
   const memberWord=members.length===1?'ЧЕЛОВЕК':'ЧЕЛОВЕКА';
@@ -43,6 +56,7 @@ export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncom
   const daysSinceExport=lastExportAt?Math.floor((Date.now()-new Date(lastExportAt).getTime())/86400000):null;
 
   return(
+    <>
     <div data-settings-scroll style={{overflowY:'auto',flex:1,minHeight:0,WebkitOverflowScrolling:'touch'}}><div style={pad}>
       <button onClick={()=>setShowFamilyEdit(v=>!v)} aria-expanded={showFamilyEdit} aria-label={`Семья ${familyName} — редактировать участников`} style={{width:'100%',display:'flex',alignItems:'center',gap:14,paddingBottom:showFamilyEdit?14:18,border:'none',background:'none',cursor:'pointer',fontFamily:'inherit',textAlign:'left'}}>
         <div style={{display:'flex',flexShrink:0}}>
@@ -105,16 +119,27 @@ export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncom
         {allCats.map(cat=>{
           const count=planned.filter(p=>p.catId===cat.id).length;
           const active=count>0;
+          const isCustom=customCats.some(c=>c.id===cat.id);
           return(
-            <button key={cat.id}
-              onClick={()=>onEditCat({id:uid(),catId:cat.id,name:cat.name,amount:0,memberId:members[0]?.id||'m1',repeat:'weekly',days:[],isNew:true,addedAt:new Date().toISOString()})}
-              style={{display:'flex',flexDirection:'column',alignItems:'center',gap:6,background:'none',border:'none',cursor:'pointer',fontFamily:'inherit',opacity:active?1:.55}}>
-              <div style={{position:'relative',width:54,height:54,borderRadius:16,background:active?cat.color:'var(--c-surface)',border:active?'none':`1.5px dashed ${C.borderS}`,boxSizing:'border-box',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24}}>
-                <CatIcon cat={cat} size={24}/>
-                {active&&<span style={{position:'absolute',top:-5,right:-5,fontFamily:MONO,fontSize:9,fontWeight:600,color:'#fff',background:C.orange,borderRadius:8,padding:'2px 5px'}}>×{count}</span>}
-              </div>
-              <span style={{fontSize:10.5,fontWeight:500,color:active?C.text:'var(--c-muted2)'}}>{cat.name}</span>
-            </button>
+            <div key={cat.id} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:4}}>
+              <button
+                onClick={()=>onEditCat({id:uid(),catId:cat.id,name:cat.name,amount:0,memberId:members[0]?.id||'m1',repeat:'weekly',days:[],isNew:true,addedAt:new Date().toISOString()})}
+                style={{display:'flex',flexDirection:'column',alignItems:'center',gap:6,background:'none',border:'none',cursor:'pointer',fontFamily:'inherit',opacity:active?1:.55}}>
+                <div style={{position:'relative',width:54,height:54,borderRadius:16,background:active?cat.color:'var(--c-surface)',border:active?'none':`1.5px dashed ${C.borderS}`,boxSizing:'border-box',display:'flex',alignItems:'center',justifyContent:'center',fontSize:24}}>
+                  <CatIcon cat={cat} size={24}/>
+                  {active&&<span style={{position:'absolute',top:-5,right:-5,fontFamily:MONO,fontSize:9,fontWeight:600,color:'#fff',background:C.orange,borderRadius:8,padding:'2px 5px'}}>×{count}</span>}
+                </div>
+                <span style={{fontSize:10.5,fontWeight:500,color:active?C.text:'var(--c-muted2)'}}>{cat.name}</span>
+              </button>
+              {isCustom&&onDeleteCustomCat&&(
+                <button onClick={async()=>{
+                  const msg=count>0
+                    ?`Удалить категорию «${cat.name}»? Вместе с ней удалятся и её плановые траты (${count}).`
+                    :`Удалить категорию «${cat.name}»?`;
+                  if(await confirmAsync(msg,{danger:true}))onDeleteCustomCat(cat.id);
+                }} aria-label={`Удалить категорию: ${cat.name}`} style={{background:'none',border:'none',padding:0,fontSize:9.5,color:C.muted,cursor:'pointer',fontFamily:'inherit'}}>Удалить</button>
+              )}
+            </div>
           );
         })}
         <button onClick={()=>onEditCat({id:uid(),catId:'custom_'+uid(),name:'',amount:0,memberId:members[0]?.id||'m1',repeat:'weekly',days:[],isNew:true,addedAt:new Date().toISOString()})}
@@ -227,6 +252,14 @@ export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncom
         </div>
         <span style={{fontSize:13,color:C.muted}}>›</span>
       </a>
+      <a href={TELEGRAM_URL} target="_blank" rel="noopener noreferrer" style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'9px 0',textDecoration:'none',boxSizing:'border-box'}}>
+        <span style={{fontSize:17}}>📢</span>
+        <div style={{flex:1}}>
+          <div style={{fontSize:13.5,color:C.text}}>Канал в Telegram</div>
+          <div style={{fontSize:11,color:C.muted,marginTop:1}}>новости, советы и обновления — t.me/myfamilyflow</div>
+        </div>
+        <span style={{fontSize:13,color:C.muted}}>›</span>
+      </a>
       <SecTitle>СБРОС</SecTitle>
       <div style={{...s.card,background:C.redL,border:`1px solid ${C.redB}`,padding:14}}>
         <div style={{fontSize:12,color:C.red,marginBottom:10,lineHeight:1.5}}>
@@ -254,6 +287,20 @@ export function SettingsScreen({state,onEditCat,onAddCat,onEditIncome,onAddIncom
         </button>
       </div>
     </div></div>
+    {showTgPromo&&(
+      <div style={{position:'fixed',inset:0,zIndex:400,display:'flex',alignItems:'flex-end',justifyContent:'center'}} onClick={()=>setShowTgPromo(false)}>
+        <div style={{position:'absolute',inset:0,background:'rgba(28,25,22,0.45)'}}/>
+        <div onClick={e=>e.stopPropagation()} style={{position:'relative',width:'100%',maxWidth:480,background:C.bg,borderRadius:'20px 20px 0 0',padding:'22px 20px 26px',boxSizing:'border-box'}}>
+          <button onClick={()=>setShowTgPromo(false)} aria-label="Закрыть" style={{position:'absolute',top:14,right:16,background:'none',border:'none',fontSize:20,color:C.muted,cursor:'pointer',lineHeight:1,padding:4}}>×</button>
+          <div style={{fontSize:28,marginBottom:10}}>📢</div>
+          <div style={{fontSize:15,fontWeight:600,color:C.text,marginBottom:6,paddingRight:26,lineHeight:1.4}}>Подпишитесь на канал Семейного потока в Telegram</div>
+          <div style={{fontSize:13,color:C.text2,marginBottom:18,lineHeight:1.5}}>Советы по бюджету, новости о новых функциях и ответы на частые вопросы.</div>
+          <a href={TELEGRAM_URL} target="_blank" rel="noopener noreferrer" onClick={()=>setShowTgPromo(false)} style={{display:'block',width:'100%',padding:14,borderRadius:12,border:'none',background:C.orange,color:'#fff',fontWeight:600,fontSize:14.5,textAlign:'center',textDecoration:'none',cursor:'pointer',fontFamily:'inherit',boxSizing:'border-box'}}>Подписаться</a>
+          <button onClick={()=>setShowTgPromo(false)} style={{marginTop:8,width:'100%',padding:10,background:'none',border:'none',color:C.muted,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>Не сейчас</button>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
 

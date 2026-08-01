@@ -50,13 +50,13 @@ const Stat=({label,value,color=C.borderS,valueColor,style:st})=>(
     <div style={{fontFamily:MONO,fontSize:14,fontWeight:600,color:valueColor||C.text,marginTop:2}}>{value}</div>
   </div>
 );
-const Modal=({visible,onClose,title,onSave,saveLabel='Сохранить',children})=>{
+const Modal=({visible,onClose,title,onSave,saveLabel='Сохранить',cancelLabel='Отмена',children})=>{
   if(!visible)return null;
   return(
     <div style={s.modal} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
       <div style={s.modalBox}>
         <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'14px 16px',background:'var(--c-surface)',borderBottom:`1px solid ${C.border}`,borderRadius:'16px 16px 0 0',flexShrink:0}}>
-          <button onClick={onClose} style={{background:'none',border:'none',cursor:'pointer',fontSize:15,color:C.muted,fontFamily:'inherit'}}>Отмена</button>
+          <button onClick={onClose} style={{background:'none',border:'none',cursor:'pointer',fontSize:15,color:C.muted,fontFamily:'inherit'}}>{cancelLabel}</button>
           <span style={{fontSize:15,fontWeight:600,color:C.text}}>{title}</span>
           {onSave?<button onClick={onSave} style={{background:'none',border:'none',cursor:'pointer',fontSize:15,color:C.orange,fontWeight:600,fontFamily:'inherit'}}>{saveLabel}</button>:<div style={{width:60}}/>}
         </div>

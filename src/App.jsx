@@ -10,7 +10,7 @@ const BudgetScreen=lazy(()=>import('./screens/Budget').then(m=>({default:m.Budge
 const HealthScreen=lazy(()=>import('./screens/Health').then(m=>({default:m.HealthScreen})));
 const SettingsScreen=lazy(()=>import('./screens/Settings').then(m=>({default:m.SettingsScreen})));
 const TipsPhilosophyOverlay=lazy(()=>import('./TipsPhilosophy').then(m=>({default:m.TipsPhilosophyOverlay})));
-import {EditPaymentModal,AddExtraModal,AddTxModal,EditCatModal,EditTxModal,EditIncomeModal,WithdrawPiggyModal,TabBar} from './modals';
+import {EditPaymentModal,AddExtraModal,AddTxModal,EditCatModal,EditTxModal,EditIncomeModal,WithdrawPiggyModal,SalaryCheckModal,TabBar} from './modals';
 import { isLoggedIn, loadCloudState, saveCloudState, authMe, resendVerification, billingStatus, errText } from './api';
 import { markLocalTrialStart, getLocalPlan, isProPlan } from './lib/plan';
 import { SplashScreen } from './SplashScreen';
@@ -82,6 +82,8 @@ export default function App(){
   const[editTxItem,setEditTxItem]=useState(null);
   const[editIncomeItem,setEditIncomeItem]=useState(null);
   const[editIncomeMember,setEditIncomeMember]=useState(null);
+  const[showSalaryCheck,setShowSalaryCheck]=useState(false);
+  const[salaryCheckPayment,setSalaryCheckPayment]=useState(null);
   const[appState,setAppState]=useState(()=>{
     if(savedState?.appState) return savedState.appState;
     return {
@@ -183,6 +185,24 @@ useEffect(() => {
     cancelled = true;
   };
 }, []);
+  // Зарплата/аванс не попадают в «остаток на руках», пока пользователь не отметит
+  // их полученными (см. computeBalances → unmarkedPayments) — молчаливая рассинхронизация
+  // легко остаётся незамеченной. Раз за сессию (не при каждом ре-рендере), после того
+  // как локальные/облачные данные точно загружены, спрашиваем явно. Закрытие без ответа
+  // ("Ещё нет") просто не мешает сейчас — при следующем открытии приложения (новая
+  // sessionStorage-сессия), если выплата всё ещё не отмечена, вопрос зададут снова.
+  useEffect(() => {
+    if (!cloudReady || !onboarded) return;
+    try {
+      if (sessionStorage.getItem('ff_salary_check_shown')) return;
+      sessionStorage.setItem('ff_salary_check_shown', '1');
+    } catch {}
+    const { unmarkedPayments } = computeBalances(appState);
+    if (unmarkedPayments.length > 0) {
+      setSalaryCheckPayment(unmarkedPayments[0]);
+      setShowSalaryCheck(true);
+    }
+  }, [cloudReady, onboarded]);
   // Подтверждён ли email — для баннера-напоминания (мягкое требование, не блокирует вход)
   useEffect(() => {
     if (!isLoggedIn()) return;
@@ -421,6 +441,13 @@ useEffect(() => {
     return{...prev,planned:np,customCats,weekItems:regenWeeksKeepDone(np,prev.weekItems)};
   });};
   const handleDeletePlanned=id=>setAppState(prev=>{const np=prev.planned.filter(p=>p.id!==id);return{...prev,planned:np,weekItems:regenWeeksKeepDone(np,prev.weekItems)};});
+  // Своя категория (customCats) раньше нигде не удалялась — созданная один раз,
+  // оставалась в сетке навсегда, даже без единой плановой траты. Удаление каскадно
+  // убирает и её плановые траты (иначе останутся записи с несуществующей категорией).
+  const handleDeleteCustomCat=catId=>setAppState(prev=>{
+    const np=prev.planned.filter(p=>p.catId!==catId);
+    return{...prev,planned:np,customCats:(prev.customCats||[]).filter(c=>c.id!==catId),weekItems:regenWeeksKeepDone(np,prev.weekItems)};
+  });
   const handleAddPlanned=()=>{setEditItem({id:uid(),catId:'other',name:'Новая',amount:0,memberId:appState.members[0]?.id||'m1',repeat:'weekly',days:[],isNew:true});setShowEdit(true);};
   const handleEditPayment=payment=>{setEditPayment(payment);setShowEditPay(true);};
   const handleSavePayment=payment=>{
@@ -432,6 +459,12 @@ useEffect(() => {
       return{...prev,payments:{...prev.payments,[payment.displayLabel]:{actualAmount:payment.actualAmount,isDone:payment.isDone,note2:payment.note2}}};
     });
   };
+  const handleSalaryCheckConfirm=actualAmount=>{
+    handleSavePayment({...salaryCheckPayment,actualAmount,isDone:true});
+    setShowSalaryCheck(false);
+    setSalaryCheckPayment(null);
+  };
+  const handleSalaryCheckNotYet=()=>{setShowSalaryCheck(false);setSalaryCheckPayment(null);};
   const handleAddExtra=payment=>{
     const{paymentOverrides,...rest}=payment;
     const label=rest.label||rest.name||'Доп. выплата';
@@ -651,7 +684,7 @@ useEffect(() => {
           {tab==='plan'&&<PlanScreen state={appState} onToggle={handleToggle} onAdd={(wk)=>{setAddWeek(wk);setShowAdd(true);}} onEditTx={handleEditTx} weeksSummary={weeksSummary} negativeWeek={cashFlowProjection.negativeWeek} isPro={isPro} onUpgrade={()=>setTab('settings')}/>}
           {tab==='budget'&&<BudgetScreen state={appState} onEditPlanned={item=>{setEditItem(item);setShowEdit(true);}} onAddPlanned={handleAddPlanned} onEditPayment={handleEditPayment} onAddExtra={(data)=>{if(data&&data.amount){handleAddExtra(data);}else{setShowAddExtra(true);}}} onWithdrawPiggy={()=>setShowWithdrawPiggy(true)} onSetGoal={handleSetGoal} onAddGoalToPlan={handleEditPlanned}/>}
           {tab==='health'&&<HealthScreen state={appState} isPro={isPro} onUpgrade={()=>setTab('settings')}/>}
-          {tab==='settings'&&<SettingsScreen state={appState} onEditCat={item=>{setEditItem(item||null);setShowEdit(true);}} onAddCat={handleAddPlanned} onEditIncome={handleEditIncome} onAddIncome={handleAddIncomeSource} onUpdateMember={handleUpdateMember} onAddMember={handleAddMember} onRemoveMember={handleRemoveMember} theme={theme} onSetTheme={setTheme} isPro={isPro}/>}
+          {tab==='settings'&&<SettingsScreen state={appState} onEditCat={item=>{setEditItem(item||null);setShowEdit(true);}} onAddCat={handleAddPlanned} onDeleteCustomCat={handleDeleteCustomCat} onEditIncome={handleEditIncome} onAddIncome={handleAddIncomeSource} onUpdateMember={handleUpdateMember} onAddMember={handleAddMember} onRemoveMember={handleRemoveMember} theme={theme} onSetTheme={setTheme} isPro={isPro}/>}
         </Suspense>
       </div>
       {tab==='today'&&<button onClick={()=>setShowAdd(true)} aria-label="Добавить запись"
@@ -665,6 +698,7 @@ useEffect(() => {
       {showTips&&<Suspense fallback={null}><TipsPhilosophyOverlay onClose={()=>setShowTips(false)}/></Suspense>}
       <EditCatModal visible={showEdit} item={editItem} members={appState.members} customCats={appState.customCats} onClose={()=>{setShowEdit(false);setEditItem(null);}} onSave={item=>{const{isNew,...rest}=item||{};handleEditPlanned(isNew?{...rest,isNew:true}:rest);}} onDelete={handleDeletePlanned}/>
       <EditPaymentModal visible={showEditPay} payment={editPayment} onClose={()=>{setShowEditPay(false);setEditPayment(null);}} onSave={handleSavePayment} onDelete={handleDeleteExtra}/>
+      <SalaryCheckModal visible={showSalaryCheck} payment={salaryCheckPayment} onConfirm={handleSalaryCheckConfirm} onNotYet={handleSalaryCheckNotYet}/>
       <AddExtraModal visible={showAddExtra} onClose={()=>setShowAddExtra(false)} onSave={handleAddExtra} members={appState.members} incomes={appState.incomes}/>
       {startLogin&&<StartLoginForm onClose={()=>setStartLogin(false)}/>}
       <WithdrawPiggyModal visible={showWithdrawPiggy} onClose={()=>setShowWithdrawPiggy(false)} onSave={handleWithdrawPiggy} members={appState.members} customCats={appState.customCats} available={computeBalances(appState).totalSaved}/>
@@ -683,7 +717,7 @@ useEffect(() => {
           {icon:'💰',title:'Остаток на руках',body:'Главная цифра: сколько денег на основном счёте прямо сейчас. Формула: старт + получено − потрачено − копилка. Три мини-карточки под цифрой показывают слагаемые.'},
           {icon:<PiggyLogo size={22}/>,title:'Копилка — отдельно',body:'Деньги в копилке уже переведены на накопительный счёт. Они НЕ входят в «остаток на руках» — тратить их нельзя, это резерв. Поэтому зелёная строка отдельно.'},
           {icon:'💡',title:'Советы',body:'Кнопка «?» открывает подсказки по приложению и личным финансам — доступна с любой вкладки.'},
-          {icon:'📅',title:'Выплаты — с переносами',body:'Если день зарплаты выпал на выходной — приложение само сдвигает её на рабочий день по производственному календарю РФ. Один тап — выплата отмечена как полученная.'},
+          {icon:'📅',title:'Ближайшая выплата',body:'Если день зарплаты выпал на выходной — приложение само сдвигает её на рабочий день по производственному календарю РФ. Стрелочка «ещё N» разворачивает остальные ближайшие выплаты.'},
         ];
         const st=TOUR[tourStep];
         if(!st)return null;

@@ -38,7 +38,7 @@ export function TodayScreen({state,onToggle,onEditPayment,onEditTx,onQuickMark,o
   const allUpcomingPay=[...scheduledUpcoming,...extraUpcomingToday].sort((a,b)=>a.date-b.date).slice(0,3);
   const showMember=members.length>1; // при одном члене семьи не дублируем его имя в каждой строке
   const[showPiggyInfo,setShowPiggyInfo]=useState(false);
-  const[showFreeInfo,setShowFreeInfo]=useState(false);
+  const[showMorePay,setShowMorePay]=useState(false);
   // Симулятор «а если потратить ещё X сейчас» — та же идея, что демо на лендинге,
   // но на реальном прогнозе баланса семьи вместо демо-цифр.
   const[extraSpend,setExtraSpend]=useState(0);
@@ -77,44 +77,41 @@ export function TodayScreen({state,onToggle,onEditPayment,onEditTx,onQuickMark,o
           <span style={{color:'rgba(255,255,255,.85)'}}>+{fmtN(actualSalaryReceived+CB.txIncome)} <span style={{color:'rgba(255,255,255,.5)'}}>получено</span></span>
           <span style={{color:'rgba(255,255,255,.85)'}}>−{fmtN(allSpentTotal)} <span style={{color:'rgba(255,255,255,.5)'}}>потрачено</span></span>
         </div>
-        <div style={{marginTop:10}}>
-          <button onClick={()=>setShowFreeInfo(v=>!v)} aria-expanded={showFreeInfo} style={{width:'100%',display:'flex',alignItems:'center',gap:10,background:'rgba(255,255,255,.12)',border:'none',borderRadius:12,padding:'10px 13px',cursor:'pointer',fontFamily:'inherit',boxSizing:'border-box'}}>
-            <span style={{fontSize:14}}>💡</span>
-            <span style={{flex:1,fontSize:12,color:'rgba(255,255,255,.8)',textAlign:'left'}}>Свободно сверх плана</span>
-            <span style={{fontFamily:MONO,fontSize:13,fontWeight:600,color:'#fff'}}>{fmt(freeSpendableNow)}</span>
-            <span style={{fontSize:10,color:'rgba(255,255,255,.6)'}}>{showFreeInfo?'▲':'▼'}</span>
-          </button>
-          {showFreeInfo&&<div style={{background:'rgba(255,255,255,.08)',borderRadius:10,padding:'10px 13px',marginTop:6}}>
-            <div style={{fontSize:11.5,color:'rgba(255,255,255,.75)',lineHeight:'17px',marginBottom:12}}>
-              {freeSpendableNow>0
-                ?'Столько можно потратить дополнительно прямо сейчас — и накопительный баланс не уйдёт в минус ни на одной будущей неделе (с учётом уже запланированных трат и доходов).'
-                :'Сейчас свободных денег нет — весь буфер уже расписан планом на будущее.'}
-            </div>
-            {sim.rows.length>0&&<div style={{borderTop:'1px solid rgba(255,255,255,.15)',paddingTop:12}}>
-              <div style={{fontSize:11,color:'rgba(255,255,255,.6)',marginBottom:8}}>А если потратить сверх плана ещё:</div>
-              <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
-                <input type="range" min={0} max={simMax} step={simStep} value={extraSpend}
-                  onChange={e=>setExtraSpend(+e.target.value)}
-                  style={{flex:1,accentColor:'#fff'}}/>
-                <span style={{fontFamily:MONO,fontSize:13,fontWeight:600,color:'#fff',minWidth:76,textAlign:'right'}}>{fmtN(extraSpend)}</span>
-              </div>
-              <div style={{fontSize:10,color:'rgba(255,255,255,.5)',marginBottom:6}}>Баланс на ближайшие 10 недель:</div>
-              <div style={{display:'flex',alignItems:'flex-end',gap:4,height:56,marginBottom:4}}>
-                {sim.rows.map(w=>(
-                  <div key={w.wk} style={{flex:1,display:'flex',justifyContent:'center'}}>
-                    <div style={{width:'100%',maxWidth:20,height:w.h,borderRadius:3,background:w.neg?'#7a281f':'rgba(255,255,255,.85)'}}/>
+        {allUpcomingPay.length>0&&(()=>{
+          const nextPay=allUpcomingPay[0];
+          const restPay=allUpcomingPay.slice(1);
+          const shortDate=`${nextPay.date.getDate()} ${MONTH_SHORT[nextPay.date.getMonth()]}`;
+          return(
+            <div data-tour="3" style={{marginTop:10,...glow(3)}}>
+              <div style={{display:'flex',alignItems:'center',gap:10,background:'rgba(255,255,255,.12)',borderRadius:12,padding:'10px 13px',boxSizing:'border-box'}}>
+                <button onClick={()=>onEditPayment(nextPay)} style={{display:'flex',alignItems:'center',gap:10,flex:1,minWidth:0,background:'none',border:'none',padding:0,cursor:'pointer',fontFamily:'inherit',textAlign:'left'}}>
+                  <span style={{fontSize:14,flexShrink:0}}>📅</span>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:12,color:'rgba(255,255,255,.8)'}}>Ближайшая выплата</div>
+                    <div style={{fontSize:11.5,color:'#fff',fontWeight:500,marginTop:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{shortDate} · {nextPay.isExtra?nextPay.label:paymentTypeLabel(nextPay)}{showMember?` · ${nextPay.memberName}`:''}</div>
+                    {nextPay.shifted&&<div style={{fontFamily:MONO,fontSize:9.5,color:'#ffd9a3',marginTop:1}}>{nextPay.note}</div>}
                   </div>
-                ))}
+                  <span style={{fontFamily:MONO,fontSize:13,fontWeight:600,color:'#fff',flexShrink:0}}>{fmtN(nextPay.actualAmount||nextPay.amount)}</span>
+                </button>
+                {restPay.length>0&&<button onClick={()=>setShowMorePay(v=>!v)} aria-expanded={showMorePay} aria-label="Показать остальные ближайшие выплаты" style={{background:'none',border:'none',fontSize:10,color:'rgba(255,255,255,.6)',cursor:'pointer',flexShrink:0,padding:'4px 0 4px 8px',fontFamily:'inherit'}}>{showMorePay?'▲':`▼ ещё ${restPay.length}`}</button>}
               </div>
-              <div style={{display:'flex',gap:4,marginBottom:10}}>
-                {sim.rows.map(w=><div key={w.wk} style={{flex:1,textAlign:'center',fontFamily:MONO,fontSize:8.5,color:'rgba(255,255,255,.5)'}}>{w.num}</div>)}
-              </div>
-              <div style={{fontSize:11.5,lineHeight:'16px',fontWeight:500,color:sim.firstNeg?'#ffd9cc':'#d7ffe6'}}>
-                {sim.firstNeg?`⚠ Кассовый разрыв в нед. ${sim.firstNeg.num}: −${fmt(sim.firstNeg.v)}`:'✓ Безопасно на все 10 недель вперёд'}
-              </div>
-            </div>}
-          </div>}
-        </div>
+              {showMorePay&&restPay.length>0&&<div style={{background:'rgba(255,255,255,.08)',borderRadius:10,padding:'2px 13px',marginTop:6}}>
+                {restPay.map((p,i)=>{
+                  const d=`${p.date.getDate()} ${MONTH_SHORT[p.date.getMonth()]}`;
+                  return(
+                    <button key={i} onClick={()=>onEditPayment(p)} style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'8px 0',border:'none',background:'none',borderTop:i>0?'1px solid rgba(255,255,255,.12)':'none',cursor:'pointer',fontFamily:'inherit',textAlign:'left'}}>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:11.5,color:'rgba(255,255,255,.85)'}}>{d} · {p.isExtra?p.label:paymentTypeLabel(p)}{showMember?` · ${p.memberName}`:''}</div>
+                        {p.shifted&&<div style={{fontFamily:MONO,fontSize:9.5,color:'#ffd9a3',marginTop:1}}>{p.note}</div>}
+                      </div>
+                      <span style={{fontFamily:MONO,fontSize:12,fontWeight:600,color:'#fff'}}>{fmtN(p.actualAmount||p.amount)}</span>
+                    </button>
+                  );
+                })}
+              </div>}
+            </div>
+          );
+        })()}
         {totalSaved>0&&<div data-tour="1" style={{...glow(1)}}>
           <button onClick={()=>setShowPiggyInfo(v=>!v)} aria-expanded={showPiggyInfo} style={{width:'100%',display:'flex',alignItems:'center',gap:10,marginTop:14,background:'rgba(255,255,255,.12)',border:'none',borderRadius:12,padding:'10px 13px',cursor:'pointer',fontFamily:'inherit',boxSizing:'border-box'}}>
             <PiggyLogo size={14}/>
@@ -128,6 +125,42 @@ export function TodayScreen({state,onToggle,onEditPayment,onEditTx,onQuickMark,o
               <PiggyLogo size={14} style={{marginRight:4}}/> Снять с копилки и потратить
             </button>}
           </div>}
+        </div>}
+      </div>
+      {/* Свободно сверх плана — сразу с бегунком, без отдельного разворачивания */}
+      <div style={{...s.card,marginBottom:10}}>
+        <div style={{display:'flex',alignItems:'center',gap:10}}>
+          <span style={{fontSize:14}}>💡</span>
+          <span style={{flex:1,fontSize:13,color:C.text}}>Свободно сверх плана</span>
+          <span style={{fontFamily:MONO,fontSize:15,fontWeight:600,color:C.orangeD}}>{fmt(freeSpendableNow)}</span>
+        </div>
+        <div style={{fontSize:11.5,color:C.text2,lineHeight:'17px',marginTop:8}}>
+          {freeSpendableNow>0
+            ?'Столько можно потратить дополнительно прямо сейчас — и накопительный баланс не уйдёт в минус ни на одной будущей неделе (с учётом уже запланированных трат и доходов).'
+            :'Сейчас свободных денег нет — весь буфер уже расписан планом на будущее.'}
+        </div>
+        {sim.rows.length>0&&<div style={{borderTop:`1px solid ${C.border}`,marginTop:12,paddingTop:12}}>
+          <div style={{fontSize:11,color:C.muted,marginBottom:8}}>А если потратить сверх плана ещё:</div>
+          <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
+            <input type="range" min={0} max={simMax} step={simStep} value={extraSpend}
+              onChange={e=>setExtraSpend(+e.target.value)}
+              style={{flex:1,accentColor:C.orange}}/>
+            <span style={{fontFamily:MONO,fontSize:13,fontWeight:600,color:C.text,minWidth:76,textAlign:'right'}}>{fmtN(extraSpend)}</span>
+          </div>
+          <div style={{fontSize:10,color:C.muted,marginBottom:6}}>Баланс на ближайшие 10 недель:</div>
+          <div style={{display:'flex',alignItems:'flex-end',gap:4,height:56,marginBottom:4}}>
+            {sim.rows.map(w=>(
+              <div key={w.wk} style={{flex:1,display:'flex',justifyContent:'center'}}>
+                <div style={{width:'100%',maxWidth:20,height:w.h,borderRadius:3,background:w.neg?C.red:C.orange}}/>
+              </div>
+            ))}
+          </div>
+          <div style={{display:'flex',gap:4,marginBottom:10}}>
+            {sim.rows.map(w=><div key={w.wk} style={{flex:1,textAlign:'center',fontFamily:MONO,fontSize:8.5,color:C.muted}}>{w.num}</div>)}
+          </div>
+          <div style={{fontSize:11.5,lineHeight:'16px',fontWeight:500,color:sim.firstNeg?C.red:C.green}}>
+            {sim.firstNeg?`⚠ Кассовый разрыв в нед. ${sim.firstNeg.num}: −${fmt(sim.firstNeg.v)}`:'✓ Безопасно на все 10 недель вперёд'}
+          </div>
         </div>}
       </div>
       {/* План пуст — направляем в настройки */}
@@ -157,23 +190,6 @@ export function TodayScreen({state,onToggle,onEditPayment,onEditTx,onQuickMark,o
           </div>
         );
       })()}
-      {allUpcomingPay.length>0&&<div data-tour="3" style={{...glow(3),borderRadius:12}}>
-        <SecTitle>БЛИЖАЙШИЕ ВЫПЛАТЫ</SecTitle>
-        {allUpcomingPay.map((p,i)=>{
-          const chipBg=p.shifted?C.yellowL:C.orangeL, chipColor=p.shifted?C.yellow:C.orangeD;
-          const shortDate=`${p.date.getDate()} ${MONTH_SHORT[p.date.getMonth()]}`;
-          return(
-            <button key={i} onClick={()=>onEditPayment(p)} style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'8px 0',border:'none',background:'none',borderBottom:i<allUpcomingPay.length-1?`1px dashed ${C.border}`:'none',cursor:'pointer',fontFamily:'inherit',textAlign:'left'}}>
-              <span style={{fontFamily:MONO,fontSize:10.5,fontWeight:600,color:chipColor,background:chipBg,borderRadius:6,padding:'3px 7px',flexShrink:0}}>{shortDate}</span>
-              <div style={{flex:1}}>
-                <div style={{fontSize:13.5,fontWeight:500,color:C.text}}>{p.isExtra?p.label:paymentTypeLabel(p)}{showMember?` · ${p.memberName}`:''}</div>
-                {p.shifted&&<div style={{fontFamily:MONO,fontSize:10,color:C.yellow,marginTop:1}}>{p.note}</div>}
-              </div>
-              <span style={{fontFamily:MONO,fontSize:13,fontWeight:600,color:C.text}}>{fmtN(p.actualAmount||p.amount)}</span>
-            </button>
-          );
-        })}
-      </div>}
       {weekTxs.length>0&&<>
         <SecTitle>ЗАПИСИ НЕДЕЛИ</SecTitle>
         {weekTxs.map((tx,i)=>{
