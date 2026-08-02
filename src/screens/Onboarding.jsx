@@ -4,7 +4,7 @@ import {C,MONO,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,DaySelect,Numpad,EmojiPicker,CatIcon} from '../lib/ui';
 import {alertAsync} from '../lib/confirm';
 
-export function EntryScreen({onDemo,onSetup,onLoginClick}){
+export function EntryScreen({onDemo,onLoginClick}){
   return(
     <div style={{height:'100%',maxWidth:480,margin:'0 auto',width:'100%',background:C.bg,display:'flex',flexDirection:'column',justifyContent:'center',padding:24,boxSizing:'border-box',overflowY:'auto'}}>
       <div style={{display:'flex',alignItems:'center',gap:12}}>
@@ -17,14 +17,10 @@ export function EntryScreen({onDemo,onSetup,onLoginClick}){
           <span style={{width:38,height:38,borderRadius:11,background:'var(--c-surface)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>▶</span>
           <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:C.orangeD}}>Демо-данные</div><div style={{fontSize:11.5,color:C.orangeD,opacity:.8,marginTop:1}}>семья Ивановых · 30 секунд</div></div>
         </button>
-        {onSetup&&<button onClick={onSetup} style={{width:'100%',display:'flex',alignItems:'center',gap:13,border:`1px solid ${C.border}`,background:'var(--c-surface)',borderRadius:14,padding:'14px 16px',cursor:'pointer',textAlign:'left',fontFamily:'inherit',boxSizing:'border-box'}}>
-          <span style={{width:38,height:38,borderRadius:11,background:C.cream,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>⚙️</span>
-          <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:C.text}}>Настроить свой бюджет</div><div style={{fontSize:11.5,color:C.muted,marginTop:1}}>без регистрации — 5 минут</div></div>
-        </button>}
-        {onLoginClick&&<button onClick={onLoginClick} style={{width:'100%',display:'flex',alignItems:'center',gap:13,border:`1px solid ${C.border}`,background:'var(--c-surface)',borderRadius:14,padding:'14px 16px',cursor:'pointer',textAlign:'left',fontFamily:'inherit',boxSizing:'border-box'}}>
+        <button onClick={onLoginClick} style={{width:'100%',display:'flex',alignItems:'center',gap:13,border:`1px solid ${C.border}`,background:'var(--c-surface)',borderRadius:14,padding:'14px 16px',cursor:'pointer',textAlign:'left',fontFamily:'inherit',boxSizing:'border-box'}}>
           <span style={{width:38,height:38,borderRadius:11,background:C.cream,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>🔑</span>
           <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:C.text}}>Есть аккаунт / хочу зарегистрироваться</div><div style={{fontSize:11.5,color:C.muted,marginTop:1}}>войти или создать аккаунт — бюджет синхронизируется с облаком</div></div>
-        </button>}
+        </button>
       </div>
       <div style={{textAlign:'center',marginTop:22,fontSize:11.5,color:C.muted,lineHeight:1.5}}>
         Бюджет шифруется и хранится на сервере в РФ. <a href={TERMS_URL} style={{color:C.orangeD}}>Условия использования</a> · <a href={PRIVACY_URL} style={{color:C.orangeD}}>Политика конфиденциальности</a>

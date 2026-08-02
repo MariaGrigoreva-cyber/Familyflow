@@ -656,17 +656,11 @@ useEffect(() => {
     setAppState({familyName:'',startBalance:0,members:[{id:'m1',name:'',avatar:'👩',color:C.orange}],
       incomes:[{id:'i1',memberId:'m1',gross:'',salaryDays:[],advanceDays:[],advancePct:'40',advanceAbs:'',advanceMode:'pct'}],
       planned:[],weekItems:{},streak:0,customCats:[],payments:{},extraPayments:[],transactions:[],budgetStartDate:new Date().toISOString()});
-    // Не ныряем сразу в анкету онбординга — сперва тот же экран выбора, что и при
-    // первом входе, только без «Есть аккаунт» (кнопка «Свои данные» уже говорит,
-    // что аккаунт не нужен) и с возможностью вернуться в демо.
+    // Не ныряем сразу в анкету онбординга — тот же экран выбора, что и при первом
+    // входе (Демо-данные / Есть аккаунт), с возможностью вернуться в демо.
     setDemoExited(true);
   };
   const backToDemo=()=>{setDemoExited(false);startDemo();};
-  const goToOwnSetup=()=>{
-    setDemoExited(false);
-    setOnboardedRaw(false);
-    try{localStorage.setItem('ff_state',JSON.stringify({consented:true,onboarded:false}));localStorage.removeItem('ff_demo_started_at');}catch{}
-  };
   if(!consented)return(
     <div style={shell}>
       <Suspense fallback={null}>
@@ -683,8 +677,9 @@ useEffect(() => {
   if(demoExited)return(
     <div style={shell}>
       <Suspense fallback={null}>
-        <EntryScreen onDemo={backToDemo} onSetup={goToOwnSetup}/>
+        <EntryScreen onDemo={backToDemo} onLoginClick={()=>setStartLogin(true)}/>
       </Suspense>
+      {startLogin&&<StartLoginForm onClose={()=>setStartLogin(false)}/>}
       <ConfirmHost/>
       <CookieBanner/>
     </div>
