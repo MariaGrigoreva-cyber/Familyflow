@@ -96,6 +96,9 @@ export default function App(){
   });
   const [cloudReady, setCloudReady] = useState(false);
 const [cloudError, setCloudError] = useState(null);
+// Метаданные бэкапа от «Сбросить все данные» в Настройках — если есть, там
+// показывается баннер «Восстановить» (см. routes/state.js POST /state/reset).
+const [resetBackup, setResetBackup] = useState(null);
 const [emailVerified, setEmailVerified] = useState(null); // null = ещё не знаем
 const [verifyDismissed, setVerifyDismissed] = useState(false);
 const [resendBusy, setResendBusy] = useState(false);
@@ -171,6 +174,7 @@ useEffect(() => {
         );
       }
 
+      setResetBackup(result?.resetBackup || null);
       setCloudError(null);
     } catch (error) {
       console.error('Cloud load failed:', error);
@@ -263,6 +267,7 @@ useEffect(() => {
             localStorage.setItem('ff_cloud_updated_at', r.updatedAt);
           }
         }
+        setResetBackup(r?.resetBackup || null);
       } catch (error) {
         // Сетевые сбои фонового пулла нарочно не показываем — обычный шум при
         // недоступности сети. Но 401 значит, что сессия точно умерла (токен уже
@@ -698,7 +703,7 @@ useEffect(() => {
           {tab==='plan'&&<PlanScreen state={appState} onToggle={handleToggle} onAdd={(wk)=>{setAddWeek(wk);setShowAdd(true);}} onEditTx={handleEditTx} weeksSummary={weeksSummary} negativeWeek={cashFlowProjection.negativeWeek} isPro={isPro} onUpgrade={()=>setTab('settings')}/>}
           {tab==='budget'&&<BudgetScreen state={appState} onEditPlanned={item=>{setEditItem(item);setShowEdit(true);}} onAddPlanned={handleAddPlanned} onEditPayment={handleEditPayment} onAddExtra={(data)=>{if(data&&data.amount){handleAddExtra(data);}else{setShowAddExtra(true);}}} onWithdrawPiggy={()=>setShowWithdrawPiggy(true)} onSetGoal={handleSetGoal} onAddGoalToPlan={handleEditPlanned}/>}
           {tab==='health'&&<HealthScreen state={appState} isPro={isPro} onUpgrade={()=>setTab('settings')}/>}
-          {tab==='settings'&&<SettingsScreen state={appState} onEditCat={item=>{setEditItem(item||null);setShowEdit(true);}} onAddCat={handleAddPlanned} onDeleteCustomCat={handleDeleteCustomCat} onEditIncome={handleEditIncome} onAddIncome={handleAddIncomeSource} onUpdateMember={handleUpdateMember} onAddMember={handleAddMember} onRemoveMember={handleRemoveMember} theme={theme} onSetTheme={setTheme} isPro={isPro}/>}
+          {tab==='settings'&&<SettingsScreen state={appState} onEditCat={item=>{setEditItem(item||null);setShowEdit(true);}} onAddCat={handleAddPlanned} onDeleteCustomCat={handleDeleteCustomCat} onEditIncome={handleEditIncome} onAddIncome={handleAddIncomeSource} onUpdateMember={handleUpdateMember} onAddMember={handleAddMember} onRemoveMember={handleRemoveMember} theme={theme} onSetTheme={setTheme} isPro={isPro} resetBackup={resetBackup}/>}
         </Suspense>
       </div>
       {tab==='today'&&<button onClick={()=>setShowAdd(true)} aria-label="Добавить запись"

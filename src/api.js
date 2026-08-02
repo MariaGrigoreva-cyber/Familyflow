@@ -71,6 +71,10 @@ export async function login(email, password) {
 export const loadCloudState = () => req('/state');
 export const saveCloudState = (data, baseUpdatedAt) =>
   req('/state', { method: 'PUT', body: { data, baseUpdatedAt: baseUpdatedAt || undefined } });
+// Отложенное удаление (90 дней): сервер сам бэкапит текущие данные перед обнулением
+// (см. routes/state.js POST /state/reset) — окно на восстановление даёт restoreCloudStateBackup.
+export const resetCloudState = () => req('/state/reset', { method: 'POST' });
+export const restoreCloudStateBackup = () => req('/state/restore-backup', { method: 'POST' });
 
 // ── Семья и приглашения ───────────────────────────────────────────────────
 export const familyMe = () => req('/family/me');

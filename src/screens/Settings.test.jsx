@@ -22,7 +22,8 @@ jest.mock('../api', () => ({
   deleteAccount: jest.fn(),
   resetRequest: jest.fn(),
   resetConfirm: jest.fn(),
-  saveCloudState: jest.fn(),
+  resetCloudState: jest.fn(),
+  restoreCloudStateBackup: jest.fn(),
   billingStatus: jest.fn(),
   billingCheckout: jest.fn(),
   billingCancelAutoRenew: jest.fn(),
@@ -146,6 +147,32 @@ describe('SettingsScreen — базовые разделы (не залогин�
     await user.click(screen.getByText('🗑 Сбросить все данные и начать заново'));
     expect(localStorage.getItem('ff_state')).toBe('{}');
     expect(window.location.reload).not.toHaveBeenCalled();
+    window.confirm.mockRestore();
+  });
+
+  test('сброс без учётки сохраняет локальную копию для восстановления (90 дней)', async () => {
+    const user = userEvent.setup();
+    jest.spyOn(window, 'confirm').mockReturnValue(true);
+    localStorage.setItem('ff_state', '{"budget":"реальный"}');
+    render(<SettingsScreen {...baseProps} />);
+    await user.click(screen.getByText('🗑 Сбросить все данные и начать заново'));
+    await waitFor(() => expect(window.location.reload).toHaveBeenCalled());
+    expect(localStorage.getItem('ff_state_trash')).toBe('{"budget":"реальный"}');
+    expect(localStorage.getItem('ff_state_trash_at')).not.toBeNull();
+    window.confirm.mockRestore();
+  });
+
+  test('баннер восстановления (локальная копия) появляется и восстанавливает данные', async () => {
+    const user = userEvent.setup();
+    jest.spyOn(window, 'confirm').mockReturnValue(true);
+    localStorage.setItem('ff_state_trash', '{"budget":"реальный"}');
+    localStorage.setItem('ff_state_trash_at', new Date().toISOString());
+    render(<SettingsScreen {...baseProps} />);
+    expect(screen.getByText('Есть данные для восстановления')).toBeInTheDocument();
+    await user.click(screen.getByText('↩ Восстановить данные'));
+    await waitFor(() => expect(window.location.reload).toHaveBeenCalled());
+    expect(localStorage.getItem('ff_state')).toBe('{"budget":"реальный"}');
+    expect(localStorage.getItem('ff_state_trash')).toBeNull();
     window.confirm.mockRestore();
   });
 
@@ -279,6 +306,32 @@ describe('SettingsScreen — залогинен', () => {
     await user.click(screen.getByText('Удалить аккаунт безвозвратно'));
     expect(await screen.findByText('Неверный email или пароль')).toBeInTheDocument();
     expect(api.logout).not.toHaveBeenCalled();
+    window.confirm.mockRestore();
+  });
+
+  test('сброс с учёткой вызывает resetCloudState (не прямую перезапись пустым состоянием)', async () => {
+    api.resetCloudState.mockResolvedValue({ ok: true });
+    const user = userEvent.setup();
+    jest.spyOn(window, 'confirm').mockReturnValue(true);
+    render(<SettingsScreen {...baseProps} />);
+    await screen.findByText('Синхронизация включена');
+    await user.click(screen.getByText('🗑 Сбросить все данные и начать заново'));
+    await waitFor(() => expect(api.resetCloudState).toHaveBeenCalled());
+    expect(window.location.reload).toHaveBeenCalled();
+    window.confirm.mockRestore();
+  });
+
+  test('баннер восстановления по resetBackup вызывает restoreCloudStateBackup', async () => {
+    api.restoreCloudStateBackup.mockResolvedValue({ ok: true });
+    const user = userEvent.setup();
+    jest.spyOn(window, 'confirm').mockReturnValue(true);
+    const resetBackup = { resetAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 90 * 86400000).toISOString() };
+    render(<SettingsScreen {...baseProps} resetBackup={resetBackup} />);
+    await screen.findByText('Синхронизация включена');
+    expect(screen.getByText('Есть данные для восстановления')).toBeInTheDocument();
+    await user.click(screen.getByText('↩ Восстановить данные'));
+    await waitFor(() => expect(api.restoreCloudStateBackup).toHaveBeenCalled());
+    expect(window.location.reload).toHaveBeenCalled();
     window.confirm.mockRestore();
   });
 });

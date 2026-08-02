@@ -2,14 +2,14 @@
 import React, { useState, useEffect } from 'react';
 import {C,MONO,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,PRIVACY_URL,TERMS_URL,TELEGRAM_URL,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,EmojiPicker,ProInline,CatIcon} from '../lib/ui';
-import {isLoggedIn,logout,register,login,familyMe,familyInvite,familyJoin,errText,changePassword,deleteAccount,resetRequest,resetConfirm,saveCloudState,billingStatus,billingCheckout,billingCancelAutoRenew,billingRefund} from '../api';
+import {isLoggedIn,logout,register,login,familyMe,familyInvite,familyJoin,errText,changePassword,deleteAccount,resetRequest,resetConfirm,resetCloudState,restoreCloudStateBackup,billingStatus,billingCheckout,billingCancelAutoRenew,billingRefund} from '../api';
 import {getPushState,enablePush,disablePush} from '../push';
 import {confirmAsync,alertAsync} from '../lib/confirm';
 import {exportFfStateAsXlsx,importFfStateFromXlsxArrayBuffer} from '../lib/excelBackup';
 
 const emailOk = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
-export function SettingsScreen({state,onEditCat,onAddCat,onDeleteCustomCat,onEditIncome,onAddIncome,onUpdateMember,onAddMember,onRemoveMember,theme,onSetTheme,isPro=true}){
+export function SettingsScreen({state,onEditCat,onAddCat,onDeleteCustomCat,onEditIncome,onAddIncome,onUpdateMember,onAddMember,onRemoveMember,theme,onSetTheme,isPro=true,resetBackup=null}){
   const scrollToTop=()=>{try{document.querySelector('[data-settings-scroll]')?.scrollTo({top:0,behavior:'smooth'});}catch{}};
   const{members,incomes,planned,familyName,customCats=[]}=state;
   const allCats=[...DEFAULT_CATS,...customCats];
@@ -38,6 +38,12 @@ export function SettingsScreen({state,onEditCat,onAddCat,onDeleteCustomCat,onEdi
   // Состояние (не просто чтение localStorage при рендере), чтобы карточка сразу
   // отражала успешный экспорт, а не только после перезагрузки экрана.
   const[lastExportAt,setLastExportAt]=useState(()=>{try{return localStorage.getItem('ff_last_export');}catch{return null;}});
+  // Локальная (без аккаунта) резервная копия при сбросе — на 90 дней, восстановима
+  // на этом же устройстве. Для залогиненных та же логика уже живёт на сервере
+  // (см. api.js resetCloudState/restoreCloudStateBackup), а resetBackup — её метаданные.
+  const RESET_GRACE_DAYS=90;
+  const[localTrashAt,setLocalTrashAt]=useState(()=>{try{return localStorage.getItem('ff_state_trash_at');}catch{return null;}});
+  const fmtShortDate=d=>{const dt=new Date(d);return `${dt.getDate()} ${MONTH_SHORT[dt.getMonth()]} ${dt.getFullYear()}`;};
   const doExport=()=>{
     try{
       const raw=localStorage.getItem('ff_state')||'{}';
@@ -261,21 +267,55 @@ export function SettingsScreen({state,onEditCat,onAddCat,onDeleteCustomCat,onEdi
         <span style={{fontSize:13,color:C.muted}}>›</span>
       </a>
       <SecTitle>СБРОС</SecTitle>
+      {(resetBackup||localTrashAt)&&(()=>{
+        const resetAt=resetBackup?.resetAt||localTrashAt;
+        const expiresAt=resetBackup?.expiresAt||new Date(new Date(localTrashAt).getTime()+RESET_GRACE_DAYS*86400000).toISOString();
+        return(
+          <div style={{...s.card,background:C.greenL,border:`1px solid ${C.greenB}`,padding:14,marginBottom:12}}>
+            <div style={{fontSize:12.5,fontWeight:600,color:C.greenD,marginBottom:4}}>Есть данные для восстановления</div>
+            <div style={{fontSize:11.5,color:C.greenD,marginBottom:10,lineHeight:1.5}}>
+              Бюджет сбрасывали {fmtShortDate(resetAt)} — восстановить можно до {fmtShortDate(expiresAt)}.
+            </div>
+            <button onClick={async()=>{
+              if(!await confirmAsync('Восстановить данные на момент до сброса? Текущее (пустое) состояние будет заменено.',{danger:true}))return;
+              try{
+                if(resetBackup){
+                  await restoreCloudStateBackup();
+                }else{
+                  const raw=localStorage.getItem('ff_state_trash');
+                  if(raw)localStorage.setItem('ff_state',raw);
+                }
+                // В обоих случаях локальная копия-черновик больше не нужна: либо она
+                // только что применена, либо восстановление пришло из облака и она устарела.
+                try{localStorage.removeItem('ff_state_trash');localStorage.removeItem('ff_state_trash_at');}catch{}
+                window.location.reload();
+              }catch(e){alertAsync('Не удалось восстановить: '+e.message);}
+            }} style={{width:'100%',padding:12,borderRadius:12,border:'none',background:C.green,color:'#fff',fontSize:13,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>
+              ↩ Восстановить данные
+            </button>
+          </div>
+        );
+      })()}
       <div style={{...s.card,background:C.redL,border:`1px solid ${C.redB}`,padding:14}}>
         <div style={{fontSize:12,color:C.red,marginBottom:10,lineHeight:1.5}}>
-          Удалит все данные бюджета, категории и историю. Вернёт на первый экран.
+          Удалит все данные бюджета, категории и историю. Вернёт на первый экран. Данные можно будет восстановить в течение 90 дней в этом же разделе.
         </div>
         <button onClick={async()=>{
           const logged=isLoggedIn();
           const msg=logged
-            ?'Удалить все данные и начать заново?\n\nВНИМАНИЕ: бюджет будет стёрт и в облаке — у всех участников семьи. Это действие нельзя отменить.'
-            :'Удалить все данные и начать заново?\nЭто действие нельзя отменить.';
+            ?'Удалить все данные и начать заново?\n\nБюджет будет стёрт и в облаке — у всех участников семьи. Восстановить можно будет в течение 90 дней здесь же, в Настройках.'
+            :'Удалить все данные и начать заново?\nВосстановить можно будет в течение 90 дней здесь же, в Настройках (на этом устройстве).';
           if(!await confirmAsync(msg,{danger:true}))return;
           window.__ffResetting=true; // блокируем автосейв и flush-on-hide до перезагрузки
+          // Локальная копия на 90 дней — даже без аккаунта/сети данные не теряются насовсем.
+          try{
+            const raw=localStorage.getItem('ff_state');
+            if(raw){localStorage.setItem('ff_state_trash',raw);localStorage.setItem('ff_state_trash_at',new Date().toISOString());}
+          }catch{}
           if(logged){
             try{
-              // Осознанная перезапись облака пустым состоянием (без baseUpdatedAt)
-              await saveCloudState({consented:true,onboarded:false,appState:{}});
+              // Сервер сам бэкапит текущие данные перед обнулением (см. routes/state.js POST /state/reset)
+              await resetCloudState();
             }catch(e){
               if(!await confirmAsync('Не удалось очистить облако (нет сети?). Сбросить только на этом устройстве? Облачная копия вернётся при следующем входе.',{danger:true})){window.__ffResetting=false;return;}
             }
