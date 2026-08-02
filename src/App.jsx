@@ -16,6 +16,8 @@ import { markLocalTrialStart, getLocalPlan, isProPlan } from './lib/plan';
 import { SplashScreen } from './SplashScreen';
 import { StartLoginForm } from './StartLoginForm';
 import { AddToHomeScreenPrompt } from './AddToHomeScreenPrompt';
+import { CookieBanner } from './CookieBanner';
+import { isMetrikaConsented, loadMetrika, ymGoal } from './lib/metrika';
 import { ConfirmHost, confirmAsync, alertAsync } from './lib/confirm';
 import { PiggyLogo } from './lib/ui';
 export default function App(){
@@ -108,6 +110,9 @@ const cloudSaveBusyRef = useRef(false);
   // готовы синхронно к первому рендеру). Оставляем короткую паузу только чтобы не
   // мелькал белый кадр между заставкой и контентом.
   useEffect(()=>{const t=setTimeout(()=>setShowSplash(false),400);return()=>clearTimeout(t);},[]);
+  // Уже согласился на cookies раньше (напр. на прошлом визите) — грузим Метрику
+  // сразу, не дожидаясь повторного показа баннера (см. CookieBanner.jsx).
+  useEffect(()=>{if(isMetrikaConsented())loadMetrika();},[]);
 const skipNextCloudSaveRef = useRef(false);
 const appStateRef = useRef(null); // после принятия серверной версии не шлём её эхом обратно
 const cloudSaveAgainRef = useRef(false);
@@ -418,6 +423,7 @@ useEffect(() => {
     setAppState(newState);
     setOnboarded(true);
     if(!isLoggedIn())markLocalTrialStart(); // старт локального 30-дневного триала (не для демо)
+    ymGoal('onboarding_completed');
   };
   // Быстрая отметка выплаты одним тапом (подсказка «зарплата не отмечена»)
   const handleQuickMark=label=>setAppState(prev=>({...prev,payments:{...prev.payments,[label]:{...(prev.payments?.[label]||{}),isDone:true}}}));
@@ -628,13 +634,14 @@ useEffect(() => {
     <div style={shell}>
       <Suspense fallback={null}>
         <EntryScreen
-          onDemo={()=>{setConsented(true);startDemo();}}
+          onDemo={()=>{ymGoal('demo_started');setConsented(true);startDemo();}}
           onSetup={()=>setConsented(true)}
           onLoginClick={()=>setStartLogin(true)}
         />
       </Suspense>
       {startLogin&&<StartLoginForm onClose={()=>setStartLogin(false)}/>}
       <ConfirmHost/>
+      <CookieBanner/>
     </div>
   );
   if(!onboarded)return(
@@ -644,6 +651,7 @@ useEffect(() => {
       </Suspense>
       <AddToHomeScreenPrompt/>
       <ConfirmHost/>
+      <CookieBanner/>
     </div>
   );
   return(
@@ -694,6 +702,7 @@ useEffect(() => {
       <TabBar active={tab} onPress={setTab}/>
       <AddToHomeScreenPrompt/>
       <ConfirmHost/>
+      <CookieBanner/>
       <AddTxModal visible={showAdd} onClose={()=>setShowAdd(false)} onSave={handleAddTx} members={appState.members} planned={appState.planned} customCats={appState.customCats}/>
       {showTips&&<Suspense fallback={null}><TipsPhilosophyOverlay onClose={()=>setShowTips(false)}/></Suspense>}
       <EditCatModal visible={showEdit} item={editItem} members={appState.members} customCats={appState.customCats} onClose={()=>{setShowEdit(false);setEditItem(null);}} onSave={item=>{const{isNew,...rest}=item||{};handleEditPlanned(isNew?{...rest,isNew:true}:rest);}} onDelete={handleDeletePlanned}/>
