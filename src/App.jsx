@@ -635,7 +635,6 @@ useEffect(() => {
       <Suspense fallback={null}>
         <EntryScreen
           onDemo={()=>{ymGoal('demo_started');setConsented(true);startDemo();}}
-          onSetup={()=>setConsented(true)}
           onLoginClick={()=>setStartLogin(true)}
         />
       </Suspense>
@@ -650,6 +649,13 @@ useEffect(() => {
         <Onboarding onDone={handleOnboardingDone}/>
       </Suspense>
       <AddToHomeScreenPrompt/>
+      <ConfirmHost/>
+      <CookieBanner/>
+    </div>
+  );
+  if(!isLoggedIn()&&!appState.demoMode)return(
+    <div style={shell}>
+      <StartLoginForm mandatory/>
       <ConfirmHost/>
       <CookieBanner/>
     </div>

@@ -5,8 +5,8 @@ import { login, register, errText, resetRequest, resetConfirm } from './api';
 
 const emailOk = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
-export function StartLoginForm({onClose}){
-  const[mode,setMode]=useState('login'); // login | register
+export function StartLoginForm({onClose,mandatory=false}){
+  const[mode,setMode]=useState(mandatory?'register':'login'); // login | register
   const[email,setEmail]=useState('');
   const[pass,setPass]=useState('');
   const[busy,setBusy]=useState(false);
@@ -41,8 +41,12 @@ export function StartLoginForm({onClose}){
     }catch(e){setErr(errText(e));setBusy(false);}
   };
   return(
-    <div style={{position:'fixed',inset:0,zIndex:300,background:'rgba(28,25,22,0.5)',display:'flex',alignItems:'center',justifyContent:'center',padding:20}} onClick={onClose}>
-      <div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:360,background:C.bg,border:`1px solid ${C.border}`,borderRadius:16,padding:20,boxSizing:'border-box'}}>
+    <div style={{position:'fixed',inset:0,zIndex:300,background:mandatory?C.bg:'rgba(28,25,22,0.5)',display:'flex',alignItems:mandatory?'flex-start':'center',justifyContent:'center',padding:20,overflowY:'auto',boxSizing:'border-box'}} onClick={mandatory?undefined:onClose}>
+      <div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:360,marginTop:mandatory?'8vh':0,background:C.bg,border:mandatory?'none':`1px solid ${C.border}`,borderRadius:16,padding:20,boxSizing:'border-box'}}>
+        {mandatory&&<div style={{marginBottom:16}}>
+          <div style={{fontSize:19,fontWeight:600,color:C.text,marginBottom:6}}>Зарегистрируйтесь, чтобы продолжить</div>
+          <div style={{fontSize:12.5,color:C.text2,lineHeight:1.5}}>Локальный режим без аккаунта больше не поддерживается. Бюджет с этого устройства перенесётся в облако автоматически.</div>
+        </div>}
         <div style={{fontSize:17,fontWeight:600,color:C.text,marginBottom:4}}>
           {step==='login'?(mode==='register'?'Создать аккаунт':'Вход в аккаунт'):'Восстановление пароля'}
         </div>
@@ -85,10 +89,10 @@ export function StartLoginForm({onClose}){
           style={{width:'100%',padding:15,borderRadius:14,border:'none',background:busy?C.borderS:C.green,color:'#fff',fontSize:14.5,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>
           {busy?'Проверяем…':'Сменить пароль и войти'}
         </button>}
-        <button onClick={()=>{step==='login'?onClose():(setStep('login'),setErr(''),setCode(''),setPass(''));}}
+        {!(mandatory&&step==='login')&&<button onClick={()=>{step==='login'?onClose():(setStep('login'),setErr(''),setCode(''),setPass(''));}}
           style={{width:'100%',padding:10,marginTop:6,background:'none',border:'none',fontSize:13,color:C.muted,cursor:'pointer',fontFamily:'inherit'}}>
           {step==='login'?'Отмена':'← Назад ко входу'}
-        </button>
+        </button>}
         <div style={{marginTop:14,display:'flex',gap:11,alignItems:'center',background:C.cream,borderRadius:12,padding:'12px 14px'}}>
           <span style={{fontSize:15}}>☁️</span>
           <span style={{fontSize:11.5,lineHeight:1.5,color:C.text2}}>После входа бюджет автоматически восстановится из облака — онбординг проходить не нужно.</span>

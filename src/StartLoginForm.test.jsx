@@ -117,3 +117,10 @@ test('«Отмена» на первом шаге вызывает onClose', asy
   await user.click(screen.getByText('Отмена'));
   expect(onClose).toHaveBeenCalled();
 });
+
+test('mandatory: нет кнопки «Отмена», по умолчанию режим регистрации, показан поясняющий текст', () => {
+  render(<StartLoginForm mandatory />);
+  expect(screen.getByText('Зарегистрируйтесь, чтобы продолжить')).toBeInTheDocument();
+  expect(screen.queryByText('Отмена')).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Создать аккаунт' })).toBeInTheDocument();
+});

@@ -4,20 +4,23 @@ import userEvent from '@testing-library/user-event';
 import { EntryScreen, Onboarding } from './Onboarding';
 
 describe('EntryScreen', () => {
-  test('три варианта старта вызывают соответствующие коллбэки', async () => {
+  test('варианты старта вызывают соответствующие коллбэки', async () => {
     const user = userEvent.setup();
-    const onDemo = jest.fn(), onSetup = jest.fn(), onLoginClick = jest.fn();
-    render(<EntryScreen onDemo={onDemo} onSetup={onSetup} onLoginClick={onLoginClick} />);
+    const onDemo = jest.fn(), onLoginClick = jest.fn();
+    render(<EntryScreen onDemo={onDemo} onLoginClick={onLoginClick} />);
     await user.click(screen.getByText('Демо-данные'));
     expect(onDemo).toHaveBeenCalled();
-    await user.click(screen.getByText('Настроить свой бюджет'));
-    expect(onSetup).toHaveBeenCalled();
     await user.click(screen.getByText(/Есть аккаунт/));
     expect(onLoginClick).toHaveBeenCalled();
   });
 
+  test('нет варианта настроить бюджет без регистрации', () => {
+    render(<EntryScreen onDemo={() => {}} onLoginClick={() => {}} />);
+    expect(screen.queryByText('Настроить свой бюджет')).not.toBeInTheDocument();
+  });
+
   test('ссылки на условия использования и политику конфиденциальности ведут на реальные страницы', () => {
-    render(<EntryScreen onDemo={() => {}} onSetup={() => {}} onLoginClick={() => {}} />);
+    render(<EntryScreen onDemo={() => {}} onLoginClick={() => {}} />);
     expect(screen.getByText('Условия использования')).toHaveAttribute('href', 'https://myfamilyflow.ru/terms.html');
     expect(screen.getByText('Политика конфиденциальности')).toHaveAttribute('href', 'https://myfamilyflow.ru/privacy.html');
   });

@@ -28,11 +28,11 @@ beforeEach(() => {
   api.billingStatus.mockResolvedValue({ plan: 'trial' });
 });
 
-test('новый пользователь видит стартовый экран с тремя вариантами', async () => {
+test('новый пользователь видит стартовый экран с двумя вариантами', async () => {
   render(<App />);
   expect(await screen.findByText('Демо-данные', {}, { timeout: 2000 })).toBeInTheDocument();
-  expect(screen.getByText('Настроить свой бюджет')).toBeInTheDocument();
   expect(screen.getByText(/Есть аккаунт/)).toBeInTheDocument();
+  expect(screen.queryByText('Настроить свой бюджет')).not.toBeInTheDocument();
 });
 
 test('выбор демо-данных сразу открывает приложение с демо-баннером', async () => {
@@ -43,23 +43,19 @@ test('выбор демо-данных сразу открывает прило�
   expect(screen.getByText('ОСТАТОК НА РУКАХ')).toBeInTheDocument();
 });
 
-test('«Настроить свой бюджет» запускает онбординг, а после завершения открывается основной экран', async () => {
+test('«Есть аккаунт» на стартовом экране открывает форму входа', async () => {
   const user = userEvent.setup();
   render(<App />);
-  await user.click(await screen.findByText('Настроить свой бюджет', {}, { timeout: 2000 }));
-  expect(await screen.findByText('Семья и стартовый баланс')).toBeInTheDocument();
+  await user.click(await screen.findByText(/Есть аккаунт/, {}, { timeout: 2000 }));
+  expect(await screen.findByText('Вход в аккаунт')).toBeInTheDocument();
+});
 
-  await user.type(screen.getByPlaceholderText('Имя участника'), 'Мария');
-  await user.click(screen.getByText('Далее →'));
-  await screen.findByText('Доходы семьи');
-  await user.click(screen.getByText('Далее →'));
-  await screen.findByText('Категории трат');
-  await user.click(screen.getByText('Далее →'));
-  await screen.findByText('Ваш план готов');
-  await user.click(screen.getByText('Открыть Семейный поток →'));
-
-  expect(await screen.findByText('ОСТАТОК НА РУКАХ')).toBeInTheDocument();
-  expect(screen.getByText(/^Сегодня/)).toBeInTheDocument();
+test('онбордингованный локальный бюджет без аккаунта: вместо приложения показывается экран регистрации', async () => {
+  const localState = { ...buildDemoState(), demoMode: false };
+  localStorage.setItem('ff_state', JSON.stringify({ consented: true, onboarded: true, appState: localState }));
+  render(<App />);
+  expect(await screen.findByText('Зарегистрируйтесь, чтобы продолжить', {}, { timeout: 2000 })).toBeInTheDocument();
+  expect(screen.queryByText('ОСТАТОК НА РУКАХ')).not.toBeInTheDocument();
 });
 
 test('переключение вкладок через нижнюю панель', async () => {
