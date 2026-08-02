@@ -77,14 +77,90 @@ test('переключение вкладок через нижнюю панел
   expect(await screen.findByText('план')).toBeInTheDocument();
 });
 
-test('выход из демо-режима требует подтверждения и возвращает к онбордингу', async () => {
+test('выход из демо-режима требует подтверждения и показывает выбор Демо/Настроить свой бюджет', async () => {
   const user = userEvent.setup();
   render(<App />);
   await user.click(await screen.findByText('Демо-данные', {}, { timeout: 2000 }));
   await screen.findByText('ДЕМО · СЕМЬЯ ИВАНОВЫХ');
   await user.click(screen.getByText('СВОИ ДАННЫЕ'));
   await user.click(await screen.findByText('Подтвердить'));
+  // Не сразу анкета — сначала тот же выбор, что и при первом входе, но без «Есть аккаунт»
+  expect(await screen.findByText('Настроить свой бюджет')).toBeInTheDocument();
+  expect(screen.getByText('Демо-данные')).toBeInTheDocument();
+  expect(screen.queryByText(/Есть аккаунт/)).not.toBeInTheDocument();
+});
+
+test('после выхода из демо «Настроить свой бюджет» открывает анкету онбординга', async () => {
+  const user = userEvent.setup();
+  render(<App />);
+  await user.click(await screen.findByText('Демо-данные', {}, { timeout: 2000 }));
+  await screen.findByText('ДЕМО · СЕМЬЯ ИВАНОВЫХ');
+  await user.click(screen.getByText('СВОИ ДАННЫЕ'));
+  await user.click(await screen.findByText('Подтвердить'));
+  await user.click(await screen.findByText('Настроить свой бюджет'));
   expect(await screen.findByText('Семья и стартовый баланс')).toBeInTheDocument();
+});
+
+test('после выхода из демо «Демо-данные» на экране выбора запускает демо заново', async () => {
+  const user = userEvent.setup();
+  render(<App />);
+  await user.click(await screen.findByText('Демо-данные', {}, { timeout: 2000 }));
+  await screen.findByText('ДЕМО · СЕМЬЯ ИВАНОВЫХ');
+  await user.click(screen.getByText('СВОИ ДАННЫЕ'));
+  await user.click(await screen.findByText('Подтвердить'));
+  await user.click(await screen.findByText('Демо-данные'));
+  expect(await screen.findByText('ДЕМО · СЕМЬЯ ИВАНОВЫХ')).toBeInTheDocument();
+});
+
+test('свежее демо (без ff_demo_started_at) редактируется — отметка платежа сохраняется', async () => {
+  const user = userEvent.setup();
+  render(<App />);
+  await user.click(await screen.findByText('Демо-данные', {}, { timeout: 2000 }));
+  await screen.findByText('ДЕМО · СЕМЬЯ ИВАНОВЫХ');
+  expect(screen.queryByText(/Демо-доступ ограничен/)).not.toBeInTheDocument();
+
+  const toggleBtn = screen.getAllByLabelText(/Отметить выполненным/)[0];
+  await user.click(toggleBtn);
+  await waitFor(() => {
+    const saved = JSON.parse(localStorage.getItem('ff_state'));
+    expect(saved.appState.weekItems).toBeTruthy();
+  });
+  // Ни разу не всплыло сообщение об ограничении — правки применяются как обычно
+  expect(screen.queryByText(/Демо-доступ ограничен/)).not.toBeInTheDocument();
+});
+
+test('демо старше 3 дней (ff_demo_started_at) — банер об ограничении и блокировка правок', async () => {
+  const user = userEvent.setup();
+  const fourDaysAgo = new Date(Date.now() - 4 * 86400000).toISOString();
+  localStorage.setItem('ff_demo_started_at', fourDaysAgo);
+  render(<App />);
+  await user.click(await screen.findByText('Демо-данные', {}, { timeout: 2000 }));
+  await screen.findByText('ДЕМО · СЕМЬЯ ИВАНОВЫХ');
+  expect(await screen.findByText(/Демо-доступ ограничен — прошло больше 3 дней/)).toBeInTheDocument();
+
+  const stateBefore = JSON.parse(localStorage.getItem('ff_state'));
+  const toggleBtn = screen.getAllByLabelText(/Отметить выполненным/)[0];
+  await user.click(toggleBtn);
+
+  // Показывается предупреждение по клику (кастомная alert-модалка через ConfirmHost)
+  expect(await screen.findByText(/Демо-доступ ограничен: прошло больше 3 дней/)).toBeInTheDocument();
+
+  const stateAfter = JSON.parse(localStorage.getItem('ff_state'));
+  expect(stateAfter.appState.weekItems).toEqual(stateBefore.appState.weekItems);
+});
+
+test('после выхода из демо (старше 3 дней) и «Настроить свой бюджет» отсчёт read-only сбрасывается', async () => {
+  const user = userEvent.setup();
+  const fourDaysAgo = new Date(Date.now() - 4 * 86400000).toISOString();
+  localStorage.setItem('ff_demo_started_at', fourDaysAgo);
+  render(<App />);
+  await user.click(await screen.findByText('Демо-данные', {}, { timeout: 2000 }));
+  await screen.findByText(/Демо-доступ ограничен/);
+  await user.click(screen.getByText('СВОИ ДАННЫЕ'));
+  await user.click(await screen.findByText('Подтвердить'));
+  await user.click(await screen.findByText('Настроить свой бюджет'));
+  await screen.findByText('Семья и стартовый баланс');
+  expect(localStorage.getItem('ff_demo_started_at')).toBeNull();
 });
 
 test('залогиненный пользователь: сбой загрузки из облака показывает баннер с ошибкой', async () => {

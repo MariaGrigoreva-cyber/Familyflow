@@ -70,6 +70,7 @@ export default function App(){
   const[tourStep,setTourStep]=useState(-1); // -1 = тур выключен
   const[showSplash,setShowSplash]=useState(true); // загрузочный экран при старте приложения
   const[startLogin,setStartLogin]=useState(false); // форма входа на стартовом экране
+  const[demoExited,setDemoExited]=useState(false); // после «Свои данные» из демо — экран выбора Демо/Настроить заново
   const[showAdd,setShowAdd]=useState(false);
   const[addWeek,setAddWeek]=useState(null); // неделя для добавления транзакции
   const[showTips,setShowTips]=useState(false); // оверлей советов/философии — по кнопке "?" на любой вкладке
@@ -430,11 +431,31 @@ useEffect(() => {
     if(!isLoggedIn())markLocalTrialStart(); // старт локального 30-дневного триала (не для демо)
     ymGoal('onboarding_completed');
   };
+  // Демо редактируемо первые DEMO_READONLY_DAYS дней с первого захода — дальше
+  // только просмотр, иначе в демо можно жить бесконечно (данные там не бэкапятся
+  // вообще: ни локально на 90 дней, как у обычного сброса, ни тем более в облаке).
+  // Отсчёт — от первого запуска демо (ff_demo_started_at, см. startDemo), не от
+  // текущей сессии, иначе можно было бы сбрасывать таймер повторным заходом.
+  const DEMO_READONLY_DAYS=3;
+  const isDemoReadOnly=Boolean(appState.demoMode)&&(()=>{
+    try{
+      const startedAt=localStorage.getItem('ff_demo_started_at');
+      if(!startedAt)return false;
+      return Date.now()-new Date(startedAt).getTime()>=DEMO_READONLY_DAYS*86400000;
+    }catch{return false;}
+  })();
+  const guarded=fn=>(...args)=>{
+    if(isDemoReadOnly){
+      alertAsync(`Демо-доступ ограничен: прошло больше ${DEMO_READONLY_DAYS} дней. Настройте свой бюджет («Свои данные» вверху), чтобы продолжить вносить изменения.`);
+      return;
+    }
+    return fn(...args);
+  };
   // Быстрая отметка выплаты одним тапом (подсказка «зарплата не отмечена»)
-  const handleQuickMark=label=>setAppState(prev=>({...prev,payments:{...prev.payments,[label]:{...(prev.payments?.[label]||{}),isDone:true}}}));
-  const handleToggle=(week,itemId)=>setAppState(prev=>({...prev,weekItems:{...prev.weekItems,[week]:(prev.weekItems[week]||[]).map(i=>i.id===itemId?{...i,isDone:!i.isDone}:i)}}));
-  const handleAddTx=item=>{const week=addWeek||todayKey();const tx={...item,week,date:new Date().toISOString(),isDone:true};setAppState(prev=>({...prev,transactions:[tx,...(prev.transactions||[])]}));setAddWeek(null);};
-  const handleEditPlanned=updated=>{setAppState(prev=>{
+  const handleQuickMark=guarded(label=>setAppState(prev=>({...prev,payments:{...prev.payments,[label]:{...(prev.payments?.[label]||{}),isDone:true}}})));
+  const handleToggle=guarded((week,itemId)=>setAppState(prev=>({...prev,weekItems:{...prev.weekItems,[week]:(prev.weekItems[week]||[]).map(i=>i.id===itemId?{...i,isDone:!i.isDone}:i)}})));
+  const handleAddTx=guarded(item=>{const week=addWeek||todayKey();const tx={...item,week,date:new Date().toISOString(),isDone:true};setAppState(prev=>({...prev,transactions:[tx,...(prev.transactions||[])]}));setAddWeek(null);});
+  const handleEditPlanned=guarded(updated=>{setAppState(prev=>{
     const{isNew,...cleanItem}=updated;
     // Определяем новая ли категория по наличию id в текущем списке
     const existsInPlanned=prev.planned.some(p=>p.id===cleanItem.id);
@@ -450,18 +471,18 @@ useEffect(() => {
       customCats=[...customCats,{id:cleanItem.catId,name:cleanItem.name,emoji:cleanItem.emoji||'📦',color:fallback?.color||'oklch(0.94 0.02 250)'}];
     }
     return{...prev,planned:np,customCats,weekItems:regenWeeksKeepDone(np,prev.weekItems)};
-  });};
-  const handleDeletePlanned=id=>setAppState(prev=>{const np=prev.planned.filter(p=>p.id!==id);return{...prev,planned:np,weekItems:regenWeeksKeepDone(np,prev.weekItems)};});
+  });});
+  const handleDeletePlanned=guarded(id=>setAppState(prev=>{const np=prev.planned.filter(p=>p.id!==id);return{...prev,planned:np,weekItems:regenWeeksKeepDone(np,prev.weekItems)};}));
   // Своя категория (customCats) раньше нигде не удалялась — созданная один раз,
   // оставалась в сетке навсегда, даже без единой плановой траты. Удаление каскадно
   // убирает и её плановые траты (иначе останутся записи с несуществующей категорией).
-  const handleDeleteCustomCat=catId=>setAppState(prev=>{
+  const handleDeleteCustomCat=guarded(catId=>setAppState(prev=>{
     const np=prev.planned.filter(p=>p.catId!==catId);
     return{...prev,planned:np,customCats:(prev.customCats||[]).filter(c=>c.id!==catId),weekItems:regenWeeksKeepDone(np,prev.weekItems)};
-  });
+  }));
   const handleAddPlanned=()=>{setEditItem({id:uid(),catId:'other',name:'Новая',amount:0,memberId:appState.members[0]?.id||'m1',repeat:'weekly',days:[],isNew:true});setShowEdit(true);};
   const handleEditPayment=payment=>{setEditPayment(payment);setShowEditPay(true);};
-  const handleSavePayment=payment=>{
+  const handleSavePayment=guarded(payment=>{
     setAppState(prev=>{
       const isExtraPay=prev.extraPayments.some(ep=>ep.id===payment.id);
       if(isExtraPay){
@@ -469,14 +490,14 @@ useEffect(() => {
       }
       return{...prev,payments:{...prev.payments,[payment.displayLabel]:{actualAmount:payment.actualAmount,isDone:payment.isDone,note2:payment.note2}}};
     });
-  };
+  });
   const handleSalaryCheckConfirm=actualAmount=>{
     handleSavePayment({...salaryCheckPayment,actualAmount,isDone:true});
     setShowSalaryCheck(false);
     setSalaryCheckPayment(null);
   };
   const handleSalaryCheckNotYet=()=>{setShowSalaryCheck(false);setSalaryCheckPayment(null);};
-  const handleAddExtra=payment=>{
+  const handleAddExtra=guarded(payment=>{
     const{paymentOverrides,...rest}=payment;
     const label=rest.label||rest.name||'Доп. выплата';
     const ep={
@@ -500,41 +521,41 @@ useEffect(() => {
       extraPayments:[...prev.extraPayments,ep],
       payments: paymentOverrides && Object.keys(paymentOverrides).length ? {...prev.payments,...paymentOverrides} : prev.payments,
     }));
-  };
-  const handleWithdrawPiggy=({amount,catId,name,memberId})=>{
+  });
+  const handleWithdrawPiggy=guarded(({amount,catId,name,memberId})=>{
     const n=parseInt(amount)||0;
     if(!n)return;
     const wk=todayKey();
     const withdrawTx={id:uid(),week:wk,type:'expense',catId:'piggy',amount:-n,name:'Снятие с копилки',memberId,date:new Date().toISOString(),isDone:true};
     const spendTx={id:uid(),week:wk,type:'expense',catId:catId||'other',name:name||'Покупка из копилки',amount:n,memberId,date:new Date().toISOString(),isDone:true};
     setAppState(prev=>({...prev,transactions:[spendTx,withdrawTx,...(prev.transactions||[])]}));
-  };
-  const handleSetGoal=goal=>{
+  });
+  const handleSetGoal=guarded(goal=>{
     setAppState(prev=>({...prev,savingsGoal:goal}));
-  };
-  const handleDeleteExtra=(id)=>{
+  });
+  const handleDeleteExtra=guarded((id)=>{
     setAppState(prev=>({...prev,extraPayments:prev.extraPayments.filter(ep=>ep.id!==id)}));
-  };
-  const handleAddIncomeSource=(memberId)=>{
+  });
+  const handleAddIncomeSource=guarded((memberId)=>{
     const ni={id:uid(),memberId,name:'',gross:'',salaryDays:[],advanceDays:[],advancePct:'40',advanceMode:'pct'};
     setAppState(prev=>({...prev,incomes:[...prev.incomes,ni]}));
     const m=appState.members.find(x=>x.id===memberId);
     setEditIncomeItem(ni);
     setEditIncomeMember(m);
     setShowEditIncome(true);
-  };
+  });
   const handleEditTx=(item)=>{setEditTxItem(item);setShowEditTx(true);};
   // Состав семьи можно менять в любой момент из Настроек
-  const handleUpdateMember=(id,field,value)=>setAppState(prev=>({...prev,members:prev.members.map(m=>m.id===id?{...m,[field]:value}:m)}));
-  const handleAddMember=()=>setAppState(prev=>({...prev,members:[...prev.members,{id:uid(),name:'',avatar:'🧑',color:nextMemberTint(prev.members.length)}]}));
-  const handleRemoveMember=id=>setAppState(prev=>{
+  const handleUpdateMember=guarded((id,field,value)=>setAppState(prev=>({...prev,members:prev.members.map(m=>m.id===id?{...m,[field]:value}:m)})));
+  const handleAddMember=guarded(()=>setAppState(prev=>({...prev,members:[...prev.members,{id:uid(),name:'',avatar:'🧑',color:nextMemberTint(prev.members.length)}]})));
+  const handleRemoveMember=guarded(id=>setAppState(prev=>{
     if(prev.members.length<=1){alertAsync('Должен остаться хотя бы один участник семьи');return prev;}
     const remaining=prev.members.filter(m=>m.id!==id);
     const fallbackId=remaining[0]?.id;
     const planned=prev.planned.map(p=>p.memberId===id?{...p,memberId:fallbackId}:p);
     return{...prev,members:remaining,incomes:prev.incomes.filter(i=>i.memberId!==id),planned,weekItems:regenWeeksKeepDone(planned,prev.weekItems)};
-  });
-  const handleSaveTx=(updated)=>{
+  }));
+  const handleSaveTx=guarded((updated)=>{
     setAppState(prev=>{
       // Обновляем в transactions (доп. записи)
       const newTx=(prev.transactions||[]).map(t=>t.id===updated.id?updated:t);
@@ -552,8 +573,8 @@ useEffect(() => {
       });
       return{...prev,transactions:newTx,weekItems:newWeekItems};
     });
-  };
-  const handleDeleteTx=(id)=>{
+  });
+  const handleDeleteTx=guarded((id)=>{
     setAppState(prev=>{
       const newTx=(prev.transactions||[]).filter(t=>t.id!==id);
       const newWeekItems={};
@@ -562,9 +583,9 @@ useEffect(() => {
       });
       return{...prev,transactions:newTx,weekItems:newWeekItems};
     });
-  };
+  });
   const handleEditIncome=(inc,member)=>{setEditIncomeItem(inc);setEditIncomeMember(member);setShowEditIncome(true);};
-  const handleSaveIncome=updatedInc=>{
+  const handleSaveIncome=guarded(updatedInc=>{
     setAppState(prev=>{
       const old=prev.incomes.find(i=>i.id===updatedInc.id)||{};
       const r={...updatedInc,gross:parseInt(updatedInc.gross)||0};
@@ -589,7 +610,7 @@ useEffect(() => {
       const merged={};Object.keys(fresh).forEach(w=>{merged[w]=w<effWeek&&prev.weekItems[w]?prev.weekItems[w]:fresh[w];});
       return{...prev,incomes:newIncomes,weekItems:merged};
     });
-  };
+  });
   // Считаем один раз здесь (не в каждом экране отдельно) — Поток и Сегодня оба
   // используют один и тот же прогноз накопительного баланса.
   const weeksSummary=useMemo(()=>computeWeeksSummary(appState),[appState.weekItems,appState.incomes,appState.payments,appState.transactions,appState.extraPayments]);
@@ -624,16 +645,27 @@ useEffect(() => {
     setOnboarded(true);
     setTab('today');
     setTimeout(()=>setTourStep(0),700); // автозапуск тура
+    // Отметку ставим только один раз — повторный вход в демо не должен сбрасывать
+    // отсчёт DEMO_READONLY_DAYS (иначе достаточно было бы каждые 3 дня жать «Демо-данные»).
+    try{if(!localStorage.getItem('ff_demo_started_at'))localStorage.setItem('ff_demo_started_at',new Date().toISOString());}catch{}
   };
   const exitDemo=async()=>{
-    if(!await confirmAsync('Выйти из демо и настроить свой бюджет? Демо-данные будут удалены.'))return;
+    if(!await confirmAsync('Выйти из демо-режима? Демо-данные будут удалены.'))return;
     try{localStorage.removeItem('ff_state');}catch{}
     setTourStep(-1);
     setAppState({familyName:'',startBalance:0,members:[{id:'m1',name:'',avatar:'👩',color:C.orange}],
       incomes:[{id:'i1',memberId:'m1',gross:'',salaryDays:[],advanceDays:[],advancePct:'40',advanceAbs:'',advanceMode:'pct'}],
       planned:[],weekItems:{},streak:0,customCats:[],payments:{},extraPayments:[],transactions:[],budgetStartDate:new Date().toISOString()});
+    // Не ныряем сразу в анкету онбординга — сперва тот же экран выбора, что и при
+    // первом входе, только без «Есть аккаунт» (кнопка «Свои данные» уже говорит,
+    // что аккаунт не нужен) и с возможностью вернуться в демо.
+    setDemoExited(true);
+  };
+  const backToDemo=()=>{setDemoExited(false);startDemo();};
+  const goToOwnSetup=()=>{
+    setDemoExited(false);
     setOnboardedRaw(false);
-    try{localStorage.setItem('ff_state',JSON.stringify({consented:true,onboarded:false}));}catch{}
+    try{localStorage.setItem('ff_state',JSON.stringify({consented:true,onboarded:false}));localStorage.removeItem('ff_demo_started_at');}catch{}
   };
   if(!consented)return(
     <div style={shell}>
@@ -644,6 +676,15 @@ useEffect(() => {
         />
       </Suspense>
       {startLogin&&<StartLoginForm onClose={()=>setStartLogin(false)}/>}
+      <ConfirmHost/>
+      <CookieBanner/>
+    </div>
+  );
+  if(demoExited)return(
+    <div style={shell}>
+      <Suspense fallback={null}>
+        <EntryScreen onDemo={backToDemo} onSetup={goToOwnSetup}/>
+      </Suspense>
       <ConfirmHost/>
       <CookieBanner/>
     </div>
@@ -694,6 +735,12 @@ useEffect(() => {
             <button onClick={()=>{setTab('today');setTourStep(0);}} style={{fontFamily:MONO,fontSize:10.5,fontWeight:600,color:C.orangeD,background:'var(--c-surface)',border:`1px solid ${C.orangeB}`,padding:'4px 10px',borderRadius:20,cursor:'pointer'}}>▶ ТУР</button>
             <button onClick={()=>setStartLogin(true)} style={{fontFamily:MONO,fontSize:10.5,fontWeight:600,color:C.orangeD,background:'var(--c-surface)',border:`1px solid ${C.orangeB}`,padding:'4px 10px',borderRadius:20,cursor:'pointer'}}>АККАУНТ</button>
             <button onClick={exitDemo} style={{fontFamily:MONO,fontSize:10.5,fontWeight:600,color:'#fff',background:C.orange,border:'none',padding:'4px 10px',borderRadius:20,cursor:'pointer'}}>СВОИ ДАННЫЕ</button>
+          </div>
+        )}
+        {isDemoReadOnly&&(
+          <div style={{display:'flex',alignItems:'center',gap:8,background:C.yellowL,borderTop:`1px solid ${C.yellowB}`,borderBottom:`1px solid ${C.yellowB}`,padding:'7px 14px'}}>
+            <span style={{fontSize:13}}>🔒</span>
+            <span style={{flex:1,fontSize:11,color:C.text2,lineHeight:1.4}}>Демо-доступ ограничен — прошло больше {DEMO_READONLY_DAYS} дней, изменения больше не сохраняются. Нажмите «Свои данные», чтобы настроить бюджет.</span>
           </div>
         )}
       </div>

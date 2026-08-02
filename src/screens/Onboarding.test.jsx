@@ -14,9 +14,18 @@ describe('EntryScreen', () => {
     expect(onLoginClick).toHaveBeenCalled();
   });
 
-  test('нет варианта настроить бюджет без регистрации', () => {
+  test('нет варианта настроить бюджет без регистрации, если onSetup не передан', () => {
     render(<EntryScreen onDemo={() => {}} onLoginClick={() => {}} />);
     expect(screen.queryByText('Настроить свой бюджет')).not.toBeInTheDocument();
+  });
+
+  test('с onSetup — есть кнопка «Настроить свой бюджет», без onLoginClick — нет «Есть аккаунт»', async () => {
+    const user = userEvent.setup();
+    const onSetup = jest.fn();
+    render(<EntryScreen onDemo={() => {}} onSetup={onSetup} />);
+    expect(screen.queryByText(/Есть аккаунт/)).not.toBeInTheDocument();
+    await user.click(screen.getByText('Настроить свой бюджет'));
+    expect(onSetup).toHaveBeenCalled();
   });
 
   test('ссылки на условия использования и политику конфиденциальности ведут на реальные страницы', () => {
