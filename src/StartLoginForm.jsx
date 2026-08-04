@@ -6,7 +6,7 @@ import { login, register, errText, resetRequest, resetConfirm } from './api';
 const emailOk = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
 export function StartLoginForm({onClose,mandatory=false}){
-  const[mode,setMode]=useState(mandatory?'register':'login'); // login | register
+  const[mode,setMode]=useState('register'); // login | register
   const[email,setEmail]=useState('');
   const[pass,setPass]=useState('');
   const[busy,setBusy]=useState(false);
