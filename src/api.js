@@ -16,6 +16,36 @@ export const logout = () => {
   try { window.dispatchEvent(new Event('ff:logout')); } catch {}
 };
 
+// ── Вход через Яндекс ID ─────────────────────────────────────────────────
+// client_id не секретен (в отличие от client_secret, который живёт только на
+// бэкенде) — им можно смело ссылаться прямо из браузера.
+const YANDEX_CLIENT_ID = process.env.REACT_APP_YANDEX_CLIENT_ID;
+export const yandexLoginAvailable = () => !!YANDEX_CLIENT_ID;
+export const yandexAuthUrl = () => {
+  const redirectUri = `${API_URL}/auth/yandex/callback`;
+  return 'https://oauth.yandex.ru/authorize?response_type=code'
+    + `&client_id=${encodeURIComponent(YANDEX_CLIENT_ID)}`
+    + `&redirect_uri=${encodeURIComponent(redirectUri)}`;
+};
+
+// Бэкенд после /auth/yandex/callback редиректит сюда с токеном (или ошибкой)
+// во fragment (#...) — туда, а не в query, чтобы не улететь в access-логи
+// сервера и Referer при дальнейших переходах. Разбираем один раз при старте,
+// до первого рендера App (см. index.js), чтобы isLoggedIn() сразу видел вход.
+export const consumeYandexRedirect = () => {
+  const hash = window.location.hash || '';
+  if (!hash.startsWith('#yandex_token=') && !hash.startsWith('#yandex_error=')) return null;
+  const clean = () => window.history.replaceState(null, '', window.location.pathname + window.location.search);
+  if (hash.startsWith('#yandex_token=')) {
+    localStorage.setItem(TOKEN_KEY, decodeURIComponent(hash.slice('#yandex_token='.length)));
+    clean();
+    return { ok: true };
+  }
+  const error = decodeURIComponent(hash.slice('#yandex_error='.length));
+  clean();
+  return { ok: false, error };
+};
+
 // Единая обёртка: ошибки несут status и body — это нужно для авторазрешения 409.
 async function req(path, { method = 'GET', body, auth = true, retries = 2 } = {}) {
   const headers = { 'Content-Type': 'application/json' };
@@ -130,4 +160,8 @@ export const errText = e => ({
   pro_required: 'Общий бюджет на нескольких участников — в подписке Pro',
   token_revoked: 'Сессия завершена (пароль был изменён) — войдите заново',
   bad_token: 'Сессия истекла — войдите заново',
+  not_configured: 'Вход через Яндекс временно недоступен',
+  yandex_unavailable: 'Яндекс не ответил — попробуйте ещё раз',
+  no_email: 'Яндекс не передал email — разрешите доступ к почте и попробуйте снова',
+  no_code: 'Не удалось войти через Яндекс — попробуйте ещё раз',
 }[e?.message] || 'Ошибка сети — попробуйте ещё раз');

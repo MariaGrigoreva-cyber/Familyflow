@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { StartLoginForm } from './StartLoginForm';
-import { login, register, resetRequest, resetConfirm } from './api';
+import { login, register, resetRequest, resetConfirm, yandexLoginAvailable, yandexAuthUrl } from './api';
 
 jest.mock('./api', () => ({
   login: jest.fn(),
@@ -10,10 +10,17 @@ jest.mock('./api', () => ({
   resetRequest: jest.fn(),
   resetConfirm: jest.fn(),
   errText: e => ({ bad_credentials: 'Неверный email или пароль' }[e?.message] || 'Ошибка сети — попробуйте ещё раз'),
+  yandexLoginAvailable: jest.fn(),
+  yandexAuthUrl: jest.fn(),
 }));
 
 beforeEach(() => {
+  // react-scripts включает resetMocks:true — реализация из jest.mock() факт
+  // выше не переживает сброс между тестами (в отличие от обычных функций
+  // вроде errText), поэтому дефолт для jest.fn() выставляем здесь заново.
   jest.clearAllMocks();
+  yandexLoginAvailable.mockReturnValue(false);
+  yandexAuthUrl.mockReturnValue('https://oauth.yandex.ru/authorize?client_id=test');
   Object.defineProperty(window, 'location', { value: { reload: jest.fn() }, writable: true });
 });
 
@@ -128,4 +135,27 @@ test('mandatory: нет кнопки «Отмена», по умолчанию �
   expect(screen.getByText('Зарегистрируйтесь, чтобы продолжить')).toBeInTheDocument();
   expect(screen.queryByText('Отмена')).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Создать аккаунт' })).toBeInTheDocument();
+});
+
+test('без REACT_APP_YANDEX_CLIENT_ID кнопка «Войти с Яндекс ID» не показывается', () => {
+  render(<StartLoginForm onClose={() => {}} />);
+  expect(screen.queryByText('Войти с Яндекс ID')).not.toBeInTheDocument();
+});
+
+test('когда вход через Яндекс доступен — кнопка ведёт по правильной ссылке, а на шаге сброса пароля скрыта', async () => {
+  yandexLoginAvailable.mockReturnValue(true);
+  const user = userEvent.setup();
+  render(<StartLoginForm onClose={() => {}} />);
+  const link = screen.getByText('Войти с Яндекс ID').closest('a');
+  expect(link).toHaveAttribute('href', 'https://oauth.yandex.ru/authorize?client_id=test');
+
+  // «Забыли пароль?» есть только на вкладке «Вход» — переключаемся туда явно
+  await user.click(screen.getByText('ВХОД'));
+  await user.click(screen.getByText('Забыли пароль?'));
+  expect(screen.queryByText('Войти с Яндекс ID')).not.toBeInTheDocument();
+});
+
+test('initialError показывается сразу при открытии (редирект от Яндекса с ошибкой)', () => {
+  render(<StartLoginForm onClose={() => {}} initialError="Яндекс не ответил — попробуйте ещё раз" />);
+  expect(screen.getByText('Яндекс не ответил — попробуйте ещё раз')).toBeInTheDocument();
 });

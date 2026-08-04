@@ -20,7 +20,7 @@ import { CookieBanner } from './CookieBanner';
 import { isMetrikaConsented, loadMetrika, ymGoal } from './lib/metrika';
 import { ConfirmHost, confirmAsync, alertAsync } from './lib/confirm';
 import { PiggyLogo } from './lib/ui';
-export default function App(){
+export default function App({initialYandexError}={}){
   // ── localStorage: загружаем сохранённые данные при старте ──────────────
   const loadFromStorage = () => {
     try {
@@ -69,7 +69,11 @@ export default function App(){
   const[tab,setTab]=useState('today');
   const[tourStep,setTourStep]=useState(-1); // -1 = тур выключен
   const[showSplash,setShowSplash]=useState(true); // загрузочный экран при старте приложения
-  const[startLogin,setStartLogin]=useState(false); // форма входа на стартовом экране
+  // Если пришли редиректом от Яндекса с ошибкой — сразу открыть форму и показать её;
+  // yandexError гасится при закрытии формы, чтобы не всплывать повторно при следующем открытии.
+  const[startLogin,setStartLogin]=useState(!!initialYandexError);
+  const[yandexError,setYandexError]=useState(initialYandexError||null);
+  const closeStartLogin=()=>{setStartLogin(false);setYandexError(null);};
   const[demoExited,setDemoExited]=useState(false); // после «Свои данные» из демо — экран выбора Демо/Настроить заново
   const[showAdd,setShowAdd]=useState(false);
   const[addWeek,setAddWeek]=useState(null); // неделя для добавления транзакции
@@ -669,7 +673,7 @@ useEffect(() => {
           onLoginClick={()=>setStartLogin(true)}
         />
       </Suspense>
-      {startLogin&&<StartLoginForm onClose={()=>setStartLogin(false)}/>}
+      {startLogin&&<StartLoginForm onClose={closeStartLogin} initialError={yandexError?errText({message:yandexError}):""}/>}
       <ConfirmHost/>
       <CookieBanner/>
     </div>
@@ -679,7 +683,7 @@ useEffect(() => {
       <Suspense fallback={null}>
         <EntryScreen onDemo={backToDemo} onLoginClick={()=>setStartLogin(true)}/>
       </Suspense>
-      {startLogin&&<StartLoginForm onClose={()=>setStartLogin(false)}/>}
+      {startLogin&&<StartLoginForm onClose={closeStartLogin} initialError={yandexError?errText({message:yandexError}):""}/>}
       <ConfirmHost/>
       <CookieBanner/>
     </div>
@@ -762,7 +766,7 @@ useEffect(() => {
       <EditPaymentModal visible={showEditPay} payment={editPayment} onClose={()=>{setShowEditPay(false);setEditPayment(null);}} onSave={handleSavePayment} onDelete={handleDeleteExtra}/>
       <SalaryCheckModal visible={showSalaryCheck} payment={salaryCheckPayment} onConfirm={handleSalaryCheckConfirm} onNotYet={handleSalaryCheckNotYet}/>
       <AddExtraModal visible={showAddExtra} onClose={()=>setShowAddExtra(false)} onSave={handleAddExtra} members={appState.members} incomes={appState.incomes}/>
-      {startLogin&&<StartLoginForm onClose={()=>setStartLogin(false)}/>}
+      {startLogin&&<StartLoginForm onClose={closeStartLogin} initialError={yandexError?errText({message:yandexError}):""}/>}
       <WithdrawPiggyModal visible={showWithdrawPiggy} onClose={()=>setShowWithdrawPiggy(false)} onSave={handleWithdrawPiggy} members={appState.members} customCats={appState.customCats} available={computeBalances(appState).totalSaved}/>
       <EditTxModal visible={showEditTx} item={editTxItem} members={appState.members} customCats={appState.customCats}
         onClose={()=>{setShowEditTx(false);setEditTxItem(null);}}

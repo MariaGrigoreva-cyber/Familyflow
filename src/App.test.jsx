@@ -12,6 +12,9 @@ jest.mock('./api', () => ({
   authMe: jest.fn(),
   resendVerification: jest.fn(),
   billingStatus: jest.fn(),
+  errText: jest.requireActual('./api').errText,
+  yandexLoginAvailable: () => false,
+  yandexAuthUrl: () => '',
 }));
 // AddToHomeScreenPrompt делает собственные проверки платформы/matchMedia —
 // не относится к тому, что тестирует App, отключаем чтобы не шуметь в DOM.
@@ -48,6 +51,11 @@ test('«Есть аккаунт» на стартовом экране откр�
   render(<App />);
   await user.click(await screen.findByText(/Есть аккаунт/, {}, { timeout: 2000 }));
   expect(await screen.findByRole('button', { name: 'Создать аккаунт' })).toBeInTheDocument();
+});
+
+test('initialYandexError сразу открывает форму входа с текстом ошибки', async () => {
+  render(<App initialYandexError="no_email" />);
+  expect(await screen.findByText('Яндекс не передал email — разрешите доступ к почте и попробуйте снова', {}, { timeout: 2000 })).toBeInTheDocument();
 });
 
 test('онбордингованный локальный бюджет без аккаунта: вместо приложения показывается экран регистрации', async () => {

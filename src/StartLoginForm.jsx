@@ -1,16 +1,16 @@
 // FamilyFlow — вход с стартового экрана: после успеха облако подтянет бюджет и флаги
 import React, { useState } from 'react';
 import { C, MONO, PRIVACY_URL, TERMS_URL } from './lib/core';
-import { login, register, errText, resetRequest, resetConfirm } from './api';
+import { login, register, errText, resetRequest, resetConfirm, yandexLoginAvailable, yandexAuthUrl } from './api';
 
 const emailOk = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
-export function StartLoginForm({onClose,mandatory=false}){
+export function StartLoginForm({onClose,mandatory=false,initialError=''}){
   const[mode,setMode]=useState('register'); // login | register
   const[email,setEmail]=useState('');
   const[pass,setPass]=useState('');
   const[busy,setBusy]=useState(false);
-  const[err,setErr]=useState('');
+  const[err,setErr]=useState(initialError);
   const[step,setStep]=useState('login'); // login | reset1 | reset2
   const[code,setCode]=useState('');
   const[pdnConsent,setPdnConsent]=useState(false);
@@ -56,6 +56,15 @@ export function StartLoginForm({onClose,mandatory=false}){
               style={{flex:1,textAlign:'center',fontFamily:MONO,fontSize:11,fontWeight:600,padding:9,borderRadius:10,border:`1px solid ${mode===id?C.orange:C.border}`,background:mode===id?C.orange:'var(--c-surface)',color:mode===id?'#fff':C.muted,cursor:'pointer'}}>{l.toUpperCase()}</button>
           ))}
         </div>}
+        {step==='login'&&yandexLoginAvailable()&&<>
+          <a href={yandexAuthUrl()} style={{marginTop:10,width:'100%',boxSizing:'border-box',display:'flex',alignItems:'center',justifyContent:'center',gap:9,padding:13,borderRadius:14,background:'var(--c-surface)',border:`1px solid ${C.border}`,color:C.text,fontSize:14,fontWeight:600,textDecoration:'none',fontFamily:'inherit'}}>
+            <span style={{width:20,height:20,borderRadius:6,background:'#FC3F1D',color:'#fff',fontSize:13,fontWeight:700,display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0}}>Я</span>
+            Войти с Яндекс ID
+          </a>
+          <div style={{display:'flex',alignItems:'center',gap:10,margin:'12px 0',color:C.muted,fontSize:11.5}}>
+            <div style={{flex:1,height:1,background:C.border}}/>или<div style={{flex:1,height:1,background:C.border}}/>
+          </div>
+        </>}
         {step==='reset2'&&<div style={{fontSize:12,color:C.text2,marginBottom:8,lineHeight:'17px'}}>
           Если аккаунт существует — на {email} пришло письмо с кодом (действует 15 минут).
         </div>}
