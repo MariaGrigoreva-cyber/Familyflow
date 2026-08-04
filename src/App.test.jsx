@@ -43,11 +43,11 @@ test('выбор демо-данных сразу открывает прило�
   expect(screen.getByText('ОСТАТОК НА РУКАХ')).toBeInTheDocument();
 });
 
-test('«Есть аккаунт» на стартовом экране открывает форму входа', async () => {
+test('«Есть аккаунт» на стартовом экране открывает форму регистрации', async () => {
   const user = userEvent.setup();
   render(<App />);
   await user.click(await screen.findByText(/Есть аккаунт/, {}, { timeout: 2000 }));
-  expect(await screen.findByText('Вход в аккаунт')).toBeInTheDocument();
+  expect(await screen.findByRole('button', { name: 'Создать аккаунт' })).toBeInTheDocument();
 });
 
 test('онбордингованный локальный бюджет без аккаунта: вместо приложения показывается экран регистрации', async () => {
@@ -90,7 +90,7 @@ test('выход из демо-режима требует подтвержде�
   expect(screen.queryByText('Настроить свой бюджет')).not.toBeInTheDocument();
 });
 
-test('после выхода из демо «Есть аккаунт» открывает форму входа', async () => {
+test('после выхода из демо «Есть аккаунт» открывает форму регистрации', async () => {
   const user = userEvent.setup();
   render(<App />);
   await user.click(await screen.findByText('Демо-данные', {}, { timeout: 2000 }));
@@ -98,7 +98,7 @@ test('после выхода из демо «Есть аккаунт» откр
   await user.click(screen.getByText('СВОИ ДАННЫЕ'));
   await user.click(await screen.findByText('Подтвердить'));
   await user.click(await screen.findByText(/Есть аккаунт/));
-  expect(await screen.findByText('Вход в аккаунт')).toBeInTheDocument();
+  expect(await screen.findByRole('button', { name: 'Создать аккаунт' })).toBeInTheDocument();
 });
 
 test('после выхода из демо «Демо-данные» на экране выбора запускает демо заново', async () => {

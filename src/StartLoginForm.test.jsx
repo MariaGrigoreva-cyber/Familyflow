@@ -20,6 +20,7 @@ beforeEach(() => {
 test('невалидный email блокирует вход без обращения к API', async () => {
   const user = userEvent.setup();
   render(<StartLoginForm onClose={() => {}} />);
+  await user.click(screen.getByText('ВХОД'));
   await user.type(screen.getByPlaceholderText('email'), 'not-an-email');
   await user.type(screen.getByPlaceholderText('пароль'), 'somepassword');
   await user.click(screen.getByText('Войти'));
@@ -31,6 +32,7 @@ test('успешный вход перезагружает страницу', as
   login.mockResolvedValue({ token: 'tok' });
   const user = userEvent.setup();
   render(<StartLoginForm onClose={() => {}} />);
+  await user.click(screen.getByText('ВХОД'));
   await user.type(screen.getByPlaceholderText('email'), 'user@example.com');
   await user.type(screen.getByPlaceholderText('пароль'), 'password123');
   await user.click(screen.getByText('Войти'));
@@ -42,6 +44,7 @@ test('ошибка входа показывает текст из errText', asy
   login.mockRejectedValue({ message: 'bad_credentials' });
   const user = userEvent.setup();
   render(<StartLoginForm onClose={() => {}} />);
+  await user.click(screen.getByText('ВХОД'));
   await user.type(screen.getByPlaceholderText('email'), 'user@example.com');
   await user.type(screen.getByPlaceholderText('пароль'), 'wrongpassword');
   await user.click(screen.getByText('Войти'));
@@ -85,6 +88,7 @@ test('успешная регистрация вызывает register с со�
 test('восстановление пароля: невалидный email блокирует запрос кода', async () => {
   const user = userEvent.setup();
   render(<StartLoginForm onClose={() => {}} />);
+  await user.click(screen.getByText('ВХОД'));
   await user.click(screen.getByText('Забыли пароль?'));
   await user.type(screen.getByPlaceholderText('email'), 'not-an-email');
   await user.click(screen.getByText('Прислать код на почту'));
@@ -97,6 +101,7 @@ test('восстановление пароля: полный сценарий �
   resetConfirm.mockResolvedValue({ token: 'tok' });
   const user = userEvent.setup();
   render(<StartLoginForm onClose={() => {}} />);
+  await user.click(screen.getByText('ВХОД'));
   await user.click(screen.getByText('Забыли пароль?'));
   await user.type(screen.getByPlaceholderText('email'), 'user@example.com');
   await user.click(screen.getByText('Прислать код на почту'));
