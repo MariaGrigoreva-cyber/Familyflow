@@ -227,6 +227,23 @@ describe('AccountSection — форма входа/регистрации (вс�
     expect(api.login).toHaveBeenCalledWith('user@example.com', 'password123');
     await waitFor(() => expect(window.location.reload).toHaveBeenCalled());
   });
+
+  test('регистрация: перед отправкой показывает email на подтверждение, регистрация — после «Да, всё верно»', async () => {
+    api.register.mockResolvedValue({ token: 'tok' });
+    push.enablePush.mockResolvedValue();
+    const user = userEvent.setup();
+    render(<SettingsScreen {...baseProps} />);
+    await user.click(screen.getByText('РЕГИСТРАЦИЯ'));
+    await user.type(screen.getByPlaceholderText('email'), 'new@example.com');
+    await user.type(screen.getByPlaceholderText('пароль (мин. 6 символов)'), 'password123');
+    await user.click(screen.getByLabelText(/Принимаю/));
+    await user.click(screen.getByText('Создать аккаунт'));
+    expect(api.register).not.toHaveBeenCalled();
+    expect(screen.getByText('new@example.com')).toBeInTheDocument();
+    await user.click(screen.getByText('Да, всё верно'));
+    expect(api.register).toHaveBeenCalledWith('new@example.com', 'password123', undefined, true);
+    await waitFor(() => expect(window.location.reload).toHaveBeenCalled());
+  });
 });
 
 describe('SettingsScreen — залогинен', () => {

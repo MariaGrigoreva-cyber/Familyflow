@@ -79,6 +79,32 @@ test('регистрация: кнопка недоступна без согл�
   expect(screen.getByRole('button', { name: 'Создать аккаунт' })).toBeDisabled();
 });
 
+test('регистрация: перед отправкой показывает email на подтверждение', async () => {
+  const user = userEvent.setup();
+  render(<StartLoginForm onClose={() => {}} />);
+  await user.click(screen.getByText('РЕГИСТРАЦИЯ'));
+  await user.type(screen.getByPlaceholderText('email'), 'new@example.com');
+  await user.type(screen.getByPlaceholderText('пароль'), 'password123');
+  await user.click(screen.getByLabelText(/Принимаю/));
+  await user.click(screen.getByRole('button', { name: 'Создать аккаунт' }));
+  expect(register).not.toHaveBeenCalled();
+  expect(screen.getByText('new@example.com')).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Да, всё верно' })).toBeInTheDocument();
+});
+
+test('регистрация: «Изменить email» возвращает к форме без отправки', async () => {
+  const user = userEvent.setup();
+  render(<StartLoginForm onClose={() => {}} />);
+  await user.click(screen.getByText('РЕГИСТРАЦИЯ'));
+  await user.type(screen.getByPlaceholderText('email'), 'typo@exampel.com');
+  await user.type(screen.getByPlaceholderText('пароль'), 'password123');
+  await user.click(screen.getByLabelText(/Принимаю/));
+  await user.click(screen.getByRole('button', { name: 'Создать аккаунт' }));
+  await user.click(screen.getByText('← Изменить email'));
+  expect(register).not.toHaveBeenCalled();
+  expect(screen.getByPlaceholderText('email')).toHaveValue('typo@exampel.com');
+});
+
 test('успешная регистрация вызывает register с согласием и перезагружает', async () => {
   register.mockResolvedValue({ token: 'tok' });
   const user = userEvent.setup();
@@ -88,6 +114,7 @@ test('успешная регистрация вызывает register с со�
   await user.type(screen.getByPlaceholderText('пароль'), 'password123');
   await user.click(screen.getByLabelText(/Принимаю/));
   await user.click(screen.getByRole('button', { name: 'Создать аккаунт' }));
+  await user.click(screen.getByRole('button', { name: 'Да, всё верно' }));
   expect(register).toHaveBeenCalledWith('new@example.com', 'password123', undefined, true);
   expect(window.location.reload).toHaveBeenCalled();
 });

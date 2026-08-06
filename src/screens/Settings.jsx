@@ -369,14 +369,16 @@ function AccountSection({isPro=true}){
   const[joinCode,setJoinCode]=useState('');
   const[resetStep,setResetStep]=useState(0);
   const[pdnConsent,setPdnConsent]=useState(false);
+  // Опечатка в email на регистрации обнаруживается только после того, как письмо
+  // не дошло — а этого человек может не заметить неделями (см. lib/mail.js hasMxRecord
+  // для другой половины этой же проблемы). Простой промежуточный экран "точно ли
+  // этот адрес" ловит часть опечаток, которые человек не заметил в маленьком поле ввода.
+  const[confirming,setConfirming]=useState(false);
   const lastSync=(()=>{try{const t=localStorage.getItem('ff_cloud_updated_at');return t?new Date(t).toLocaleString('ru'):null;}catch{return null;}})();
 
   useEffect(()=>{if(logged)familyMe().then(setFam).catch(()=>{});},[logged]);
 
-  const submit=async()=>{
-    if(!emailOk(email.trim())){setErr('Введите корректный email');return;}
-    if(mode==='register'&&pass.length<6){setErr('Пароль — минимум 6 символов');return;}
-    if(mode==='register'&&!pdnConsent){setErr('Нужно согласиться на обработку персональных данных');return;}
+  const doSubmit=async()=>{
     setErr('');setBusy(true);
     try{
       if(mode==='register')await register(email.trim(),pass,undefined,pdnConsent);
@@ -388,37 +390,59 @@ function AccountSection({isPro=true}){
       window.location.reload();
     }catch(e){setErr(errText(e));setBusy(false);}
   };
+  const onSubmitClick=()=>{
+    if(!emailOk(email.trim())){setErr('Введите корректный email');return;}
+    if(mode==='register'&&pass.length<6){setErr('Пароль — минимум 6 символов');return;}
+    if(mode==='register'&&!pdnConsent){setErr('Нужно согласиться на обработку персональных данных');return;}
+    setErr('');
+    if(mode==='register'&&!confirming){setConfirming(true);return;}
+    doSubmit();
+  };
 
   if(!logged)return(
     <div style={{...s.card,padding:16}}>
-      <div style={{display:'flex',gap:6,marginBottom:10}}>
-        {[['register','Регистрация'],['login','Вход']].map(([id,l])=>(
-          <button key={id} onClick={()=>{setMode(id);setErr('');}}
-            style={{flex:1,textAlign:'center',fontFamily:MONO,fontSize:11,fontWeight:600,padding:9,borderRadius:10,border:`1px solid ${mode===id?C.orange:C.border}`,background:mode===id?C.orange:'var(--c-surface)',color:mode===id?'#fff':C.muted,cursor:'pointer'}}>{l.toUpperCase()}</button>
-        ))}
-      </div>
-      <input type="email" placeholder="email" value={email} onChange={e=>setEmail(e.target.value)}
-        style={{width:'100%',boxSizing:'border-box',border:`1px solid ${C.border}`,borderRadius:12,padding:'12px 14px',fontSize:14,outline:'none',fontFamily:'inherit',marginBottom:8}}/>
-      <input type="password" placeholder="пароль (мин. 6 символов)" value={pass} onChange={e=>setPass(e.target.value)}
-        style={{width:'100%',boxSizing:'border-box',border:`1px solid ${C.border}`,borderRadius:12,padding:'12px 14px',fontSize:14,outline:'none',fontFamily:'inherit',marginBottom:10}}/>
-      {mode==='register'&&<label style={{display:'flex',gap:8,alignItems:'flex-start',fontSize:11,lineHeight:1.5,color:C.muted,marginBottom:10,cursor:'pointer'}}>
-        <input type="checkbox" checked={pdnConsent} onChange={e=>setPdnConsent(e.target.checked)}
-          style={{marginTop:2,flexShrink:0}}/>
-        <span>Принимаю <a href={TERMS_URL} onClick={e=>e.stopPropagation()} style={{color:C.orangeD}}>условия использования</a> и даю согласие на <a href={PRIVACY_URL} onClick={e=>e.stopPropagation()} style={{color:C.orangeD}}>обработку персональных данных</a> (152-ФЗ).</span>
-      </label>}
-      {err&&<div style={{fontSize:12,color:C.red,marginBottom:8}}>{err}</div>}
-      <button onClick={submit} disabled={busy||(mode==='register'&&!pdnConsent)}
-        style={{width:'100%',padding:14,borderRadius:14,border:'none',background:busy||(mode==='register'&&!pdnConsent)?C.borderS:C.orange,color:'#fff',fontSize:14,fontWeight:600,cursor:busy||(mode==='register'&&!pdnConsent)?'default':'pointer',fontFamily:'inherit'}}>
-        {busy?'Секунду…':mode==='register'?'Создать аккаунт':'Войти'}
-      </button>
-      <div style={{fontSize:11,color:C.muted,marginTop:8,lineHeight:1.5}}>
-        {mode==='register'
-          ?'Текущий бюджет с этого устройства будет сохранён в облако.'
-          :'После входа подтянется бюджет вашей семьи из облака.'}
-      </div>
-      {mode==='login'&&<button onClick={()=>setResetStep(1)}
-        style={{background:'none',border:'none',padding:'8px 0 0',fontSize:12,color:C.orangeD,cursor:'pointer',fontFamily:'inherit'}}>Забыли пароль?</button>}
-      {resetStep>0&&<ResetFlow email={email} onDone={()=>window.location.reload()} onClose={()=>setResetStep(0)}/>}
+      {mode==='register'&&confirming?(<>
+        <div style={{fontSize:13,color:C.text,lineHeight:1.5,marginBottom:6}}>Отправим письмо для подтверждения на:</div>
+        <div style={{fontSize:16,fontWeight:600,color:C.text,marginBottom:16,wordBreak:'break-all'}}>{email.trim()}</div>
+        {err&&<div style={{fontSize:12,color:C.red,marginBottom:8}}>{err}</div>}
+        <button onClick={onSubmitClick} disabled={busy}
+          style={{width:'100%',padding:14,borderRadius:14,border:'none',background:busy?C.borderS:C.orange,color:'#fff',fontSize:14,fontWeight:600,cursor:busy?'default':'pointer',fontFamily:'inherit'}}>
+          {busy?'Секунду…':'Да, всё верно'}
+        </button>
+        <button onClick={()=>{setConfirming(false);setErr('');}}
+          style={{width:'100%',padding:10,marginTop:6,background:'none',border:'none',fontSize:13,color:C.muted,cursor:'pointer',fontFamily:'inherit'}}>
+          ← Изменить email
+        </button>
+      </>):(<>
+        <div style={{display:'flex',gap:6,marginBottom:10}}>
+          {[['register','Регистрация'],['login','Вход']].map(([id,l])=>(
+            <button key={id} onClick={()=>{setMode(id);setErr('');setConfirming(false);}}
+              style={{flex:1,textAlign:'center',fontFamily:MONO,fontSize:11,fontWeight:600,padding:9,borderRadius:10,border:`1px solid ${mode===id?C.orange:C.border}`,background:mode===id?C.orange:'var(--c-surface)',color:mode===id?'#fff':C.muted,cursor:'pointer'}}>{l.toUpperCase()}</button>
+          ))}
+        </div>
+        <input type="email" placeholder="email" value={email} onChange={e=>setEmail(e.target.value)}
+          style={{width:'100%',boxSizing:'border-box',border:`1px solid ${C.border}`,borderRadius:12,padding:'12px 14px',fontSize:14,outline:'none',fontFamily:'inherit',marginBottom:8}}/>
+        <input type="password" placeholder="пароль (мин. 6 символов)" value={pass} onChange={e=>setPass(e.target.value)}
+          style={{width:'100%',boxSizing:'border-box',border:`1px solid ${C.border}`,borderRadius:12,padding:'12px 14px',fontSize:14,outline:'none',fontFamily:'inherit',marginBottom:10}}/>
+        {mode==='register'&&<label style={{display:'flex',gap:8,alignItems:'flex-start',fontSize:11,lineHeight:1.5,color:C.muted,marginBottom:10,cursor:'pointer'}}>
+          <input type="checkbox" checked={pdnConsent} onChange={e=>setPdnConsent(e.target.checked)}
+            style={{marginTop:2,flexShrink:0}}/>
+          <span>Принимаю <a href={TERMS_URL} onClick={e=>e.stopPropagation()} style={{color:C.orangeD}}>условия использования</a> и даю согласие на <a href={PRIVACY_URL} onClick={e=>e.stopPropagation()} style={{color:C.orangeD}}>обработку персональных данных</a> (152-ФЗ).</span>
+        </label>}
+        {err&&<div style={{fontSize:12,color:C.red,marginBottom:8}}>{err}</div>}
+        <button onClick={onSubmitClick} disabled={busy||(mode==='register'&&!pdnConsent)}
+          style={{width:'100%',padding:14,borderRadius:14,border:'none',background:busy||(mode==='register'&&!pdnConsent)?C.borderS:C.orange,color:'#fff',fontSize:14,fontWeight:600,cursor:busy||(mode==='register'&&!pdnConsent)?'default':'pointer',fontFamily:'inherit'}}>
+          {busy?'Секунду…':mode==='register'?'Создать аккаунт':'Войти'}
+        </button>
+        <div style={{fontSize:11,color:C.muted,marginTop:8,lineHeight:1.5}}>
+          {mode==='register'
+            ?'Текущий бюджет с этого устройства будет сохранён в облако.'
+            :'После входа подтянется бюджет вашей семьи из облака.'}
+        </div>
+        {mode==='login'&&<button onClick={()=>setResetStep(1)}
+          style={{background:'none',border:'none',padding:'8px 0 0',fontSize:12,color:C.orangeD,cursor:'pointer',fontFamily:'inherit'}}>Забыли пароль?</button>}
+        {resetStep>0&&<ResetFlow email={email} onDone={()=>window.location.reload()} onClose={()=>setResetStep(0)}/>}
+      </>)}
     </div>
   );
 

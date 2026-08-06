@@ -11,19 +11,26 @@ export function StartLoginForm({onClose,mandatory=false,initialError=''}){
   const[pass,setPass]=useState('');
   const[busy,setBusy]=useState(false);
   const[err,setErr]=useState(initialError);
-  const[step,setStep]=useState('login'); // login | reset1 | reset2
+  const[step,setStep]=useState('login'); // login | confirmEmail | reset1 | reset2
   const[code,setCode]=useState('');
   const[pdnConsent,setPdnConsent]=useState(false);
-  const submit=async()=>{
-    if(!emailOk(email.trim())){setErr('Введите корректный email');return;}
-    if(mode==='register'&&pass.length<6){setErr('Пароль — минимум 6 символов');return;}
-    if(mode==='register'&&!pdnConsent){setErr('Нужно согласиться на обработку персональных данных');return;}
+  const doSubmit=async()=>{
     setErr('');setBusy(true);
     try{
       if(mode==='register')await register(email.trim(),pass,undefined,pdnConsent);
       else await login(email.trim(),pass);
       window.location.reload(); // loadCloud восстановит бюджет и пропустит онбординг
     }catch(e){setErr(errText(e));setBusy(false);}
+  };
+  const onSubmitClick=()=>{
+    if(!emailOk(email.trim())){setErr('Введите корректный email');return;}
+    if(mode==='register'&&pass.length<6){setErr('Пароль — минимум 6 символов');return;}
+    if(mode==='register'&&!pdnConsent){setErr('Нужно согласиться на обработку персональных данных');return;}
+    setErr('');
+    // Опечатку в email проще заметить крупным текстом отдельным экраном, чем в
+    // маленьком поле ввода — ловит часть случаев до отправки письма в никуда.
+    if(mode==='register'){setStep('confirmEmail');return;}
+    doSubmit();
   };
   const askCode=async()=>{
     if(!emailOk(email.trim())){setErr('Введите корректный email');return;}
@@ -48,7 +55,7 @@ export function StartLoginForm({onClose,mandatory=false,initialError=''}){
           <div style={{fontSize:12.5,color:C.text2,lineHeight:1.5}}>Локальный режим без аккаунта больше не поддерживается. Бюджет с этого устройства перенесётся в облако автоматически.</div>
         </div>}
         <div style={{fontSize:17,fontWeight:600,color:C.text,marginBottom:4}}>
-          {step==='login'?(mode==='register'?'Создать аккаунт':'Вход в аккаунт'):'Восстановление пароля'}
+          {step==='login'?(mode==='register'?'Создать аккаунт':'Вход в аккаунт'):step==='confirmEmail'?'Проверьте email':'Восстановление пароля'}
         </div>
         {step==='login'&&<div style={{display:'flex',gap:6,marginTop:10,marginBottom:2}}>
           {[['register','Регистрация'],['login','Вход']].map(([id,l])=>(
@@ -68,39 +75,53 @@ export function StartLoginForm({onClose,mandatory=false,initialError=''}){
         {step==='reset2'&&<div style={{fontSize:12,color:C.text2,marginBottom:8,lineHeight:'17px'}}>
           Если аккаунт существует — на {email} пришло письмо с кодом (действует 15 минут).
         </div>}
-        <div style={{marginTop:8}}/>
-        <input type="email" placeholder="email" value={email} onChange={e=>setEmail(e.target.value)} autoFocus disabled={step==='reset2'}
-          style={{width:'100%',boxSizing:'border-box',background:'var(--c-surface)',border:`1px solid ${C.border}`,borderRadius:12,padding:'13px 15px',fontSize:14,color:step==='reset2'?C.muted:C.text,outline:'none',fontFamily:'inherit',marginBottom:8}}/>
-        {step==='reset2'&&<input inputMode="numeric" placeholder="код из письма (6 цифр)" value={code} onChange={e=>setCode(e.target.value)}
-          style={{width:'100%',boxSizing:'border-box',background:'var(--c-surface)',border:`1px solid ${C.border}`,borderRadius:12,padding:'13px 15px',fontSize:14,color:C.text,outline:'none',fontFamily:'inherit',marginBottom:8,letterSpacing:4}}/>}
-        {step!=='reset1'&&<input type="password" placeholder={step==='reset2'?'новый пароль (мин. 6)':'пароль'} value={pass} onChange={e=>setPass(e.target.value)}
-          onKeyDown={e=>e.key==='Enter'&&(step==='login'?submit():confirmReset())}
-          style={{width:'100%',boxSizing:'border-box',background:'var(--c-surface)',border:`1px solid ${C.border}`,borderRadius:12,padding:'13px 15px',fontSize:14,color:C.text,outline:'none',fontFamily:'inherit',marginBottom:10}}/>}
-        {err&&<div style={{fontSize:12,color:C.red,marginBottom:10}}>{err}</div>}
-        {step==='login'&&mode==='register'&&<label style={{display:'flex',gap:8,alignItems:'flex-start',fontSize:10.5,lineHeight:1.5,color:C.muted,marginBottom:10,cursor:'pointer'}}>
-          <input type="checkbox" checked={pdnConsent} onChange={e=>setPdnConsent(e.target.checked)}
-            style={{marginTop:2,flexShrink:0}}/>
-          <span>Принимаю <a href={TERMS_URL} onClick={e=>e.stopPropagation()} style={{color:C.orangeD}}>условия использования</a> и даю согласие на <a href={PRIVACY_URL} onClick={e=>e.stopPropagation()} style={{color:C.orangeD}}>обработку персональных данных</a> (152-ФЗ).</span>
-        </label>}
-        {step==='login'&&<>
-          <button onClick={submit} disabled={busy||(mode==='register'&&!pdnConsent)}
-            style={{width:'100%',padding:15,borderRadius:14,border:'none',background:busy||(mode==='register'&&!pdnConsent)?C.borderS:C.orange,color:'#fff',fontSize:14.5,fontWeight:600,cursor:busy||(mode==='register'&&!pdnConsent)?'default':'pointer',fontFamily:'inherit'}}>
-            {busy?'Секунду…':mode==='register'?'Создать аккаунт':'Войти'}
+        {step==='confirmEmail'?(<>
+          <div style={{fontSize:13,color:C.text,lineHeight:1.5,marginTop:8,marginBottom:6}}>Отправим письмо для подтверждения на:</div>
+          <div style={{fontSize:17,fontWeight:600,color:C.text,marginBottom:16,wordBreak:'break-all'}}>{email.trim()}</div>
+          {err&&<div style={{fontSize:12,color:C.red,marginBottom:10}}>{err}</div>}
+          <button onClick={doSubmit} disabled={busy}
+            style={{width:'100%',padding:15,borderRadius:14,border:'none',background:busy?C.borderS:C.orange,color:'#fff',fontSize:14.5,fontWeight:600,cursor:busy?'default':'pointer',fontFamily:'inherit'}}>
+            {busy?'Секунду…':'Да, всё верно'}
           </button>
-          {mode==='login'&&<button onClick={()=>{setErr('');setPass('');setStep('reset1');}}
-            style={{width:'100%',padding:9,marginTop:6,background:'none',border:'none',fontSize:12,color:C.orangeD,cursor:'pointer',fontFamily:'inherit'}}>Забыли пароль?</button>}
-        </>}
-        {step==='reset1'&&<button onClick={askCode} disabled={busy}
-          style={{width:'100%',padding:15,borderRadius:14,border:'none',background:busy?C.borderS:C.orange,color:'#fff',fontSize:14.5,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>
-          {busy?'Отправляем…':'Прислать код на почту'}
-        </button>}
-        {step==='reset2'&&<button onClick={confirmReset} disabled={busy}
-          style={{width:'100%',padding:15,borderRadius:14,border:'none',background:busy?C.borderS:C.green,color:'#fff',fontSize:14.5,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>
-          {busy?'Проверяем…':'Сменить пароль и войти'}
-        </button>}
-        {!(mandatory&&step==='login')&&<button onClick={()=>{step==='login'?onClose():(setStep('login'),setErr(''),setCode(''),setPass(''));}}
+        </>):(<>
+          <div style={{marginTop:8}}/>
+          <input type="email" placeholder="email" value={email} onChange={e=>setEmail(e.target.value)} autoFocus disabled={step==='reset2'}
+            style={{width:'100%',boxSizing:'border-box',background:'var(--c-surface)',border:`1px solid ${C.border}`,borderRadius:12,padding:'13px 15px',fontSize:14,color:step==='reset2'?C.muted:C.text,outline:'none',fontFamily:'inherit',marginBottom:8}}/>
+          {step==='reset2'&&<input inputMode="numeric" placeholder="код из письма (6 цифр)" value={code} onChange={e=>setCode(e.target.value)}
+            style={{width:'100%',boxSizing:'border-box',background:'var(--c-surface)',border:`1px solid ${C.border}`,borderRadius:12,padding:'13px 15px',fontSize:14,color:C.text,outline:'none',fontFamily:'inherit',marginBottom:8,letterSpacing:4}}/>}
+          {step!=='reset1'&&<input type="password" placeholder={step==='reset2'?'новый пароль (мин. 6)':'пароль'} value={pass} onChange={e=>setPass(e.target.value)}
+            onKeyDown={e=>e.key==='Enter'&&(step==='login'?onSubmitClick():confirmReset())}
+            style={{width:'100%',boxSizing:'border-box',background:'var(--c-surface)',border:`1px solid ${C.border}`,borderRadius:12,padding:'13px 15px',fontSize:14,color:C.text,outline:'none',fontFamily:'inherit',marginBottom:10}}/>}
+          {err&&<div style={{fontSize:12,color:C.red,marginBottom:10}}>{err}</div>}
+          {step==='login'&&mode==='register'&&<label style={{display:'flex',gap:8,alignItems:'flex-start',fontSize:10.5,lineHeight:1.5,color:C.muted,marginBottom:10,cursor:'pointer'}}>
+            <input type="checkbox" checked={pdnConsent} onChange={e=>setPdnConsent(e.target.checked)}
+              style={{marginTop:2,flexShrink:0}}/>
+            <span>Принимаю <a href={TERMS_URL} onClick={e=>e.stopPropagation()} style={{color:C.orangeD}}>условия использования</a> и даю согласие на <a href={PRIVACY_URL} onClick={e=>e.stopPropagation()} style={{color:C.orangeD}}>обработку персональных данных</a> (152-ФЗ).</span>
+          </label>}
+          {step==='login'&&<>
+            <button onClick={onSubmitClick} disabled={busy||(mode==='register'&&!pdnConsent)}
+              style={{width:'100%',padding:15,borderRadius:14,border:'none',background:busy||(mode==='register'&&!pdnConsent)?C.borderS:C.orange,color:'#fff',fontSize:14.5,fontWeight:600,cursor:busy||(mode==='register'&&!pdnConsent)?'default':'pointer',fontFamily:'inherit'}}>
+              {busy?'Секунду…':mode==='register'?'Создать аккаунт':'Войти'}
+            </button>
+            {mode==='login'&&<button onClick={()=>{setErr('');setPass('');setStep('reset1');}}
+              style={{width:'100%',padding:9,marginTop:6,background:'none',border:'none',fontSize:12,color:C.orangeD,cursor:'pointer',fontFamily:'inherit'}}>Забыли пароль?</button>}
+          </>}
+          {step==='reset1'&&<button onClick={askCode} disabled={busy}
+            style={{width:'100%',padding:15,borderRadius:14,border:'none',background:busy?C.borderS:C.orange,color:'#fff',fontSize:14.5,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>
+            {busy?'Отправляем…':'Прислать код на почту'}
+          </button>}
+          {step==='reset2'&&<button onClick={confirmReset} disabled={busy}
+            style={{width:'100%',padding:15,borderRadius:14,border:'none',background:busy?C.borderS:C.green,color:'#fff',fontSize:14.5,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>
+            {busy?'Проверяем…':'Сменить пароль и войти'}
+          </button>}
+        </>)}
+        {!(mandatory&&step==='login')&&<button onClick={()=>{
+            if(step==='login')onClose();
+            else if(step==='confirmEmail'){setStep('login');setErr('');}
+            else{setStep('login');setErr('');setCode('');setPass('');}
+          }}
           style={{width:'100%',padding:10,marginTop:6,background:'none',border:'none',fontSize:13,color:C.muted,cursor:'pointer',fontFamily:'inherit'}}>
-          {step==='login'?'Отмена':'← Назад ко входу'}
+          {step==='login'?'Отмена':step==='confirmEmail'?'← Изменить email':'← Назад ко входу'}
         </button>}
         <div style={{marginTop:14,display:'flex',gap:11,alignItems:'center',background:C.cream,borderRadius:12,padding:'12px 14px'}}>
           <span style={{fontSize:15}}>☁️</span>
