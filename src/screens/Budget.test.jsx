@@ -55,6 +55,20 @@ test('планировщик отпуска: ввод даты показыва�
   expect(onAddExtra).toHaveBeenCalledWith(expect.objectContaining({ type: 'vacation' }));
 });
 
+test('планировщик отпуска: произвольное количество дней (не из пресетов 7/14/21/28)', async () => {
+  const user = userEvent.setup();
+  const onAddExtra = jest.fn();
+  render(<BudgetScreen state={state} onEditPlanned={noop} onAddPlanned={noop} onEditPayment={noop} onAddExtra={onAddExtra} onWithdrawPiggy={noop} onSetGoal={noop} onAddGoalToPlan={noop} />);
+  await user.click(screen.getByText('✈️ Отпуск'));
+  const daysInput = screen.getByDisplayValue('14');
+  await user.clear(daysInput);
+  await user.type(daysInput, '10');
+  const dateInput = document.querySelector('input[type="date"]');
+  await user.type(dateInput, '2027-06-01');
+  await user.click(await screen.findByText('Добавить отпускные в бюджет'));
+  expect(onAddExtra.mock.calls[0][0].label).toMatch(/^Отпускные \(10 дн\./);
+});
+
 test('планировщик отпуска (начало до 15-го): урезает аванс ЗА ЭТОТ месяц и зарплату ЗА ЭТОТ месяц (выплачивается в следующем), не трогает зарплату за прошлый месяц', async () => {
   const user = userEvent.setup();
   const onAddExtra = jest.fn();

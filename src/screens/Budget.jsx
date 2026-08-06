@@ -13,6 +13,7 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
   // сброс статуса при смене параметров
   const resetVacAdded=()=>setVacAdded(false);
   const[vacDays,setVacDays]=useState(14);
+  const[vacDaysText,setVacDaysText]=useState('14'); // текст поля ввода — отдельно от vacDays, иначе backspace до пустой строки тут же откатывался бы обратно на минимум
   const[vacActual12,setVacActual12]=useState('');
   const[vacAdded,setVacAdded]=useState(false);
   const[showAllUpcoming,setShowAllUpcoming]=useState(false);
@@ -268,13 +269,25 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
             </div>
             <div style={{display:'flex',alignItems:'center',gap:8}}>
               <span style={{fontSize:13,color:C.muted,flex:1}}>Количество дней</span>
-              <div style={{display:'flex',gap:4}}>
+              <div style={{display:'flex',gap:4,alignItems:'center'}}>
                 {[7,14,21,28].map(d=>(
-                  <button key={d} onClick={()=>{setVacDays(d);setVacAdded(false);}}
+                  <button key={d} onClick={()=>{setVacDays(d);setVacDaysText(String(d));setVacAdded(false);}}
                     style={{padding:'5px 10px',borderRadius:8,border:`1px solid ${vacDays===d?C.orangeB:C.border}`,background:vacDays===d?C.orangeL:'var(--c-surface)',color:vacDays===d?C.orangeD:C.text,fontSize:12,cursor:'pointer',fontFamily:'inherit'}}>
                     {d}
                   </button>
                 ))}
+                {/* Пресеты — частые случаи в один клик, но отпуск не всегда кратен 7:
+                    поле рядом позволяет ввести любое число дней (1-60). vacDaysText
+                    хранится отдельно от vacDays, чтобы поле можно было очистить перед
+                    вводом нового числа, а не откатывать его к минимуму на каждый символ. */}
+                <input type="text" inputMode="numeric" value={vacDaysText} onChange={e=>{
+                    const raw=e.target.value.replace(/\D/g,'').slice(0,2);
+                    setVacDaysText(raw);
+                    const n=parseInt(raw,10);
+                    if(!Number.isNaN(n)&&n>=1&&n<=60){setVacDays(n);setVacAdded(false);}
+                  }}
+                  onBlur={()=>setVacDaysText(String(vacDays))}
+                  style={{width:34,textAlign:'center',border:`1px solid ${C.border}`,borderRadius:8,padding:'5px 4px',fontSize:12,outline:'none',fontFamily:'inherit',background:'var(--c-surface)',color:C.text}}/>
               </div>
             </div>
           </div>
