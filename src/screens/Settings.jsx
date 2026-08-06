@@ -438,6 +438,7 @@ function AccountSection({isPro=true}){
         }}
           style={{background:'none',border:`1px solid ${C.border}`,borderRadius:20,padding:'5px 12px',fontSize:12,color:C.muted,cursor:'pointer',fontFamily:'inherit'}}>Выйти</button>
       </div>
+      {fam?.email&&<div style={{fontSize:12,color:C.text,marginBottom:6}}>Вход выполнен как <span style={{fontWeight:600}}>{fam.email}</span></div>}
       {fam&&<div style={{fontSize:12,color:C.muted,marginBottom:10}}>Семья «{fam.name}» · участников: {fam.members} · ваша роль: {fam.role==='owner'?'владелец':'участник'}</div>}
       {/* Пригласить супруга */}
       {fam?.role==='owner'&&<div style={{background:C.cream,borderRadius:10,padding:'10px 12px',marginBottom:8}}>

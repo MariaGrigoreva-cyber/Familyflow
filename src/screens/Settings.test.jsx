@@ -232,7 +232,7 @@ describe('AccountSection — форма входа/регистрации (вс�
 describe('SettingsScreen — залогинен', () => {
   beforeEach(() => {
     api.isLoggedIn.mockReturnValue(true);
-    api.familyMe.mockResolvedValue({ name: 'Ивановы', role: 'owner', members: 1 });
+    api.familyMe.mockResolvedValue({ name: 'Ивановы', role: 'owner', members: 1, email: 'ivanov@example.com' });
     api.billingStatus.mockResolvedValue({ plan: 'free', prices: { monthly: 199, yearly: 999 } });
     push.getPushState.mockResolvedValue('not-subscribed');
   });
@@ -241,6 +241,11 @@ describe('SettingsScreen — залогинен', () => {
     render(<SettingsScreen {...baseProps} />);
     expect(await screen.findByText('Синхронизация включена')).toBeInTheDocument();
     expect(screen.getByText('Выйти')).toBeInTheDocument();
+  });
+
+  test('показывает email аккаунта', async () => {
+    render(<SettingsScreen {...baseProps} />);
+    expect(await screen.findByText('ivanov@example.com')).toBeInTheDocument();
   });
 
   test('выход из аккаунта требует подтверждения', async () => {
