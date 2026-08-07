@@ -75,7 +75,10 @@ export function HealthScreen({state,isPro=true,onUpgrade}){
     freeCash>0?{text:`Свободные средства ${fmt(freeCash)}/мес можно инвестировать`,level:'green'}:null,
   ].filter(Boolean).slice(0,3);
   const recDot={yellow:C.yellow,red:C.red,green:C.green};
-  const pad={padding:'16px 20px 90px'};
+  // Нижний отступ с запасом под плавающую кнопку «?» (см. App.jsx, стоит на
+  // 78-126px от низа на всех вкладках кроме Сегодня) — иначе последние
+  // строки экрана прячутся у неё под низом.
+  const pad={paddingTop:16,paddingLeft:20,paddingRight:20,paddingBottom:'calc(142px + env(safe-area-inset-bottom))'};
   if(!isPro)return(
     <ProLock icon="💚" title="Здоровье бюджета — в Pro"
       desc="Оценка 0–100, прогноз кассовых разрывов на недели вперёд и рекомендации, что улучшить — доступно в подписке Pro."

@@ -29,7 +29,10 @@ export function SettingsScreen({state,onEditCat,onAddCat,onDeleteCustomCat,onEdi
       }
     }catch{}
   },[]);
-  const pad={padding:'16px 20px 90px'};
+  // Нижний отступ с запасом под плавающую кнопку «?» (см. App.jsx, стоит на
+  // 78-126px от низа на всех вкладках кроме Сегодня) — иначе последние
+  // строки экрана прячутся у неё под низом.
+  const pad={paddingTop:16,paddingLeft:20,paddingRight:20,paddingBottom:'calc(142px + env(safe-area-inset-bottom))'};
   const startDate=state.budgetStartDate?new Date(state.budgetStartDate):null;
   const memberWord=members.length===1?'ЧЕЛОВЕК':'ЧЕЛОВЕКА';
   // Для локального режима (без аккаунта) считаем, сколько дней назад делали

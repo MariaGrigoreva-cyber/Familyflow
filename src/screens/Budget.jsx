@@ -85,7 +85,10 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
   const upcoming=showAllUpcoming?upcomingAll:upcomingAll.slice(0,6);
   const shiftedCnt=allPayments.filter(p=>p.date>=budgetStart&&p.shifted).length;
   const extraUpcoming=(extraPayments||[]).filter(p=>new Date(p.date)>=now);
-  const pad={padding:'16px 20px 90px'};
+  // Нижний отступ с запасом под плавающую кнопку «?» (см. App.jsx, стоит на
+  // 78-126px от низа на всех вкладках кроме Сегодня) — иначе последние
+  // строки экрана прячутся у неё под низом.
+  const pad={paddingTop:16,paddingLeft:20,paddingRight:20,paddingBottom:'calc(142px + env(safe-area-inset-bottom))'};
   const bday=d=>`${d.getDate()} ${MONTH_SHORT[d.getMonth()]}`;
   return(
     <div style={{overflowY:'auto',flex:1,minHeight:0,WebkitOverflowScrolling:'touch'}}><div style={pad}>

@@ -43,7 +43,10 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx,weeksSummary,negativeW
     return comfort||totals.sort((a,b)=>b.monthly-a.monthly)[0]||null;
   },[state.planned,state.customCats]);
   const TABS=[{id:'detail',label:'Неделя'},{id:'weeks',label:'Недели'},{id:'months',label:'Месяцы'},{id:'year',label:'Годы'}];
-  const pad={padding:'16px 20px 90px'};
+  // Нижний отступ с запасом под плавающую кнопку «?» (см. App.jsx, стоит на
+  // 78-126px от низа на всех вкладках кроме Сегодня) — иначе последние
+  // строки экрана прячутся у неё под низом.
+  const pad={paddingTop:16,paddingLeft:20,paddingRight:20,paddingBottom:'calc(142px + env(safe-area-inset-bottom))'};
   const navBtn={width:42,height:42,borderRadius:13,border:`1px solid ${C.orangeB}`,background:C.orangeL,color:C.orangeD,fontSize:18,fontWeight:700,cursor:'pointer',fontFamily:'inherit',display:'flex',alignItems:'center',justifyContent:'center',flexShrink:0};
   return(
     <div style={{overflowY:'auto',flex:1,minHeight:0,WebkitOverflowScrolling:'touch'}}><div style={pad}>

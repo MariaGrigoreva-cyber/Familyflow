@@ -57,7 +57,10 @@ export function TodayScreen({state,onToggle,onEditPayment,onEditTx,onQuickMark,o
     });
     return{rows,firstNeg};
   },[simBaseWeeks,extraSpend,simMax]);
-  const pad={padding:'16px 20px 90px'};
+  // Нижний отступ с запасом под плавающие кнопки «+»/«?» (см. App.jsx) — на
+  // вкладке Сегодня они стоят одна над другой (+: 78-130px, ?: 138-186px от
+  // низа), иначе последние карточки экрана прячутся у них под низом.
+  const pad={paddingTop:16,paddingLeft:20,paddingRight:20,paddingBottom:'calc(202px + env(safe-area-inset-bottom))'};
   // Подсветка блока при обучающем туре
   const glow=step=>tourStep===step?{animation:'ffTourGlow 1.4s ease infinite',position:'relative',zIndex:210}:{};
   useEffect(()=>{
