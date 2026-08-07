@@ -276,23 +276,25 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
                     {d}
                   </button>
                 ))}
-                {/* Пресеты — частые случаи в один клик, но отпуск не всегда кратен 7:
-                    поле рядом позволяет ввести любое число дней (1-60). vacDaysText
-                    хранится отдельно от vacDays, чтобы поле можно было очистить перед
-                    вводом нового числа, а не откатывать его к минимуму на каждый символ.
-                    Пунктирная рамка — тот же приём, что у «Своего сценария» в Что если:
-                    сигнал «сюда можно вписать своё», а не просто ещё один пресет; когда
-                    значение и правда не из пресетов — подсвечиваем как выбранное. */}
-                <input type="text" inputMode="numeric" value={vacDaysText} onChange={e=>{
-                    const raw=e.target.value.replace(/\D/g,'').slice(0,2);
-                    setVacDaysText(raw);
-                    const n=parseInt(raw,10);
-                    if(!Number.isNaN(n)&&n>=1&&n<=60){setVacDays(n);setVacAdded(false);}
-                  }}
-                  onBlur={()=>setVacDaysText(String(vacDays))}
-                  title="Своё количество дней"
-                  style={{width:34,textAlign:'center',border:`1px dashed ${[7,14,21,28].includes(vacDays)?C.borderS:C.orange}`,borderRadius:8,padding:'5px 4px',fontSize:12,outline:'none',fontFamily:'inherit',background:[7,14,21,28].includes(vacDays)?'var(--c-surface)':C.orangeL,color:[7,14,21,28].includes(vacDays)?C.text:C.orangeD,fontWeight:[7,14,21,28].includes(vacDays)?400:600}}/>
               </div>
+            </div>
+            {/* Пресеты — частые случаи в один клик, но отпуск не всегда кратен 7.
+                Отдельная строка с явной подписью «или свои дни» — раньше это было
+                узкое поле прямо среди кнопок-пресетов, и было совершенно не видно,
+                что туда вообще можно что-то вписать. vacDaysText хранится отдельно
+                от vacDays, чтобы поле можно было очистить перед вводом нового числа,
+                а не откатывать его к минимуму на каждый символ. */}
+            <div style={{display:'flex',alignItems:'center',justifyContent:'flex-end',gap:8}}>
+              <span style={{fontSize:12,color:C.muted}}>или свои дни:</span>
+              <input type="text" inputMode="numeric" value={vacDaysText} onChange={e=>{
+                  const raw=e.target.value.replace(/\D/g,'').slice(0,2);
+                  setVacDaysText(raw);
+                  const n=parseInt(raw,10);
+                  if(!Number.isNaN(n)&&n>=1&&n<=60){setVacDays(n);setVacAdded(false);}
+                }}
+                onBlur={()=>setVacDaysText(String(vacDays))}
+                title="Своё количество дней"
+                style={{width:44,textAlign:'center',border:`1.5px dashed ${[7,14,21,28].includes(vacDays)?C.borderS:C.orange}`,borderRadius:8,padding:'6px 4px',fontSize:13,fontFamily:MONO,outline:'none',background:[7,14,21,28].includes(vacDays)?'var(--c-surface)':C.orangeL,color:[7,14,21,28].includes(vacDays)?C.text:C.orangeD,fontWeight:[7,14,21,28].includes(vacDays)?400:600}}/>
             </div>
           </div>
           {/* Результат */}
