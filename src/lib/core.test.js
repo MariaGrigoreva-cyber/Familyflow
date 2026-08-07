@@ -30,6 +30,10 @@ import {
   todayKey,
   FUND_LABELS,
   getCatFund,
+  annuityPayment,
+  simulateScenario,
+  maxSustainablePayment,
+  verdictFor,
 } from './core';
 
 describe('getActualPayDate', () => {
@@ -573,5 +577,99 @@ describe('buildDemoState — демо-данные структурно вали
     const demo = buildDemoState();
     expect(() => computeBalances(demo)).not.toThrow();
     expect(() => computeBudgetMetrics(demo)).not.toThrow();
+  });
+});
+
+describe('«Что если?»: annuityPayment', () => {
+  test('пример из дизайн-макета: 2 650 000, 18,5%, 20 лет ≈ 41 900 ₽/мес', () => {
+    expect(annuityPayment(2_650_000, 18.5, 20)).toBeGreaterThan(41_000);
+    expect(annuityPayment(2_650_000, 18.5, 20)).toBeLessThan(42_500);
+  });
+
+  test('нулевая ставка — сумма делится поровну на весь срок', () => {
+    expect(annuityPayment(1_200_000, 0, 10)).toBe(10_000);
+  });
+
+  test('нулевая сумма/срок — 0, не NaN и не Infinity', () => {
+    expect(annuityPayment(0, 10, 20)).toBe(0);
+    expect(annuityPayment(1_000_000, 10, 0)).toBe(0);
+  });
+});
+
+describe('«Что если?»: simulateScenario', () => {
+  const wks = Array.from({ length: 5 }, (_, i) => nextWeekKeyN(todayKey(), i));
+  function nextWeekKeyN(start, n) { let k = start; for (let i = 0; i < n; i++) k = nextWeekKey(k); return k; }
+  const base = wks.map((wk, i) => ({ wk, bal: 5000 - i * 1000, wTot: 1000 }));
+
+  test('startWk=null — эффекта нет вовсе (безопасный дефолт)', () => {
+    const rows = simulateScenario(base, { weeklyImpact: 500 });
+    expect(rows.map(r => r.bal)).toEqual(base.map(r => r.bal));
+  });
+
+  test('регулярный платёж накапливается неделя к неделе начиная со startWk', () => {
+    const rows = simulateScenario(base, { weeklyImpact: 500, startWk: wks[2] });
+    expect(rows[0].bal).toBe(5000); // до старта не тронуто
+    expect(rows[1].bal).toBe(4000);
+    expect(rows[2].bal).toBe(3000 - 500);
+    expect(rows[3].bal).toBe(2000 - 1000); // накопилось за 2 недели
+    expect(rows[4].bal).toBe(1000 - 1500); // за 3 недели
+  });
+
+  test('разовая трата (stepAmount) — фиксированный провал, дальше не растёт', () => {
+    const rows = simulateScenario(base, { stepAmount: 2000, startWk: wks[2] });
+    expect(rows[2].bal).toBe(3000 - 2000);
+    expect(rows[3].bal).toBe(2000 - 2000); // не растёт дальше
+    expect(rows[4].bal).toBe(1000 - 2000);
+  });
+
+  test('endWk — регулярный платёж перестаёт накапливаться с этой недели, но накопленное остаётся', () => {
+    const rows = simulateScenario(base, { weeklyImpact: 500, startWk: wks[1], endWk: wks[3] });
+    expect(rows[0].bal).toBe(5000); // до старта не тронуто
+    expect(rows[1].bal).toBe(4000 - 500); // неделя старта
+    expect(rows[2].bal).toBe(3000 - 1000); // ещё копится (endWk не включена)
+    expect(rows[3].bal).toBe(2000 - 1000); // endWk — больше не растёт
+    expect(rows[4].bal).toBe(1000 - 1000); // и дальше не растёт
+  });
+});
+
+describe('«Что если?»: maxSustainablePayment', () => {
+  const wks = Array.from({ length: 5 }, (_, i) => { let k = todayKey(); for (let j = 0; j < i; j++) k = nextWeekKey(k); return k; });
+  const base = wks.map(wk => ({ wk, bal: 10000, wTot: 1000 }));
+
+  test('startWk=null — null, нет смысла считать', () => {
+    expect(maxSustainablePayment(base, null)).toBeNull();
+  });
+
+  test('найденный платёж действительно держит баланс на грани ≥0', () => {
+    const startWk = wks[0];
+    const maxPay = maxSustainablePayment(base, startWk);
+    const rows = simulateScenario(base, { weeklyImpact: maxPay * 12 / 52, startWk });
+    expect(rows.every(r => r.bal >= -1)).toBe(true); // допуск на округление вниз до сотен
+    const rowsOver = simulateScenario(base, { weeklyImpact: (maxPay + 1000) * 12 / 52, startWk });
+    expect(rowsOver.some(r => r.bal < 0)).toBe(true);
+  });
+});
+
+describe('«Что если?»: verdictFor', () => {
+  test('баланс всегда положительный и с запасом — safe', () => {
+    const rows = [{ bal: 50000, wTot: 1000 }, { bal: 48000, wTot: 1000 }];
+    expect(verdictFor(rows).tone).toBe('safe');
+  });
+
+  test('баланс не уходит в минус, но подушка < 1 мес — warn', () => {
+    const rows = [{ bal: 2000, wTot: 1000 }, { bal: 1000, wTot: 1000 }]; // подушка ~0.2 мес при плане 4300/мес
+    expect(verdictFor(rows).tone).toBe('warn');
+  });
+
+  test('уход в минус — risk, номер недели это 1-based позиция в окне', () => {
+    const rows = [{ bal: 3000, wTot: 1000 }, { bal: -500, wTot: 1000 }, { bal: -800, wTot: 1000 }];
+    const v = verdictFor(rows);
+    expect(v.tone).toBe('risk');
+    expect(v.title).toContain('неделе 2');
+    expect(v.title).toContain('500');
+  });
+
+  test('пустой ряд не падает', () => {
+    expect(() => verdictFor([])).not.toThrow();
   });
 });

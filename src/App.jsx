@@ -10,6 +10,7 @@ const BudgetScreen=lazy(()=>import('./screens/Budget').then(m=>({default:m.Budge
 const HealthScreen=lazy(()=>import('./screens/Health').then(m=>({default:m.HealthScreen})));
 const SettingsScreen=lazy(()=>import('./screens/Settings').then(m=>({default:m.SettingsScreen})));
 const TipsPhilosophyOverlay=lazy(()=>import('./TipsPhilosophy').then(m=>({default:m.TipsPhilosophyOverlay})));
+const WhatIfScreen=lazy(()=>import('./screens/WhatIf').then(m=>({default:m.WhatIfScreen})));
 import {EditPaymentModal,AddExtraModal,AddTxModal,EditCatModal,EditTxModal,EditIncomeModal,WithdrawPiggyModal,SalaryCheckModal,TabBar} from './modals';
 import { isLoggedIn, loadCloudState, saveCloudState, authMe, resendVerification, billingStatus, errText } from './api';
 import { markLocalTrialStart, getLocalPlan, isProPlan } from './lib/plan';
@@ -78,6 +79,7 @@ export default function App({initialYandexError}={}){
   const[showAdd,setShowAdd]=useState(false);
   const[addWeek,setAddWeek]=useState(null); // неделя для добавления транзакции
   const[showTips,setShowTips]=useState(false); // оверлей советов/философии — по кнопке "?" на любой вкладке
+  const[showWhatIf,setShowWhatIf]=useState(false); // «А что если?» — карточка на Сегодня
   const[showEdit,setShowEdit]=useState(false);
   const[editItem,setEditItem]=useState(null);
   const[showEditPay,setShowEditPay]=useState(false);
@@ -744,7 +746,7 @@ useEffect(() => {
         )}
       </div>
       <div style={{flex:1,display:'flex',flexDirection:'column',minHeight:0}} onTouchStart={handleTabTouchStart} onTouchEnd={handleTabTouchEnd}>
-        {tab==='today'&&<TodayScreen state={appState} onToggle={handleToggle} onEditPayment={handleEditPayment} onEditTx={handleEditTx} onQuickMark={handleQuickMark} onWithdrawPiggy={()=>setShowWithdrawPiggy(true)} tourStep={tourStep} freeSpendableNow={cashFlowProjection.freeSpendableNow} weeklyBalances={cashFlowProjection.weeklyBalances}/>}
+        {tab==='today'&&<TodayScreen state={appState} onToggle={handleToggle} onEditPayment={handleEditPayment} onEditTx={handleEditTx} onQuickMark={handleQuickMark} onWithdrawPiggy={()=>setShowWithdrawPiggy(true)} onOpenWhatIf={()=>setShowWhatIf(true)} tourStep={tourStep} freeSpendableNow={cashFlowProjection.freeSpendableNow} weeklyBalances={cashFlowProjection.weeklyBalances}/>}
         <Suspense fallback={null}>
           {tab==='plan'&&<PlanScreen state={appState} onToggle={handleToggle} onAdd={(wk)=>{setAddWeek(wk);setShowAdd(true);}} onEditTx={handleEditTx} weeksSummary={weeksSummary} negativeWeek={cashFlowProjection.negativeWeek} isPro={isPro} onUpgrade={()=>setTab('settings')}/>}
           {tab==='budget'&&<BudgetScreen state={appState} onEditPlanned={item=>{setEditItem(item);setShowEdit(true);}} onAddPlanned={handleAddPlanned} onEditPayment={handleEditPayment} onAddExtra={(data)=>{if(data&&data.amount){handleAddExtra(data);}else{setShowAddExtra(true);}}} onWithdrawPiggy={()=>setShowWithdrawPiggy(true)} onSetGoal={handleSetGoal} onAddGoalToPlan={handleEditPlanned}/>}
@@ -762,6 +764,7 @@ useEffect(() => {
       <CookieBanner/>
       <AddTxModal visible={showAdd} onClose={()=>setShowAdd(false)} onSave={handleAddTx} members={appState.members} planned={appState.planned} customCats={appState.customCats}/>
       {showTips&&<Suspense fallback={null}><TipsPhilosophyOverlay onClose={()=>setShowTips(false)}/></Suspense>}
+      {showWhatIf&&<Suspense fallback={null}><WhatIfScreen state={appState} weeklyBalances={cashFlowProjection.weeklyBalances} onClose={()=>setShowWhatIf(false)}/></Suspense>}
       <EditCatModal visible={showEdit} item={editItem} members={appState.members} customCats={appState.customCats} onClose={()=>{setShowEdit(false);setEditItem(null);}} onSave={item=>{const{isNew,...rest}=item||{};handleEditPlanned(isNew?{...rest,isNew:true}:rest);}} onDelete={handleDeletePlanned}/>
       <EditPaymentModal visible={showEditPay} payment={editPayment} onClose={()=>{setShowEditPay(false);setEditPayment(null);}} onSave={handleSavePayment} onDelete={handleDeleteExtra}/>
       <SalaryCheckModal visible={showSalaryCheck} payment={salaryCheckPayment} onConfirm={handleSalaryCheckConfirm} onNotYet={handleSalaryCheckNotYet}/>

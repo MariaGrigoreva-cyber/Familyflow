@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,paymentTypeLabel,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,buildPaymentScheduleSpan,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,PiggyLogo,CatIcon} from '../lib/ui';
 
-export function TodayScreen({state,onToggle,onEditPayment,onEditTx,onQuickMark,onWithdrawPiggy,tourStep,freeSpendableNow=0,weeklyBalances=[]}){
+export function TodayScreen({state,onToggle,onEditPayment,onEditTx,onQuickMark,onWithdrawPiggy,onOpenWhatIf,tourStep,freeSpendableNow=0,weeklyBalances=[]}){
   const{members,incomes,planned,weekItems,startBalance=0,payments={},customCats=[],transactions=[],budgetStartDate,extraPayments=[]}=state;
   const week=todayKey();
   const wItems=weekItems[week]||[];
@@ -163,6 +163,15 @@ export function TodayScreen({state,onToggle,onEditPayment,onEditTx,onQuickMark,o
           </div>
         </div>}
       </div>
+      {/* «А что если?» — песочница для проверки крупных решений до того, как их приняли */}
+      {onOpenWhatIf&&<button onClick={onOpenWhatIf} style={{display:'flex',alignItems:'center',gap:12,background:'var(--c-surface)',border:`1px solid ${C.border}`,borderRadius:14,padding:14,marginBottom:8,cursor:'pointer',fontFamily:'inherit',textAlign:'left',width:'100%',boxSizing:'border-box',color:C.text}}>
+        <span style={{fontSize:20}}>🔮</span>
+        <div style={{flex:1}}>
+          <div style={{fontSize:14,fontWeight:600}}>А что если?</div>
+          <div style={{fontSize:12,color:C.text2,lineHeight:1.45,marginTop:2}}>Проверьте крупное решение до того, как его принять</div>
+        </div>
+        <div style={{width:34,height:34,borderRadius:12,background:C.orangeL,border:`1px solid ${C.orangeB}`,color:C.orangeD,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:700,flexShrink:0}}>→</div>
+      </button>}
       {/* План пуст — направляем в настройки */}
       {planned.length===0&&(
         <div style={{...s.card,background:C.orangeL,border:`1px solid ${C.orangeB}`,padding:'12px 14px',marginBottom:10,display:'flex',gap:10,alignItems:'center'}}>

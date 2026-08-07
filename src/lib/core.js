@@ -340,6 +340,88 @@ const projectCashFlow=(state,weeksSummary)=>{
   return{negativeWeek,freeSpendableNow:Math.max(0,Math.min(cb.balance,projectedFree)),weeklyBalances};
 };
 
+// ── «Что если?»: симулятор крупных решений (ипотека/кредит/декрет/трата) ────
+// annuityPayment — аннуитетный ежемесячный платёж по кредиту.
+const annuityPayment=(amount,ratePct,years)=>{
+  const i=ratePct/100/12, n=Math.round((years||0)*12);
+  if(n<=0||!(amount>0))return 0;
+  if(i===0)return Math.round(amount/n);
+  const k=Math.pow(1+i,n);
+  return Math.round(amount*i*k/(k-1));
+};
+
+// simulateScenario — накладывает эффект сценария на базовый ряд балансов
+// (weeklyBalances из projectCashFlow, обычно .slice(0,10) от текущей недели).
+// weeklyImpact — регулярный расход в неделю (ипотека/кредит/декрет): раз начали
+// платить — каждая следующая неделя несёт уже накопленную сумму всех предыдущих
+// платежей, поэтому cum растёт, а не остаётся плоским вычитанием.
+// stepAmount — разовая трата: с недели start фиксированно "проваливает" баланс
+// один раз, дальше не растёт.
+// startWk не найден в окне (сценарий стартует позже показанных 10 недель) —
+// эффекта не будет вовсе, это и есть безопасный дефолт при startWk=null.
+// endWk (не включая её саму) — регулярный платёж перестаёт НАКАПЛИВАТЬСЯ с этой
+// недели (напр. «Свой сценарий» с ограниченным сроком) — уже накопленная сумма
+// остаётся вычтенной и дальше, просто больше не растёт.
+const simulateScenario=(weeklyBalances,{weeklyImpact=0,stepAmount=0,startWk=null,endWk=null}={})=>{
+  let cum=0;
+  return weeklyBalances.map(w=>{
+    if(startWk&&w.wk>=startWk){
+      if(!endWk||w.wk<endWk)cum+=weeklyImpact;
+      return{...w,bal:w.bal-cum-stepAmount};
+    }
+    return{...w,bal:w.bal-cum};
+  });
+};
+
+// maxSustainablePayment — бинарным поиском находит наибольший месячный платёж
+// (регулярный), при котором сценарий ни на одной из показанных недель не уходит
+// в минус — для подсказки «разрыв уходит, если платёж не выше X».
+const maxSustainablePayment=(weeklyBalances,startWk)=>{
+  if(!startWk)return null;
+  let lo=0,hi=10_000_000;
+  for(let i=0;i<40;i++){
+    const mid=(lo+hi)/2;
+    const ok=simulateScenario(weeklyBalances,{weeklyImpact:mid*12/52,startWk}).every(r=>r.bal>=0);
+    if(ok)lo=mid;else hi=mid;
+  }
+  return Math.floor(lo/100)*100;
+};
+
+// verdictFor — вердикт по сценарному ряду (обычно 10 недель). Номер недели в
+// тексте — 1-based позиция В ОКНЕ (как подписи столбиков графика), не ISO-номер.
+// Подушка (в мес.) — грубая оценка от среднего недельного плана трат в самом
+// ряду (wTot), без внешней зависимости от экрана «Здоровье».
+const verdictFor=rows=>{
+  if(!rows||!rows.length)return{tone:'safe',title:'',subtitle:''};
+  const avgWeekly=rows.reduce((s,r)=>s+(r.wTot||0),0)/rows.length;
+  const monthlyExp=avgWeekly*4.3;
+  const firstNegIdx=rows.findIndex(r=>r.bal<0);
+  if(firstNegIdx>=0){
+    const stillNeg=rows[rows.length-1].bal<0;
+    return{
+      tone:'risk',
+      title:`⚠ На неделе ${firstNegIdx+1} уйдёте в минус на ${fmt(Math.abs(rows[firstNegIdx].bal))}`,
+      subtitle:stillNeg
+        ?'Минус держится до конца прогноза — сценарий забирает слишком много от недельного буфера.'
+        :'К концу прогноза баланс восстанавливается, но разрыв в середине реален.',
+    };
+  }
+  const minBal=Math.min(...rows.map(r=>r.bal));
+  const cushionMonths=monthlyExp>0?minBal/monthlyExp:0;
+  if(cushionMonths<1){
+    return{
+      tone:'warn',
+      title:`Баланс не уходит в минус, но подушка тонкая — ${Math.round(cushionMonths*10)/10} мес.`,
+      subtitle:'Один случайный расход или задержка зарплаты — и план окажется под вопросом.',
+    };
+  }
+  return{
+    tone:'safe',
+    title:`✓ Потянете, но подушка снизится до ${Math.round(cushionMonths*10)/10} мес.`,
+    subtitle:'Баланс остаётся положительным на все 10 недель вперёд.',
+  };
+};
+
 // Старый формат ключей weekItems был просто числом (напр. '12'), текущий — 'YYYY-Www'.
 // НЕ проверять через parseInt(key) — parseInt('2026-W30')===2026 (не NaN!), т.к. парсит
 // только ведущие цифры. Нужна проверка, что вся строка целиком состоит из цифр.
@@ -483,4 +565,4 @@ const DEMO_MEMBERS=[{id:'m1',name:'Мария',avatar:'👩',color:'oklch(0.9 0.
 const DEMO_PLANNED=[{id:'p1',catId:'mortgage',name:'Ипотека',amount:55000,memberId:'m1',repeat:'monthly',days:[20]},{id:'p2',catId:'food',name:'Еда',amount:10000,memberId:'m1',repeat:'weekly',days:[]},{id:'p3',catId:'food',name:'Еда',amount:10000,memberId:'m2',repeat:'weekly',days:[]},{id:'p4',catId:'beauty',name:'Красота',amount:15000,memberId:'m1',repeat:'biweekly',days:[]},{id:'p5',catId:'edu',name:'Образование',amount:20000,memberId:'m2',repeat:'monthly',days:[1]},{id:'p6',catId:'piggy',name:'Копилка',amount:10000,memberId:'m1',repeat:'weekly',days:[]}];
 
 
-export {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,paymentTypeLabel,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,buildPaymentScheduleSpan,regenWeeksKeepDone,computeBalances,computeBudgetMetrics,computeWeeksSummary,scheduledIncomeForWeek,projectCashFlow,compactWeekItemsForSave,isLegacyWeekKeyFormat,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,FUND_LABELS,getCatFund,PIE_COLORS,FACE_EMOJIS,MEMBER_TINTS,nextMemberTint,PRIVACY_URL,TERMS_URL,TELEGRAM_URL,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED};
+export {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,paymentTypeLabel,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,buildPaymentScheduleSpan,regenWeeksKeepDone,computeBalances,computeBudgetMetrics,computeWeeksSummary,scheduledIncomeForWeek,projectCashFlow,annuityPayment,simulateScenario,maxSustainablePayment,verdictFor,compactWeekItemsForSave,isLegacyWeekKeyFormat,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,FUND_LABELS,getCatFund,PIE_COLORS,FACE_EMOJIS,MEMBER_TINTS,nextMemberTint,PRIVACY_URL,TERMS_URL,TELEGRAM_URL,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED};
