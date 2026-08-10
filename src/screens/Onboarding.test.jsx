@@ -8,9 +8,9 @@ describe('EntryScreen', () => {
     const user = userEvent.setup();
     const onDemo = jest.fn(), onLoginClick = jest.fn();
     render(<EntryScreen onDemo={onDemo} onLoginClick={onLoginClick} />);
-    await user.click(screen.getByText('Демо-данные'));
+    await user.click(screen.getByText('Сначала посмотреть демо'));
     expect(onDemo).toHaveBeenCalled();
-    await user.click(screen.getByText(/Есть аккаунт/));
+    await user.click(screen.getByText('Создать аккаунт'));
     expect(onLoginClick).toHaveBeenCalled();
   });
 

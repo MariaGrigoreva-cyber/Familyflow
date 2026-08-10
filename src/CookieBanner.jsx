@@ -5,15 +5,13 @@
 // открыл приложение и не регистрируется, поэтому баннер отдельный.
 import React, { useState } from 'react';
 import { C } from './lib/core';
-import { loadMetrika } from './lib/metrika';
-
-const KEY = 'ff_cookie_consent';
+import { loadMetrika, getConsent, setConsent } from './lib/metrika';
 
 export function CookieBanner(){
-  const[choice,setChoice]=useState(()=>{try{return localStorage.getItem(KEY);}catch{return null;}});
+  const[choice,setChoice]=useState(()=>getConsent());
   if(choice==='accepted'||choice==='declined')return null;
   const decide=v=>{
-    try{localStorage.setItem(KEY,v);}catch{}
+    setConsent(v);
     setChoice(v);
     if(v==='accepted')loadMetrika();
   };

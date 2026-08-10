@@ -7,11 +7,61 @@
 // зарегистрировался» была не видна дальше самого лендинга.
 const COUNTER_ID = 111067132;
 const CONSENT_KEY = 'ff_cookie_consent';
+const CONSENT_MAX_AGE = 180 * 24 * 60 * 60; // 180 дней
 
 let loaded = false;
 
+// Согласие храним в cookie с доменом .myfamilyflow.ru (не localStorage) — у
+// лендинга и приложения разные origin'ы (myfamilyflow.ru / app.myfamilyflow.ru),
+// а localStorage per-origin, поэтому согласие с лендинга туда не доезжало и
+// Метрика на app-стороне не грузилась, пока пользователь не соглашался ещё раз
+// отдельно — часть регистраций из рекламы уходила незамеченной.
+function consentCookieDomain() {
+  return /(^|\.)myfamilyflow\.ru$/.test(location.hostname) ? '.myfamilyflow.ru' : '';
+}
+
+function readConsentCookie() {
+  const m = document.cookie.match(/(?:^|; )ff_cookie_consent=([^;]*)/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+export function getConsent() {
+  const fromCookie = readConsentCookie();
+  if (fromCookie) return fromCookie;
+  // Миграция со старой per-origin схемы: если пользователь уже отвечал на
+  // этом конкретном origin раньше (значение осело в localStorage), не
+  // спрашиваем его снова — переносим ответ в общую cookie.
+  try {
+    const legacy = localStorage.getItem(CONSENT_KEY);
+    if (legacy) { setConsent(legacy); return legacy; }
+  } catch {}
+  return null;
+}
+
+export function setConsent(value) {
+  const domain = consentCookieDomain();
+  document.cookie = `${CONSENT_KEY}=${value}; path=/; max-age=${CONSENT_MAX_AGE}${domain ? `; domain=${domain}` : ''}; SameSite=Lax${location.protocol === 'https:' ? '; Secure' : ''}`;
+  try { localStorage.removeItem(CONSENT_KEY); } catch {}
+}
+
 export function isMetrikaConsented() {
-  try { return localStorage.getItem(CONSENT_KEY) === 'accepted'; } catch { return false; }
+  return getConsent() === 'accepted';
+}
+
+// Атрибуция клика по рекламе (yclid/utm_*), записанная лендингом в общую
+// cookie .myfamilyflow.ru при переходе с рекламного объявления — см.
+// familyflow-landing/public/script.js. Читаем её при регистрации и передаём
+// на бэкенд, иначе нельзя сопоставить конкретную регистрацию с кампанией/
+// фразой в Директе (нужно для офлайн-конверсий и ручной оптимизации ставок).
+export function getAttribution() {
+  const m = document.cookie.match(/(?:^|; )ff_attr=([^;]*)/);
+  if (!m) return null;
+  try { return JSON.parse(decodeURIComponent(m[1])); } catch { return null; }
+}
+
+export function clearAttribution() {
+  const domain = consentCookieDomain();
+  document.cookie = `ff_attr=; path=/; max-age=0${domain ? `; domain=${domain}` : ''}`;
 }
 
 export function loadMetrika() {

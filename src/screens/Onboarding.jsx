@@ -13,13 +13,17 @@ export function EntryScreen({onDemo,onLoginClick}){
       </div>
       <div style={{fontFamily:MONO,fontSize:10.5,letterSpacing:1.5,color:C.muted,margin:'30px 0 12px',textTransform:'uppercase'}}>КАК ХОТИТЕ НАЧАТЬ?</div>
       <div style={{display:'flex',flexDirection:'column',gap:8}}>
-        <button onClick={onDemo} style={{width:'100%',display:'flex',alignItems:'center',gap:13,border:`1.5px solid ${C.orange}`,background:C.orangeL,borderRadius:14,padding:'14px 16px',cursor:'pointer',textAlign:'left',fontFamily:'inherit',boxSizing:'border-box'}}>
-          <span style={{width:38,height:38,borderRadius:11,background:'var(--c-surface)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>▶</span>
-          <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:C.orangeD}}>Демо-данные</div><div style={{fontSize:11.5,color:C.orangeD,opacity:.8,marginTop:1}}>семья Ивановых · 30 секунд</div></div>
+        {/* Регистрация — основной CTA: сюда попадают в т.ч. по рекламе с обещанием
+            "попробовать бесплатно", и без визуального приоритета над демо это
+            обещание молча подменяется read-only демо-режимом, где аккаунт не
+            создаётся и регистрация не засчитывается. */}
+        <button onClick={onLoginClick} style={{width:'100%',display:'flex',alignItems:'center',gap:13,border:`1.5px solid ${C.orange}`,background:C.orangeL,borderRadius:14,padding:'14px 16px',cursor:'pointer',textAlign:'left',fontFamily:'inherit',boxSizing:'border-box'}}>
+          <span style={{width:38,height:38,borderRadius:11,background:'var(--c-surface)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>🔑</span>
+          <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:C.orangeD}}>Создать аккаунт</div><div style={{fontSize:11.5,color:C.orangeD,opacity:.8,marginTop:1}}>бесплатно · бюджет синхронизируется с облаком</div></div>
         </button>
-        <button onClick={onLoginClick} style={{width:'100%',display:'flex',alignItems:'center',gap:13,border:`1px solid ${C.border}`,background:'var(--c-surface)',borderRadius:14,padding:'14px 16px',cursor:'pointer',textAlign:'left',fontFamily:'inherit',boxSizing:'border-box'}}>
-          <span style={{width:38,height:38,borderRadius:11,background:C.cream,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>🔑</span>
-          <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:C.text}}>Есть аккаунт / хочу зарегистрироваться</div><div style={{fontSize:11.5,color:C.muted,marginTop:1}}>войти или создать аккаунт — бюджет синхронизируется с облаком</div></div>
+        <button onClick={onDemo} style={{width:'100%',display:'flex',alignItems:'center',gap:13,border:`1px solid ${C.border}`,background:'var(--c-surface)',borderRadius:14,padding:'14px 16px',cursor:'pointer',textAlign:'left',fontFamily:'inherit',boxSizing:'border-box'}}>
+          <span style={{width:38,height:38,borderRadius:11,background:C.cream,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,flexShrink:0}}>▶</span>
+          <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:C.text}}>Сначала посмотреть демо</div><div style={{fontSize:11.5,color:C.muted,marginTop:1}}>семья Ивановых · 30 секунд, без регистрации</div></div>
         </button>
       </div>
       <div style={{textAlign:'center',marginTop:22,fontSize:11.5,color:C.muted,lineHeight:1.5}}>

@@ -1,15 +1,28 @@
-import { isMetrikaConsented, loadMetrika, ymGoal } from './metrika';
+import { isMetrikaConsented, loadMetrika, ymGoal, getConsent, setConsent } from './metrika';
+
+function clearConsentCookie() {
+  document.cookie = 'ff_cookie_consent=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/';
+}
 
 beforeEach(() => {
   localStorage.clear();
+  clearConsentCookie();
   delete window.ym;
   jest.resetModules();
 });
 
-test('isMetrikaConsented читает флаг из localStorage', () => {
+test('isMetrikaConsented читает флаг из cookie', () => {
   expect(isMetrikaConsented()).toBe(false);
-  localStorage.setItem('ff_cookie_consent', 'accepted');
+  setConsent('accepted');
   expect(isMetrikaConsented()).toBe(true);
+});
+
+test('getConsent переносит старое значение из localStorage (per-origin) в общую cookie', () => {
+  localStorage.setItem('ff_cookie_consent', 'accepted');
+  expect(getConsent()).toBe('accepted');
+  expect(document.cookie).toContain('ff_cookie_consent=accepted');
+  // после переноса localStorage больше не используется как источник истины
+  expect(localStorage.getItem('ff_cookie_consent')).toBeNull();
 });
 
 test('ymGoal ничего не делает и не падает, если Метрика ещё не загружена', () => {
