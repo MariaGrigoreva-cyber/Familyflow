@@ -4,6 +4,23 @@ import userEvent from '@testing-library/user-event';
 import { WhatIfScreen } from './WhatIf';
 import { buildDemoState, computeWeeksSummary, projectCashFlow } from '../lib/core';
 
+// Демо и сценарии считаются от «сегодня» (todayKey/todayMonthKey внутри core.js
+// и WhatIf.jsx) — без фиксации даты тест «декрет» плавал в зависимости от того,
+// в какой день месяца реально запущен CI: у декрета ровно на грани 10-недельного
+// окна оказывалось то «уйдёте в минус», то «подушка тонкая» (verdict.tone
+// 'risk' vs 'warn') в зависимости от того, сколько зарплат успевало прийти до
+// конца видимого окна. Фиксируем дату — не подменяя таймеры (userEvent на них
+// завязан), только Date, — чтобы сценарий детерминированно был на грани минуса.
+const REAL_DATE = Date;
+class FixedDate extends REAL_DATE {
+  constructor(...args) {
+    if (args.length === 0) return new REAL_DATE('2026-01-12T09:00:00');
+    return new REAL_DATE(...args);
+  }
+  static now() { return new REAL_DATE('2026-01-12T09:00:00').getTime(); }
+}
+global.Date = FixedDate;
+
 const state = buildDemoState();
 const weeksSummary = computeWeeksSummary(state);
 const { weeklyBalances } = projectCashFlow(state, weeksSummary);

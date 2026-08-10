@@ -33,23 +33,23 @@ beforeEach(() => {
 
 test('новый пользователь видит стартовый экран с двумя вариантами', async () => {
   render(<App />);
-  expect(await screen.findByText('Демо-данные', {}, { timeout: 2000 })).toBeInTheDocument();
-  expect(screen.getByText(/Есть аккаунт/)).toBeInTheDocument();
+  expect(await screen.findByText('Сначала посмотреть демо', {}, { timeout: 2000 })).toBeInTheDocument();
+  expect(screen.getByText(/Создать аккаунт/)).toBeInTheDocument();
   expect(screen.queryByText('Настроить свой бюджет')).not.toBeInTheDocument();
 });
 
 test('выбор демо-данных сразу открывает приложение с демо-баннером', async () => {
   const user = userEvent.setup();
   render(<App />);
-  await user.click(await screen.findByText('Демо-данные', {}, { timeout: 2000 }));
+  await user.click(await screen.findByText('Сначала посмотреть демо', {}, { timeout: 2000 }));
   expect(await screen.findByText('ДЕМО · СЕМЬЯ ИВАНОВЫХ')).toBeInTheDocument();
   expect(screen.getByText('ОСТАТОК НА РУКАХ')).toBeInTheDocument();
 });
 
-test('«Есть аккаунт» на стартовом экране открывает форму регистрации', async () => {
+test('«Создать аккаунт» на стартовом экране открывает форму регистрации', async () => {
   const user = userEvent.setup();
   render(<App />);
-  await user.click(await screen.findByText(/Есть аккаунт/, {}, { timeout: 2000 }));
+  await user.click(await screen.findByText(/Создать аккаунт/, {}, { timeout: 2000 }));
   expect(await screen.findByRole('button', { name: 'Создать аккаунт' })).toBeInTheDocument();
 });
 
@@ -69,7 +69,7 @@ test('онбордингованный локальный бюджет без а
 test('переключение вкладок через нижнюю панель', async () => {
   const user = userEvent.setup();
   render(<App />);
-  await user.click(await screen.findByText('Демо-данные', {}, { timeout: 2000 }));
+  await user.click(await screen.findByText('Сначала посмотреть демо', {}, { timeout: 2000 }));
   await screen.findByText('ОСТАТОК НА РУКАХ');
 
   await user.click(screen.getByText('БЮДЖЕТ'));
@@ -88,42 +88,42 @@ test('переключение вкладок через нижнюю панел
 test('выход из демо-режима требует подтверждения и показывает тот же выбор, что и при первом входе', async () => {
   const user = userEvent.setup();
   render(<App />);
-  await user.click(await screen.findByText('Демо-данные', {}, { timeout: 2000 }));
+  await user.click(await screen.findByText('Сначала посмотреть демо', {}, { timeout: 2000 }));
   await screen.findByText('ДЕМО · СЕМЬЯ ИВАНОВЫХ');
   await user.click(screen.getByText('СВОИ ДАННЫЕ'));
   await user.click(await screen.findByText('Подтвердить'));
-  // Не сразу анкета — сначала тот же выбор, что и при первом входе: Демо-данные / Есть аккаунт
-  expect(await screen.findByText(/Есть аккаунт/)).toBeInTheDocument();
-  expect(screen.getByText('Демо-данные')).toBeInTheDocument();
+  // Не сразу анкета — сначала тот же выбор, что и при первом входе: Сначала посмотреть демо / Создать аккаунт
+  expect(await screen.findByText(/Создать аккаунт/)).toBeInTheDocument();
+  expect(screen.getByText('Сначала посмотреть демо')).toBeInTheDocument();
   expect(screen.queryByText('Настроить свой бюджет')).not.toBeInTheDocument();
 });
 
-test('после выхода из демо «Есть аккаунт» открывает форму регистрации', async () => {
+test('после выхода из демо «Создать аккаунт» открывает форму регистрации', async () => {
   const user = userEvent.setup();
   render(<App />);
-  await user.click(await screen.findByText('Демо-данные', {}, { timeout: 2000 }));
+  await user.click(await screen.findByText('Сначала посмотреть демо', {}, { timeout: 2000 }));
   await screen.findByText('ДЕМО · СЕМЬЯ ИВАНОВЫХ');
   await user.click(screen.getByText('СВОИ ДАННЫЕ'));
   await user.click(await screen.findByText('Подтвердить'));
-  await user.click(await screen.findByText(/Есть аккаунт/));
+  await user.click(await screen.findByText(/Создать аккаунт/));
   expect(await screen.findByRole('button', { name: 'Создать аккаунт' })).toBeInTheDocument();
 });
 
-test('после выхода из демо «Демо-данные» на экране выбора запускает демо заново', async () => {
+test('после выхода из демо «Сначала посмотреть демо» на экране выбора запускает демо заново', async () => {
   const user = userEvent.setup();
   render(<App />);
-  await user.click(await screen.findByText('Демо-данные', {}, { timeout: 2000 }));
+  await user.click(await screen.findByText('Сначала посмотреть демо', {}, { timeout: 2000 }));
   await screen.findByText('ДЕМО · СЕМЬЯ ИВАНОВЫХ');
   await user.click(screen.getByText('СВОИ ДАННЫЕ'));
   await user.click(await screen.findByText('Подтвердить'));
-  await user.click(await screen.findByText('Демо-данные'));
+  await user.click(await screen.findByText('Сначала посмотреть демо'));
   expect(await screen.findByText('ДЕМО · СЕМЬЯ ИВАНОВЫХ')).toBeInTheDocument();
 });
 
 test('свежее демо (без ff_demo_started_at) редактируется — отметка платежа сохраняется', async () => {
   const user = userEvent.setup();
   render(<App />);
-  await user.click(await screen.findByText('Демо-данные', {}, { timeout: 2000 }));
+  await user.click(await screen.findByText('Сначала посмотреть демо', {}, { timeout: 2000 }));
   await screen.findByText('ДЕМО · СЕМЬЯ ИВАНОВЫХ');
   expect(screen.queryByText(/Демо-доступ ограничен/)).not.toBeInTheDocument();
 
@@ -142,7 +142,7 @@ test('демо старше 3 дней (ff_demo_started_at) — банер об 
   const fourDaysAgo = new Date(Date.now() - 4 * 86400000).toISOString();
   localStorage.setItem('ff_demo_started_at', fourDaysAgo);
   render(<App />);
-  await user.click(await screen.findByText('Демо-данные', {}, { timeout: 2000 }));
+  await user.click(await screen.findByText('Сначала посмотреть демо', {}, { timeout: 2000 }));
   await screen.findByText('ДЕМО · СЕМЬЯ ИВАНОВЫХ');
   expect(await screen.findByText(/Демо-доступ ограничен — прошло больше 3 дней/)).toBeInTheDocument();
 
@@ -162,11 +162,11 @@ test('повторный вход в демо (старше 3 дней) не с�
   const fourDaysAgo = new Date(Date.now() - 4 * 86400000).toISOString();
   localStorage.setItem('ff_demo_started_at', fourDaysAgo);
   render(<App />);
-  await user.click(await screen.findByText('Демо-данные', {}, { timeout: 2000 }));
+  await user.click(await screen.findByText('Сначала посмотреть демо', {}, { timeout: 2000 }));
   await screen.findByText(/Демо-доступ ограничен/);
   await user.click(screen.getByText('СВОИ ДАННЫЕ'));
   await user.click(await screen.findByText('Подтвердить'));
-  await user.click(await screen.findByText('Демо-данные'));
+  await user.click(await screen.findByText('Сначала посмотреть демо'));
   // Отметка времени не тронута — новый заход в демо снова сразу read-only
   expect(localStorage.getItem('ff_demo_started_at')).toBe(fourDaysAgo);
   expect(await screen.findByText(/Демо-доступ ограничен/)).toBeInTheDocument();
