@@ -19,7 +19,7 @@
   "start_url": ".",
   "display": "standalone",
   "orientation": "portrait",
-  "theme_color": "#C15B3D",
-  "background_color": "#C15B3D",
+  "theme_color": "#C67139",
+  "background_color": "#C67139",
   "scope": "."
 }
