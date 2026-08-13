@@ -51,11 +51,11 @@ export function HealthScreen({state,isPro=true,onUpgrade}){
     cushionScore
   ));
   const healthLabel=healthScore>=80?'Отлично':healthScore>=60?'Хорошо':healthScore>=40?'Внимание':'Риск';
-  const nextStepText=projectedRiskyWeeks.length>0?`устранить риск разрыва на нед. ${parseWeekKey(projectedRiskyWeeks[0].nextWk).week}`:cushionScore<20?'нарастить копилку до 3 мес. расходов':'увеличить норму сбережений';
+  const nextStepText=projectedRiskyWeeks.length>0?`устранить риск уйти в минус на нед. ${parseWeekKey(projectedRiskyWeeks[0].nextWk).week}`:cushionScore<20?'нарастить копилку до 3 мес. расходов':'откладывать больше от дохода';
   const healthSubtitle=healthScore>=80?'Отличный результат — продолжайте в том же духе':`до «Отлично» — ${nextStepText}`;
   const criteria=[
-    [isDeficit?0:savingsRate>=20?30:savingsRate>=10?15:0,30,isDeficit?`Норма сбережений ${savingsRate}% — не считается, годовой план в минусе`:`Норма сбережений ${savingsRate}%`],
-    [cashGapScore,30,projectedRiskyWeeks.length===0?'Кассовых разрывов не прогнозируется':`Риск разрыва — ${projectedRiskyWeeks.length} нед. вперёд`],
+    [isDeficit?0:savingsRate>=20?30:savingsRate>=10?15:0,30,isDeficit?`Сбережения не считаются — годовой план в минусе`:`${savingsRate}% дохода — в сбережениях`],
+    [cashGapScore,30,projectedRiskyWeeks.length===0?'Уйти в минус не грозит':`Риск уйти в минус — ${projectedRiskyWeeks.length} нед. вперёд`],
     [freeCash>0&&!isDeficit?20:0,20,isDeficit?'Свободные средства не в счёт — годовой план в минусе':freeCash>0?'Есть свободные средства':'Нет свободных средств'],
     [cushionScore,20,`Копилка — ${Math.round(cushionMonths*10)/10} мес. расходов`],
   ];
@@ -63,11 +63,11 @@ export function HealthScreen({state,isPro=true,onUpgrade}){
   const totalExp=catData.reduce((s,c)=>s+c.value,0);
   const risks=[];
   if(freeCash<0)risks.push({icon:'🚨',text:`Расходы превышают доходы на ${fmt(Math.abs(freeCash))}/мес`,level:'red'});
-  if(savingsRate<10&&freeCash>=0)risks.push({icon:'⚠️',text:`Норма сбережений низкая — всего ${savingsRate}%`,level:'yellow'});
+  if(savingsRate<10&&freeCash>=0)risks.push({icon:'⚠️',text:`Откладываете мало — всего ${savingsRate}% дохода`,level:'yellow'});
   if(cushion<monthlyExp)risks.push({icon:'⚠️',text:`Копилка ${cushion>0?fmt(cushion):'пуста'} — меньше 1 мес. расходов`,level:'yellow'});
   const obligations=planned.filter(p=>['mortgage','credit'].includes(p.catId)).reduce((s,p)=>s+monthlyOf(p),0);
   if(obligations/totalNet>.4)risks.push({icon:'🔴',text:`Кредитная нагрузка высокая — ${Math.round(obligations/totalNet*100)}% дохода`,level:'red'});
-  if(risks.length===0)risks.push({icon:'✅',text:'Видимых рисков кассового разрыва нет',level:'green'});
+  if(risks.length===0)risks.push({icon:'✅',text:'Видимых рисков уйти в минус нет',level:'green'});
   const recs=[
     savingsRate<20&&freeCash>0?{text:`Откладывайте в копилку хотя бы ${fmt(Math.round(totalNet*.2))}/мес — это 20% дохода`,level:'yellow'}:null,
     cushion<monthlyExp*3?{text:`Цель копилки — ${fmt(monthlyExp*3)} (3 мес. расходов), сейчас ${fmt(cushion)}`,level:'yellow'}:null,
@@ -81,7 +81,7 @@ export function HealthScreen({state,isPro=true,onUpgrade}){
   const pad={paddingTop:16,paddingLeft:20,paddingRight:20,paddingBottom:'calc(142px + env(safe-area-inset-bottom))'};
   if(!isPro)return(
     <ProLock icon="💚" title="Здоровье бюджета — в Pro"
-      desc="Оценка 0–100, прогноз кассовых разрывов на недели вперёд и рекомендации, что улучшить — доступно в подписке Pro."
+      desc="Оценка 0–100, прогноз, не уйдёте ли в минус в ближайшие недели, и рекомендации, что улучшить — доступно в подписке Pro."
       onUpgrade={onUpgrade}/>
   );
   return(
@@ -114,8 +114,8 @@ export function HealthScreen({state,isPro=true,onUpgrade}){
             Балл — это сумма четырёх независимых критериев, максимум 100. Копилка нигде здесь не считается обязательным расходом: сколько бы вы ни планировали откладывать сверх дохода, это не портит остальные критерии.
           </div>
           {[
-            ['Норма сбережений', 30, 'Копилка + свободные деньги после обязательных трат, делённые на доход. 30 баллов при ≥20% дохода, 15 — при ≥10%. Не считается (0), если дохода не хватает на обязательные (не-копилка) траты — это и есть настоящий дефицит.'],
-            ['Кассовые разрывы', 30, 'Прогноз на ближайшие недели вперёд: хватит ли накопительного баланса покрыть план. 30, если разрывов не видно; 0, если план в реальном дефиците (см. выше); иначе 15.'],
+            ['Сколько откладываете', 30, 'Копилка + свободные деньги после обязательных трат, делённые на доход — это и есть процент, который у вас реально уходит в сбережения. 30 баллов при ≥20% дохода, 15 — при ≥10%. Не считается (0), если дохода не хватает на обязательные (не-копилка) траты — это и есть настоящий дефицит.'],
+            ['Риск уйти в минус', 30, 'Прогноз на ближайшие недели вперёд: хватит ли накопительного баланса покрыть план. 30 баллов, если минус не грозит; 0 — если план в реальном дефиците (см. выше); иначе 15.'],
             ['Свободные средства', 20, '20 баллов, если после обязательных трат остаются свободные деньги (без учёта копилки). 0 — если их нет или план в реальном дефиците.'],
             ['Копилка', 20, 'Сколько месяцев ваших расходов покрывает то, что уже отложено. 20 при ≥3 месяцев, 10 при ≥1 месяце, иначе 0 — это подушка на чёрный день, а не про сам факт откладывания денег.'],
           ].map(([title,max,text],i)=>(
@@ -139,7 +139,7 @@ export function HealthScreen({state,isPro=true,onUpgrade}){
           <div style={{display:'flex',alignItems:'center',gap:10}}>
             <PiggyLogo size={22}/>
             <div style={{flex:1}}>
-              <div style={{fontSize:13.5,fontWeight:500,color:C.greenD}}>Копилка (Piggy Bank)</div>
+              <div style={{fontSize:13.5,fontWeight:500,color:C.greenD}}>Копилка</div>
               <div style={{fontSize:11,color:C.greenD,marginTop:1}}>накопительный счёт №2</div>
             </div>
             <div style={{textAlign:'right'}}>
@@ -180,7 +180,7 @@ export function HealthScreen({state,isPro=true,onUpgrade}){
             {projectedRiskyWeeks.slice(0,3).map((r,i)=>(
               <div key={i} style={{...s.card,background:r.pct<=0?C.redL:C.yellowL,border:`1px solid ${r.pct<=0?C.redB:C.yellowB}`,padding:'12px 14px'}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline'}}>
-                  <span style={{fontSize:13,fontWeight:600,color:r.pct<=0?C.red:'oklch(0.4 0.08 70)'}}>{weekLabel(r.nextWk)} · риск разрыва</span>
+                  <span style={{fontSize:13,fontWeight:600,color:r.pct<=0?C.red:'oklch(0.4 0.08 70)'}}>{weekLabel(r.nextWk)} · риск уйти в минус</span>
                   <span style={{fontFamily:MONO,fontSize:11,fontWeight:600,color:r.pct<=0?C.red:'oklch(0.45 0.09 70)'}}>{r.pct<=0?'дефицит':r.pct+'% покрытия'}</span>
                 </div>
                 <div style={{fontSize:11.5,color:r.pct<=0?C.red:'oklch(0.45 0.07 70)',marginTop:4,lineHeight:1.5}}>

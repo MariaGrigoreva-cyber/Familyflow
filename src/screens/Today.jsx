@@ -162,7 +162,7 @@ export function TodayScreen({state,onToggle,onEditPayment,onEditTx,onQuickMark,o
             {sim.rows.map(w=><div key={w.wk} style={{flex:1,textAlign:'center',fontFamily:MONO,fontSize:8.5,color:C.muted}}>{w.num}</div>)}
           </div>
           <div style={{fontSize:11.5,lineHeight:'16px',fontWeight:500,color:sim.firstNeg?C.red:C.green}}>
-            {sim.firstNeg?`⚠ Кассовый разрыв в нед. ${sim.firstNeg.num}: −${fmt(sim.firstNeg.v)}`:'✓ Безопасно на все 10 недель вперёд'}
+            {sim.firstNeg?`⚠ Минус в нед. ${sim.firstNeg.num}: −${fmt(sim.firstNeg.v)}`:'✓ Безопасно на все 10 недель вперёд'}
           </div>
         </div>}
       </div>
@@ -171,7 +171,7 @@ export function TodayScreen({state,onToggle,onEditPayment,onEditTx,onQuickMark,o
         <span style={{fontSize:20}}>🔮</span>
         <div style={{flex:1}}>
           <div style={{fontSize:14,fontWeight:600}}>А что если?</div>
-          <div style={{fontSize:12,color:C.text2,lineHeight:1.45,marginTop:2}}>Проверьте крупное решение до того, как его принять</div>
+          <div style={{fontSize:12,color:C.text2,lineHeight:1.45,marginTop:2}}>Прикиньте крупную трату — пока не потратили</div>
         </div>
         <div style={{width:34,height:34,borderRadius:12,background:C.orangeL,border:`1px solid ${C.orangeB}`,color:C.orangeD,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:700,flexShrink:0}}>→</div>
       </button>}

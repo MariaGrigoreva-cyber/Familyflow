@@ -14,7 +14,7 @@ const TIPS=[
   {icon:'🛡️',title:'Подушка безопасности',text:'Финансовые советники рекомендуют держать в резерве 3–6 месяцев расходов на случай форс-мажора.'},
   {icon:'✏️',title:'Разовый платёж',text:'Для отпуска, ремонта или подарка выберите периодичность «Разовый» и укажите точную дату в категории.'},
   {icon:'✈️',title:'Расчёт отпускных',text:'В Бюджете калькулятор посчитает отпускные по ст. 139 ТК РФ и покажет, сколько денег придёт в месяц отпуска.'},
-  {icon:'❤️',title:'Здоровье бюджета',text:'На вкладке «Здоровье» — общий балл и риски кассовых разрывов на ближайшие недели.'},
+  {icon:'❤️',title:'Здоровье бюджета',text:'На вкладке «Здоровье» — общий балл и риск уйти в минус на ближайшие недели.'},
   {icon:'💾',title:'Резервная копия',text:'В Настройках → Резервная копия можно скачать Excel со всеми данными и восстановить на другом устройстве.'},
 ];
 function TipsCarousel(){
@@ -64,7 +64,7 @@ const HOW_SLIDES=[
       <div style={{textAlign:'center',marginBottom:28}}>
         <div style={{fontFamily:MONO,fontSize:10.5,color:C.muted,letterSpacing:1.5,textTransform:'uppercase',marginBottom:10}}>КАК ЭТО РАБОТАЕТ</div>
         <div style={{fontSize:22,fontWeight:600,color:C.text,lineHeight:1.3,marginBottom:8}}>Система четырёх счетов</div>
-        <div style={{fontSize:13,color:C.text2,lineHeight:1.6,maxWidth:300,margin:'0 auto'}}>Один ритуал в начале каждой недели — и деньги работают правильно</div>
+        <div style={{fontSize:13,color:C.text2,lineHeight:1.6,maxWidth:300,margin:'0 auto'}}>По понедельникам — пять минут, и деньги на всю неделю разложены по местам</div>
       </div>
       <div style={{display:'flex',justifyContent:'center',marginBottom:8}}>
         <div style={{background:C.greenL,border:`1px solid ${C.greenB}`,borderRadius:12,padding:'10px 24px',textAlign:'center'}}>
@@ -128,7 +128,7 @@ const HOW_SLIDES=[
       </div>
       <div style={{background:C.orangeL,border:`1px solid ${C.orangeB}`,borderRadius:12,padding:14,textAlign:'center'}}>
         <div style={{fontSize:13,fontWeight:600,color:C.orangeD,marginBottom:4}}>Saving остаётся нетронутым 🏦</div>
-        <div style={{fontSize:12,color:C.text2,lineHeight:1.6}}>Вы тратите только то что перевели.<br/>Всё остальное работает на вас.</div>
+        <div style={{fontSize:12,color:C.text2,lineHeight:1.6}}>Вы тратите только то что перевели.<br/>Остальное просто лежит и ждёт следующего понедельника.</div>
       </div>
     </div>
   ),
@@ -138,10 +138,10 @@ const HOW_SLIDES=[
       <div style={{padding:'12px 24px 48px'}}>
         <div style={{fontFamily:MONO,fontSize:10.5,color:C.muted,letterSpacing:1.5,textTransform:'uppercase',marginBottom:12}}>КАК ЭТО РАБОТАЕТ</div>
         <div style={{fontSize:24,fontWeight:600,color:C.text,lineHeight:1.3,marginBottom:6}}>Философия трёх<br/>направлений</div>
-        <div style={{fontSize:13,color:C.text2,marginBottom:28,lineHeight:1.5}}>Разделите все расходы на три смысловых потока.</div>
-        {[{e:'🛡️',t:'Защита',s:'Фундамент вашей стабильности',textCol:C.orangeD,bg:C.orangeL,bdr:C.orangeB,d:'Резерв и подушка безопасности.',items:[<><PiggyLogo size={13}/> Копилка (резерв)</>],pct:'20%'},
-          {e:'🍽️',t:'Жизнь',s:'Качество каждого дня',textCol:C.yellow,bg:C.yellowL,bdr:C.yellowB,d:'Ежедневные необходимые расходы.',items:['🍽️ Еда и продукты','🚌 Транспорт','🎬 Развлечения','💳 Кредиты'],pct:'50%'},
-          {e:'🛋️',t:'Комфорт',s:'Качество вашей жизни',textCol:C.blue,bg:C.blueL,bdr:C.blueB,d:'Крупные и нерегулярные расходы на себя.',items:['👗 Одежда и красота','🏠 Дом и ремонт','✈️ Путешествия'],pct:'30%'},
+        <div style={{fontSize:13,color:C.text2,marginBottom:28,lineHeight:1.5}}>Все расходы раскладываются по трём группам — у каждой своя роль.</div>
+        {[{e:'🛡️',t:'Защита',s:'Подушка на чёрный день',textCol:C.orangeD,bg:C.orangeL,bdr:C.orangeB,d:'Резерв и подушка безопасности.',items:[<><PiggyLogo size={13}/> Копилка (резерв)</>],pct:'20%'},
+          {e:'🍽️',t:'Жизнь',s:'То, без чего никуда',textCol:C.yellow,bg:C.yellowL,bdr:C.yellowB,d:'Ежедневные необходимые расходы.',items:['🍽️ Еда и продукты','🚌 Транспорт','🎬 Развлечения','💳 Кредиты'],pct:'50%'},
+          {e:'🛋️',t:'Комфорт',s:'Не срочно, но приятно',textCol:C.blue,bg:C.blueL,bdr:C.blueB,d:'Крупные и нерегулярные расходы на себя.',items:['👗 Одежда и красота','🏠 Дом и ремонт','✈️ Путешествия'],pct:'30%'},
         ].map((b,i)=>(
           <div key={i} style={{background:b.bg,borderRadius:16,border:`1px solid ${b.bdr}`,padding:16,marginBottom:14}}>
             <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:10}}>

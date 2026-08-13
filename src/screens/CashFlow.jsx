@@ -103,7 +103,7 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx,weeksSummary,negativeW
       </>}
 
       {viewMode!=='detail'&&!isPro&&(
-        <ProLock icon="📈" title="Прогноз кассового разрыва — в Pro"
+        <ProLock icon="📈" title="Прогноз, когда уйдёте в минус — в Pro"
           desc="Сводка по неделям, месяцам и годам с прогнозом накопительного баланса на недели вперёд — доступно в подписке Pro."
           onUpgrade={onUpgrade}/>
       )}
@@ -118,7 +118,7 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx,weeksSummary,negativeW
               <div style={{fontSize:12,color:C.red,lineHeight:1.5}}>
                 {negativeWeek
                   ?<>Накопительный баланс уйдёт в минус на нед. {parseWeekKey(negativeWeek.wk).week} · {parseWeekKey(negativeWeek.wk).year} ({weekRange(negativeWeek.wk)}).</>
-                  :'При текущем буфере разрыв не наступит в ближайшие 2 года, но план стоит поправить.'}
+                  :'При текущем буфере в минус не уйдёте ближайшие 2 года, но план стоит поправить.'}
                 {trimCat&&<> Например, сократить «{trimCat.cat.name}» ({fmtN(Math.round(trimCat.monthly))}/мес) хотя бы на {fmtN(Math.round(Math.min(monthlyExp-monthlyNet,trimCat.monthly)))}/мес.</>}
               </div>
             </div>
