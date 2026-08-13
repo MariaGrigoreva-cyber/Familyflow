@@ -32,7 +32,7 @@ test('вкладка «Недели» без Pro показывает ProLock', 
   const onUpgrade = jest.fn();
   render(<PlanScreen state={state} onToggle={() => {}} onAdd={() => {}} onEditTx={() => {}} weeksSummary={weeksSummary} negativeWeek={negativeWeek} isPro={false} onUpgrade={onUpgrade} />);
   await user.click(screen.getByText('Недели'));
-  expect(screen.getByText('Прогноз кассового разрыва — в Pro')).toBeInTheDocument();
+  expect(screen.getByText('Прогноз, когда уйдёте в минус — в Pro')).toBeInTheDocument();
   await user.click(screen.getByText('Оформить Pro'));
   expect(onUpgrade).toHaveBeenCalled();
 });

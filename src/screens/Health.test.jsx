@@ -17,8 +17,8 @@ test('на free-тарифе показывает ProLock вместо оцен�
 
 test('на Pro показывает числовую оценку и критерии', () => {
   render(<HealthScreen state={state} isPro />);
-  expect(screen.getByText('Норма сбережений', { exact: false })).toBeInTheDocument();
-  expect(screen.getByText(/Кассов/)).toBeInTheDocument();
+  expect(screen.getByText(/дохода — в сбережениях/)).toBeInTheDocument();
+  expect(screen.getByText(/уйти в минус/i)).toBeInTheDocument();
   expect(screen.getByText('РАСПРЕДЕЛЕНИЕ РАСХОДОВ')).toBeInTheDocument();
 });
 
