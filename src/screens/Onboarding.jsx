@@ -4,7 +4,7 @@ import {C,MONO,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,DaySelect,Numpad,EmojiPicker,CatIcon} from '../lib/ui';
 import {alertAsync} from '../lib/confirm';
 
-export function EntryScreen({onDemo,onLoginClick}){
+export function EntryScreen({onDemo,onLoginClick,onLoginExisting}){
   return(
     <div style={{height:'100%',maxWidth:480,margin:'0 auto',width:'100%',background:C.bg,display:'flex',flexDirection:'column',justifyContent:'center',padding:24,boxSizing:'border-box',overflowY:'auto'}}>
       <div style={{display:'flex',alignItems:'center',gap:12}}>
@@ -26,7 +26,14 @@ export function EntryScreen({onDemo,onLoginClick}){
           <div style={{flex:1}}><div style={{fontSize:14,fontWeight:600,color:C.text}}>Сначала посмотреть демо</div><div style={{fontSize:11.5,color:C.muted,marginTop:1}}>семья Ивановых · 30 секунд, без регистрации</div></div>
         </button>
       </div>
-      <div style={{textAlign:'center',marginTop:22,fontSize:11.5,color:C.muted,lineHeight:1.5}}>
+      {/* Обе кнопки выше ведут в одну форму (с вкладками Регистрация/Вход), но
+          человек, у которого уже есть аккаунт, не обязан это знать — кнопка
+          "Создать аккаунт" явно про создание, а "демо" звучит как "без аккаунта
+          вообще". Отдельная строка-ссылка сразу отвечает на вопрос "а войти?". */}
+      <button onClick={onLoginExisting||onLoginClick} style={{background:'none',border:'none',padding:'14px 0 0',fontSize:12.5,color:C.muted,cursor:'pointer',fontFamily:'inherit',textAlign:'center'}}>
+        Уже есть аккаунт? <span style={{color:C.orangeD,fontWeight:600}}>Войти</span>
+      </button>
+      <div style={{textAlign:'center',marginTop:14,fontSize:11.5,color:C.muted,lineHeight:1.5}}>
         Бюджет шифруется и хранится на сервере в РФ. <a href={TERMS_URL} style={{color:C.orangeD}}>Условия использования</a> · <a href={PRIVACY_URL} style={{color:C.orangeD}}>Политика конфиденциальности</a>
       </div>
       <div style={{fontFamily:MONO,fontSize:9.5,color:C.faint,textAlign:'center',marginTop:12}}>152-ФЗ · ДАННЫЕ НЕ ПЕРЕДАЮТСЯ ТРЕТЬИМ ЛИЦАМ</div>

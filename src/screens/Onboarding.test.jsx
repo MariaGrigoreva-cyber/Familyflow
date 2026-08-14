@@ -14,6 +14,15 @@ describe('EntryScreen', () => {
     expect(onLoginClick).toHaveBeenCalled();
   });
 
+  test('«Уже есть аккаунт? Войти» вызывает onLoginExisting отдельно от onLoginClick', async () => {
+    const user = userEvent.setup();
+    const onLoginClick = jest.fn(), onLoginExisting = jest.fn();
+    render(<EntryScreen onDemo={() => {}} onLoginClick={onLoginClick} onLoginExisting={onLoginExisting} />);
+    await user.click(screen.getByText('Войти'));
+    expect(onLoginExisting).toHaveBeenCalled();
+    expect(onLoginClick).not.toHaveBeenCalled();
+  });
+
   test('нет варианта настроить бюджет без регистрации', () => {
     render(<EntryScreen onDemo={() => {}} onLoginClick={() => {}} />);
     expect(screen.queryByText('Настроить свой бюджет')).not.toBeInTheDocument();

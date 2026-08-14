@@ -24,6 +24,12 @@ beforeEach(() => {
   Object.defineProperty(window, 'location', { value: { reload: jest.fn() }, writable: true });
 });
 
+test('initialMode="login" открывает форму сразу на вкладке входа', () => {
+  render(<StartLoginForm onClose={() => {}} initialMode="login" />);
+  expect(screen.getByText('Вход в аккаунт')).toBeInTheDocument();
+  expect(screen.queryByLabelText(/Принимаю/)).not.toBeInTheDocument(); // чекбокс согласия — только у регистрации
+});
+
 test('невалидный email блокирует вход без обращения к API', async () => {
   const user = userEvent.setup();
   render(<StartLoginForm onClose={() => {}} />);

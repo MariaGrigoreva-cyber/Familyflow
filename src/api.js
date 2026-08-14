@@ -1,6 +1,6 @@
 // FamilyFlow · клиент API (фаза 0)
 // Базовый URL можно переопределить переменной сборки REACT_APP_API_URL.
-import { ymGoal, getAttribution, clearAttribution } from './lib/metrika';
+import { ymGoal, getAttribution, clearAttribution, isOwnerEmail } from './lib/metrika';
 
 const API_URL = process.env.REACT_APP_API_URL
   || 'https://mariagrigoreva-cyber-familyflow-api-bccc.twc1.net';
@@ -89,7 +89,7 @@ export async function register(email, password, familyName, pdnConsent) {
   const attribution = getAttribution();
   const r = await req('/auth/register', { method: 'POST', auth: false, body: { email, password, familyName, pdnConsent, attribution: attribution || undefined } });
   localStorage.setItem(TOKEN_KEY, r.token);
-  ymGoal('account_registered', attribution || undefined);
+  if (!isOwnerEmail(email)) ymGoal('account_registered', attribution || undefined);
   clearAttribution();
   return r;
 }

@@ -48,6 +48,15 @@ export function isMetrikaConsented() {
   return getConsent() === 'accepted';
 }
 
+// Своё тестирование прод-аккаунтом иначе засоряет цели (регистрации, онбординг)
+// реальной статистикой — REACT_APP_OWNER_EMAIL задаётся в окружении сборки
+// (не в git), чтобы сам email не светился в репозитории.
+const OWNER_EMAIL = (process.env.REACT_APP_OWNER_EMAIL || '').trim().toLowerCase();
+
+export function isOwnerEmail(email) {
+  return !!OWNER_EMAIL && String(email || '').trim().toLowerCase() === OWNER_EMAIL;
+}
+
 // Атрибуция клика по рекламе (yclid/utm_*), записанная лендингом в общую
 // cookie .myfamilyflow.ru при переходе с рекламного объявления — см.
 // familyflow-landing/public/script.js. Читаем её при регистрации и передаём

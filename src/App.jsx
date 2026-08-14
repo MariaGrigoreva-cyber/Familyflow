@@ -18,7 +18,7 @@ import { SplashScreen } from './SplashScreen';
 import { StartLoginForm } from './StartLoginForm';
 import { AddToHomeScreenPrompt } from './AddToHomeScreenPrompt';
 import { CookieBanner } from './CookieBanner';
-import { isMetrikaConsented, loadMetrika, ymGoal } from './lib/metrika';
+import { isMetrikaConsented, loadMetrika, ymGoal, isOwnerEmail } from './lib/metrika';
 import { ConfirmHost, confirmAsync, alertAsync } from './lib/confirm';
 import { PiggyLogo } from './lib/ui';
 export default function App({initialYandexError}={}){
@@ -73,8 +73,10 @@ export default function App({initialYandexError}={}){
   // Если пришли редиректом от Яндекса с ошибкой — сразу открыть форму и показать её;
   // yandexError гасится при закрытии формы, чтобы не всплывать повторно при следующем открытии.
   const[startLogin,setStartLogin]=useState(!!initialYandexError);
+  const[startLoginMode,setStartLoginMode]=useState('register'); // на какой вкладке открыть StartLoginForm
   const[yandexError,setYandexError]=useState(initialYandexError||null);
   const closeStartLogin=()=>{setStartLogin(false);setYandexError(null);};
+  const openLoginExisting=()=>{setStartLoginMode('login');setStartLogin(true);};
   const[demoExited,setDemoExited]=useState(false); // после «Свои данные» из демо — экран выбора Демо/Настроить заново
   const[showAdd,setShowAdd]=useState(false);
   const[addWeek,setAddWeek]=useState(null); // неделя для добавления транзакции
@@ -107,6 +109,7 @@ const [cloudError, setCloudError] = useState(null);
 // показывается баннер «Восстановить» (см. routes/state.js POST /state/reset).
 const [resetBackup, setResetBackup] = useState(null);
 const [emailVerified, setEmailVerified] = useState(null); // null = ещё не знаем
+const [userEmail, setUserEmail] = useState(null); // для isOwnerEmail() — не гонять свои тесты в цели Метрики
 const [verifyDismissed, setVerifyDismissed] = useState(false);
 const [resendBusy, setResendBusy] = useState(false);
 const [resendSent, setResendSent] = useState(false);
@@ -222,7 +225,7 @@ useEffect(() => {
   // Подтверждён ли email — для баннера-напоминания (мягкое требование, не блокирует вход)
   useEffect(() => {
     if (!isLoggedIn()) return;
-    authMe().then(r => setEmailVerified(r.emailVerified)).catch(() => {});
+    authMe().then(r => { setEmailVerified(r.emailVerified); setUserEmail(r.email); }).catch(() => {});
   }, []);
   // Автосохранение appState при каждом изменении
   useEffect(()=>{
@@ -435,7 +438,7 @@ useEffect(() => {
     setAppState(newState);
     setOnboarded(true);
     if(!isLoggedIn())markLocalTrialStart(); // старт локального 30-дневного триала (не для демо)
-    ymGoal('onboarding_completed');
+    if(!isOwnerEmail(userEmail))ymGoal('onboarding_completed');
   };
   // Демо редактируемо первые DEMO_READONLY_DAYS дней с первого захода — дальше
   // только просмотр, иначе в демо можно жить бесконечно (данные там не бэкапятся
@@ -672,10 +675,11 @@ useEffect(() => {
       <Suspense fallback={null}>
         <EntryScreen
           onDemo={()=>{ymGoal('demo_started');setConsented(true);startDemo();}}
-          onLoginClick={()=>setStartLogin(true)}
+          onLoginClick={()=>{setStartLoginMode('register');setStartLogin(true);}}
+          onLoginExisting={openLoginExisting}
         />
       </Suspense>
-      {startLogin&&<StartLoginForm onClose={closeStartLogin} initialError={yandexError?errText({message:yandexError}):""}/>}
+      {startLogin&&<StartLoginForm onClose={closeStartLogin} initialError={yandexError?errText({message:yandexError}):""} initialMode={startLoginMode}/>}
       <ConfirmHost/>
       <CookieBanner/>
     </div>
@@ -683,9 +687,9 @@ useEffect(() => {
   if(demoExited)return(
     <div style={shell}>
       <Suspense fallback={null}>
-        <EntryScreen onDemo={backToDemo} onLoginClick={()=>setStartLogin(true)}/>
+        <EntryScreen onDemo={backToDemo} onLoginClick={()=>{setStartLoginMode('register');setStartLogin(true);}} onLoginExisting={openLoginExisting}/>
       </Suspense>
-      {startLogin&&<StartLoginForm onClose={closeStartLogin} initialError={yandexError?errText({message:yandexError}):""}/>}
+      {startLogin&&<StartLoginForm onClose={closeStartLogin} initialError={yandexError?errText({message:yandexError}):""} initialMode={startLoginMode}/>}
       <ConfirmHost/>
       <CookieBanner/>
     </div>
@@ -734,7 +738,7 @@ useEffect(() => {
             <span style={{fontSize:13}}>👁</span>
             <span style={{flex:1,fontFamily:MONO,fontSize:11,color:C.orangeD}}>ДЕМО · СЕМЬЯ ИВАНОВЫХ</span>
             <button onClick={()=>{setTab('today');setTourStep(0);}} style={{fontFamily:MONO,fontSize:10.5,fontWeight:600,color:C.orangeD,background:'var(--c-surface)',border:`1px solid ${C.orangeB}`,padding:'4px 10px',borderRadius:20,cursor:'pointer'}}>▶ ТУР</button>
-            <button onClick={()=>setStartLogin(true)} style={{fontFamily:MONO,fontSize:10.5,fontWeight:600,color:C.orangeD,background:'var(--c-surface)',border:`1px solid ${C.orangeB}`,padding:'4px 10px',borderRadius:20,cursor:'pointer'}}>АККАУНТ</button>
+            <button onClick={()=>{setStartLoginMode('register');setStartLogin(true);}} style={{fontFamily:MONO,fontSize:10.5,fontWeight:600,color:C.orangeD,background:'var(--c-surface)',border:`1px solid ${C.orangeB}`,padding:'4px 10px',borderRadius:20,cursor:'pointer'}}>АККАУНТ</button>
             <button onClick={exitDemo} style={{fontFamily:MONO,fontSize:10.5,fontWeight:600,color:'#fff',background:C.orange,border:'none',padding:'4px 10px',borderRadius:20,cursor:'pointer'}}>СВОИ ДАННЫЕ</button>
           </div>
         )}
@@ -769,7 +773,7 @@ useEffect(() => {
       <EditPaymentModal visible={showEditPay} payment={editPayment} onClose={()=>{setShowEditPay(false);setEditPayment(null);}} onSave={handleSavePayment} onDelete={handleDeleteExtra}/>
       <SalaryCheckModal visible={showSalaryCheck} payment={salaryCheckPayment} onConfirm={handleSalaryCheckConfirm} onNotYet={handleSalaryCheckNotYet}/>
       <AddExtraModal visible={showAddExtra} onClose={()=>setShowAddExtra(false)} onSave={handleAddExtra} members={appState.members} incomes={appState.incomes}/>
-      {startLogin&&<StartLoginForm onClose={closeStartLogin} initialError={yandexError?errText({message:yandexError}):""}/>}
+      {startLogin&&<StartLoginForm onClose={closeStartLogin} initialError={yandexError?errText({message:yandexError}):""} initialMode={startLoginMode}/>}
       <WithdrawPiggyModal visible={showWithdrawPiggy} onClose={()=>setShowWithdrawPiggy(false)} onSave={handleWithdrawPiggy} members={appState.members} customCats={appState.customCats} available={computeBalances(appState).totalSaved}/>
       <EditTxModal visible={showEditTx} item={editTxItem} members={appState.members} customCats={appState.customCats}
         onClose={()=>{setShowEditTx(false);setEditTxItem(null);}}

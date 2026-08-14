@@ -5,8 +5,8 @@ import { login, register, errText, resetRequest, resetConfirm, yandexLoginAvaila
 
 const emailOk = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
-export function StartLoginForm({onClose,mandatory=false,initialError=''}){
-  const[mode,setMode]=useState('register'); // login | register
+export function StartLoginForm({onClose,mandatory=false,initialError='',initialMode='register'}){
+  const[mode,setMode]=useState(initialMode); // login | register
   const[email,setEmail]=useState('');
   const[pass,setPass]=useState('');
   const[busy,setBusy]=useState(false);
