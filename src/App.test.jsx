@@ -12,6 +12,7 @@ jest.mock('./api', () => ({
   authMe: jest.fn(),
   resendVerification: jest.fn(),
   billingStatus: jest.fn(),
+  familyMe: jest.fn(),
   errText: jest.requireActual('./api').errText,
   yandexLoginAvailable: () => false,
   yandexAuthUrl: () => '',
@@ -19,6 +20,9 @@ jest.mock('./api', () => ({
 // AddToHomeScreenPrompt делает собственные проверки платформы/matchMedia —
 // не относится к тому, что тестирует App, отключаем чтобы не шуметь в DOM.
 jest.mock('./AddToHomeScreenPrompt', () => ({ AddToHomeScreenPrompt: () => null }));
+// FeedbackPrompt тестируется отдельно (FeedbackPrompt.test.jsx) — здесь важно
+// только то, что App правильно решает, передавать ли show=true.
+jest.mock('./FeedbackPrompt', () => ({ FeedbackPrompt: ({ show }) => show ? <div>FEEDBACK_PROMPT</div> : null }));
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -29,6 +33,7 @@ beforeEach(() => {
   api.saveCloudState.mockResolvedValue({ updatedAt: new Date().toISOString() });
   api.authMe.mockResolvedValue({ emailVerified: true });
   api.billingStatus.mockResolvedValue({ plan: 'trial' });
+  api.familyMe.mockResolvedValue({ showFeedbackPrompt: false });
 });
 
 test('новый пользователь видит стартовый экран с двумя вариантами', async () => {

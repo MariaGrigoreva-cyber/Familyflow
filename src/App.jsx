@@ -12,11 +12,12 @@ const SettingsScreen=lazy(()=>import('./screens/Settings').then(m=>({default:m.S
 const TipsPhilosophyOverlay=lazy(()=>import('./TipsPhilosophy').then(m=>({default:m.TipsPhilosophyOverlay})));
 const WhatIfScreen=lazy(()=>import('./screens/WhatIf').then(m=>({default:m.WhatIfScreen})));
 import {EditPaymentModal,AddExtraModal,AddTxModal,EditCatModal,EditTxModal,EditIncomeModal,WithdrawPiggyModal,SalaryCheckModal,TabBar} from './modals';
-import { isLoggedIn, loadCloudState, saveCloudState, authMe, resendVerification, billingStatus, errText } from './api';
+import { isLoggedIn, loadCloudState, saveCloudState, authMe, resendVerification, billingStatus, familyMe, errText } from './api';
 import { markLocalTrialStart, getLocalPlan, isProPlan } from './lib/plan';
 import { SplashScreen } from './SplashScreen';
 import { StartLoginForm } from './StartLoginForm';
 import { AddToHomeScreenPrompt } from './AddToHomeScreenPrompt';
+import { FeedbackPrompt } from './FeedbackPrompt';
 import { CookieBanner } from './CookieBanner';
 import { isMetrikaConsented, loadMetrika, ymGoal, isOwnerEmail } from './lib/metrika';
 import { ConfirmHost, confirmAsync, alertAsync } from './lib/confirm';
@@ -113,6 +114,7 @@ const [userEmail, setUserEmail] = useState(null); // для isOwnerEmail() — �
 const [verifyDismissed, setVerifyDismissed] = useState(false);
 const [resendBusy, setResendBusy] = useState(false);
 const [resendSent, setResendSent] = useState(false);
+const [showFeedbackPrompt, setShowFeedbackPrompt] = useState(false);
 const handleResendVerify = () => {
   setResendBusy(true);
   resendVerification().then(() => setResendSent(true)).catch(() => {}).finally(() => setResendBusy(false));
@@ -226,6 +228,12 @@ useEffect(() => {
   useEffect(() => {
     if (!isLoggedIn()) return;
     authMe().then(r => { setEmailVerified(r.emailVerified); setUserEmail(r.email); }).catch(() => {});
+  }, []);
+  // Попап обратной связи — сервер сам решает (14+ дней с регистрации, ещё не
+  // ответил), см. showFeedbackPrompt в api.js/routes/family.js.
+  useEffect(() => {
+    if (!isLoggedIn()) return;
+    familyMe().then(r => setShowFeedbackPrompt(!!r.showFeedbackPrompt)).catch(() => {});
   }, []);
   // Автосохранение appState при каждом изменении
   useEffect(()=>{
@@ -764,6 +772,7 @@ useEffect(() => {
         style={{position:'absolute',right:16,bottom:tab==='today'?'calc(138px + env(safe-area-inset-bottom))':'calc(78px + env(safe-area-inset-bottom))',width:48,height:48,borderRadius:24,border:`1px solid ${C.orangeB}`,background:'var(--c-surface)',color:C.orangeD,fontSize:19,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 4px 12px rgba(0,0,0,.12)',fontFamily:'inherit',zIndex:120,...(tourStep===2?{animation:'ffTourGlow 1.4s ease infinite'}:{})}}>?</button>
       <TabBar active={tab} onPress={setTab}/>
       <AddToHomeScreenPrompt/>
+      <FeedbackPrompt show={showFeedbackPrompt}/>
       <ConfirmHost/>
       <CookieBanner/>
       <AddTxModal visible={showAdd} onClose={()=>setShowAdd(false)} onSave={handleAddTx} members={appState.members} planned={appState.planned} customCats={appState.customCats}/>

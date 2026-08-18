@@ -120,6 +120,12 @@ export const billingCheckout = (period, autoChargeConsent) =>
 export const billingCancelAutoRenew = () => req('/billing/cancel-auto-renew', { method: 'POST' });
 export const billingRefund = () => req('/billing/refund', { method: 'POST' });
 
+// ── Обратная связь ─────────────────────────────────────────────────────────
+// showFeedbackPrompt в ответе familyMe() говорит, показывать ли попап (см.
+// FeedbackPrompt.jsx) — 14+ дней с регистрации и пользователь ещё не ответил.
+export const submitFeedback = text => req('/feedback', { method: 'POST', body: { text } });
+export const declineFeedback = () => req('/feedback/decline', { method: 'POST' });
+
 // ── Push-уведомления ───────────────────────────────────────────────────────
 export const pushVapidPublicKey = () => req('/push/vapid-public-key', { auth: false });
 export const pushSubscribe = sub => req('/push/subscribe', { method: 'POST', body: sub });
@@ -166,4 +172,5 @@ export const errText = e => ({
   yandex_unavailable: 'Яндекс не ответил — попробуйте ещё раз',
   no_email: 'Яндекс не передал email — разрешите доступ к почте и попробуйте снова',
   no_code: 'Не удалось войти через Яндекс — попробуйте ещё раз',
+  bad_text: 'Напишите пару слов в отзыве',
 }[e?.message] || 'Ошибка сети — попробуйте ещё раз');
