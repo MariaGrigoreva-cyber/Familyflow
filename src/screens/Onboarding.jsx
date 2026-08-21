@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import {C,MONO,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,FUND_LABELS,getCatFund,PIE_COLORS,PRIVACY_URL,TERMS_URL,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,DaySelect,Numpad,EmojiPicker,CatIcon} from '../lib/ui';
 import {alertAsync} from '../lib/confirm';
-import {aiOnboardingDraft,errText} from '../api';
 
 export function EntryScreen({onDemo,onLoginClick,onLoginExisting}){
   return(
@@ -58,40 +57,6 @@ export function Onboarding({onDone}){
   const[selections,setSelections]=useState([]); // [{id, catId, amount, repeat, days, memberId, onceYear, onceMonth, onceDay}]
   const[openCat,setOpenCat]=useState(null); // id конкретного выбора (не catId)
   const[emojiPickerFor,setEmojiPickerFor]=useState(null);
-  const[aiText,setAiText]=useState('');
-  const[aiBusy,setAiBusy]=useState(false);
-  const[aiError,setAiError]=useState('');
-  const[aiApplied,setAiApplied]=useState(false);
-  // Свободный текст (в т.ч. надиктованный голосом на клавиатуре) -> POST
-  // /ai/onboarding-draft (см. lib/aiPrompts.js на бэкенде) -> черновик дохода
-  // и расходов. Ничего не уходит в облако напрямую — только предзаполняет
-  // локальный state формы, дальше как обычно проверяется/правится на шагах 2-3.
-  const normalizeCatName=str=>String(str||'').toLowerCase().trim();
-  const matchCatId=name=>{
-    const n=normalizeCatName(name);
-    if(!n)return 'other';
-    const found=DEFAULT_CATS.find(c=>{const cn=normalizeCatName(c.name);return cn===n||n.includes(cn)||cn.includes(n);});
-    return found?.id||'other';
-  };
-  const applyAiDraft=async()=>{
-    if(!aiText.trim()){setAiError('Опишите доход и расходы свободным текстом');return;}
-    setAiBusy(true);setAiError('');setAiApplied(false);
-    try{
-      const{draft}=await aiOnboardingDraft(aiText.trim());
-      const totalIncome=(draft.income||[]).reduce((sum,i)=>sum+(parseInt(i.amount)||0),0);
-      if(totalIncome>0){
-        const firstId=incomes[0]?.id;
-        if(firstId)setIncomes(p=>p.map(i=>i.id===firstId?{...i,incomeType:'manual',gross:String(totalIncome)}:i));
-      }
-      const newSelections=(draft.expenses||[]).filter(e=>(parseInt(e.amount)||0)>0).map(e=>({
-        id:uid(),catId:matchCatId(e.category),amount:String(parseInt(e.amount)||0),repeat:'monthly',days:[1],memberId:members[0]?.id,
-      }));
-      if(newSelections.length)setSelections(p=>[...p,...newSelections]);
-      setAiApplied(true);
-      setAiText('');
-    }catch(e){setAiError(errText(e));}
-    finally{setAiBusy(false);}
-  };
   const goNext=()=>setStep(p=>p+1);
   const goBack=()=>setStep(p=>Math.max(1,p-1));
   const updInc=(id,f,v)=>setIncomes(p=>p.map(i=>i.id===id?{...i,[f]:v}:i));
@@ -167,16 +132,6 @@ export function Onboarding({onDone}){
       <OSteps current={0}/>
       <div style={{overflowY:'auto',flex:1,minHeight:0}}><div style={pad}>
         <h2 style={{fontSize:24,fontWeight:600,letterSpacing:-.3,color:C.text,margin:'0 0 20px'}}>Семья и стартовый баланс</h2>
-        <div style={{border:`1.5px dashed ${C.orange}`,background:C.orangeL,borderRadius:14,padding:'14px 16px',marginBottom:20,boxSizing:'border-box'}}>
-          <div style={{fontSize:13,fontWeight:600,color:C.orangeD,marginBottom:8}}>🤖 Заполнить с помощью ИИ</div>
-          <div style={{fontSize:11.5,color:C.orangeD,opacity:.85,marginBottom:10,lineHeight:1.5}}>Опишите свободно, сколько получаете и на что тратите — ИИ заполнит доход и категории расходов, вы сможете всё проверить и поправить на следующих шагах.</div>
-          <textarea rows={3} value={aiText} placeholder="Например: получаю 120 тысяч в месяц, трачу 30 тысяч на еду, 10 тысяч на транспорт"
-            onChange={e=>{setAiText(e.target.value);if(aiError)setAiError('');}}
-            style={{...s.input,resize:'vertical',fontFamily:'inherit'}}/>
-          {aiError&&<div style={{fontSize:12,color:C.red,marginTop:6}}>{aiError}</div>}
-          {aiApplied&&<div style={{fontSize:12,color:C.green,marginTop:6}}>✓ Заполнено — проверьте на следующих шагах</div>}
-          <button onClick={applyAiDraft} disabled={aiBusy} style={{marginTop:10,width:'100%',padding:11,borderRadius:12,border:'none',background:C.orange,color:'#fff',fontWeight:600,fontSize:13.5,cursor:'pointer',fontFamily:'inherit',opacity:aiBusy?.7:1}}>{aiBusy?'Заполняем…':'Заполнить'}</button>
-        </div>
         <div style={{fontFamily:MONO,fontSize:10.5,letterSpacing:1.5,color:C.muted,textTransform:'uppercase',marginBottom:8}}>СКОЛЬКО СЕЙЧАС НА СЧЕТАХ?</div>
         <div style={{border:`1.5px solid ${C.orange}`,background:'var(--c-surface)',borderRadius:14,padding:'16px 18px',display:'flex',alignItems:'baseline',justifyContent:'space-between',boxSizing:'border-box'}}>
           <input type="text" inputMode="numeric" value={startBalance} onChange={e=>setStartBalance(e.target.value)} placeholder="0"
