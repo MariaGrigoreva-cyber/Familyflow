@@ -58,11 +58,18 @@ export function PricingIntro({onDone}){
   const[failed,setFailed]=useState(false);
   useEffect(()=>{
     let cancelled=false;
-    billingStatus().then(r=>{if(!cancelled)setStatus(r);}).catch(()=>{if(!cancelled)setFailed(true);});
-    return()=>{cancelled=true;};
+    // Жёсткий таймаут поверх обычных ретраев billingStatus() (см. api.js req()) —
+    // это единственный новый экран сразу после регистрации, и он не должен
+    // держать человека на пустом месте дольше пары секунд, даже если сервер
+    // просто медленно отвечает, а не падает с явной ошибкой.
+    const timeout=setTimeout(()=>{if(!cancelled)setFailed(true);},6000);
+    billingStatus()
+      .then(r=>{if(!cancelled){clearTimeout(timeout);setStatus(r);}})
+      .catch(()=>{if(!cancelled){clearTimeout(timeout);setFailed(true);}});
+    return()=>{cancelled=true;clearTimeout(timeout);};
   },[]);
-  // Ошибка загрузки цен (нет сети и т.п.) — не блокируем регистрацию человеку
-  // экраном, который не может отрисоваться корректно, просто пропускаем его.
+  // Ошибка загрузки цен (нет сети, таймаут и т.п.) — не блокируем регистрацию
+  // человеку экраном, который не может отрисоваться корректно, просто пропускаем его.
   useEffect(()=>{if(failed)onDone();},[failed,onDone]);
   if(!status)return null;
   const trialLabel=(()=>{
