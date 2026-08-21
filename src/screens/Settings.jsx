@@ -1,11 +1,12 @@
 // FamilyFlow — экран Настройки
 import React, { useState, useEffect } from 'react';
-import {C,MONO,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,PRIVACY_URL,TERMS_URL,TELEGRAM_URL,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
+import {C,MONO,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,PRIVACY_URL,TERMS_URL,TELEGRAM_URL,APP_VERSION,APP_BUILD,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,EmojiPicker,ProInline,CatIcon} from '../lib/ui';
 import {isLoggedIn,logout,register,login,familyMe,familyInvite,familyJoin,errText,changePassword,deleteAccount,resetRequest,resetConfirm,resetCloudState,restoreCloudStateBackup,billingStatus,billingCheckout,billingCancelAutoRenew,billingRefund} from '../api';
 import {getPushState,enablePush,disablePush} from '../push';
 import {confirmAsync,alertAsync} from '../lib/confirm';
 import {exportFfStateAsXlsx,importFfStateFromXlsxArrayBuffer} from '../lib/excelBackup';
+import {AiSupportChat} from '../AiSupportChat';
 
 const emailOk = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
@@ -253,6 +254,7 @@ export function SettingsScreen({state,onEditCat,onAddCat,onDeleteCustomCat,onEdi
         }}/>
       </label>
       <SecTitle>ПОДДЕРЖКА</SecTitle>
+      <AiSupportChat/>
       <a href="mailto:support@myfamilyflow.ru?subject=Семейный поток" style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'9px 0',textDecoration:'none',boxSizing:'border-box'}}>
         <span style={{fontSize:17}}>💬</span>
         <div style={{flex:1}}>
@@ -329,6 +331,7 @@ export function SettingsScreen({state,onEditCat,onAddCat,onDeleteCustomCat,onEdi
           🗑 Сбросить все данные и начать заново
         </button>
       </div>
+      <div style={{textAlign:'center',fontSize:11,color:C.muted,padding:'20px 0 4px'}}>Семейный поток · версия {APP_VERSION} ({APP_BUILD})</div>
     </div></div>
     {showTgPromo&&(
       <div style={{position:'fixed',inset:0,zIndex:400,display:'flex',alignItems:'flex-end',justifyContent:'center'}} onClick={()=>setShowTgPromo(false)}>
