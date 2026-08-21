@@ -58,9 +58,9 @@ test('удаление существующей категории запраш�
   window.confirm.mockRestore();
 });
 
-test('периодичность «По числам» показывает выбор дней месяца', async () => {
+test('периодичность «Раз в месяц» показывает выбор дней месяца', async () => {
   const user = userEvent.setup();
   render(<EditCatModal visible item={existingItem} members={members} onClose={() => {}} onSave={() => {}} onDelete={() => {}} />);
-  await user.click(screen.getByText('По числам'));
+  await user.click(screen.getByText('Раз в месяц'));
   expect(screen.getByText(/Можно выбрать несколько дат/)).toBeInTheDocument();
 });
