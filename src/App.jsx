@@ -5,6 +5,7 @@ import {TodayScreen} from './screens/Today';
 // а не тянем весь Onboarding.jsx (со сторис/формой/анкетой) в основной бандл.
 const EntryScreen=lazy(()=>import('./screens/Onboarding').then(m=>({default:m.EntryScreen})));
 const Onboarding=lazy(()=>import('./screens/Onboarding').then(m=>({default:m.Onboarding})));
+const PricingIntro=lazy(()=>import('./screens/Onboarding').then(m=>({default:m.PricingIntro})));
 const PlanScreen=lazy(()=>import('./screens/CashFlow').then(m=>({default:m.PlanScreen})));
 const BudgetScreen=lazy(()=>import('./screens/Budget').then(m=>({default:m.BudgetScreen})));
 const HealthScreen=lazy(()=>import('./screens/Health').then(m=>({default:m.HealthScreen})));
@@ -51,6 +52,11 @@ export default function App({initialYandexError}={}){
 
   const[consented,setConsentedRaw]=useState(()=>savedState?.consented||false);
   const[onboarded,setOnboardedRaw]=useState(()=>savedState?.onboarded||false);
+  // Экран «30 дней бесплатно» — раз на аккаунт, сразу после регистрации, до
+  // онбординга (в RuStore нет лендинга с ценой, это сейчас единственное место,
+  // где новый пользователь вообще узнаёт про 199/999 и бесплатный период).
+  const[pricingSeen,setPricingSeenRaw]=useState(()=>savedState?.pricingSeen||false);
+  const setPricingSeen=(v)=>{setPricingSeenRaw(v);try{localStorage.setItem('ff_state',JSON.stringify({...loadFromStorage(),pricingSeen:v}));}catch{}};
   // Тема: 'auto' следует системной, 'light'/'dark' — ручной выбор, запоминается отдельно от бюджета
   const[theme,setThemeRaw]=useState(()=>{try{return localStorage.getItem('ff_theme')||'auto';}catch{return 'auto';}});
   useEffect(()=>{
@@ -700,6 +706,14 @@ useEffect(() => {
       {startLogin&&<StartLoginForm onClose={closeStartLogin} initialError={yandexError?errText({message:yandexError}):""} initialMode={startLoginMode}/>}
       <ConfirmHost/>
       <CookieBanner/>
+    </div>
+  );
+  if(isLoggedIn()&&!appState.demoMode&&!onboarded&&!pricingSeen)return(
+    <div style={shell}>
+      <Suspense fallback={null}>
+        <PricingIntro onDone={()=>setPricingSeen(true)}/>
+      </Suspense>
+      <ConfirmHost/>
     </div>
   );
   if(!onboarded)return(

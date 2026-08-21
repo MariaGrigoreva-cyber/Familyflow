@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import {C,MONO,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,FUND_LABELS,getCatFund,PIE_COLORS,PRIVACY_URL,TERMS_URL,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,DaySelect,Numpad,EmojiPicker,CatIcon} from '../lib/ui';
 import {alertAsync} from '../lib/confirm';
+import {billingStatus} from '../api';
 
 export function EntryScreen({onDemo,onLoginClick,onLoginExisting}){
   return(
@@ -37,6 +38,89 @@ export function EntryScreen({onDemo,onLoginClick,onLoginExisting}){
         Бюджет шифруется и хранится на сервере в РФ. <a href={TERMS_URL} style={{color:C.orangeD}}>Условия использования</a> · <a href={PRIVACY_URL} style={{color:C.orangeD}}>Политика конфиденциальности</a>
       </div>
       <div style={{fontFamily:MONO,fontSize:9.5,color:C.faint,textAlign:'center',marginTop:12}}>152-ФЗ · ДАННЫЕ НЕ ПЕРЕДАЮТСЯ ТРЕТЬИМ ЛИЦАМ</div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════════════
+// PRICING INTRO — один раз после регистрации, до онбординга: в RuStore
+// приложение опубликовано без лендинга, где раньше была информация об
+// оплате, так что сейчас это единственное место, где новый пользователь
+// вообще видит, что триал платный дальше и сколько это стоит.
+// ════════════════════════════════════════════════════════════════════════
+const PLAN_CARD_FEATS={
+  free:['План на месяц и календарь выплат','Учёт расходов по категориям','Копилка, отдельная от денег на руках'],
+  monthly:['Общий бюджет на всю семью','Прогноз кассового разрыва на недели вперёд','«Здоровье бюджета» и несколько источников дохода'],
+  yearly:['Всё из месячного Pro','Одна оплата вместо двенадцати','Автопродление можно отключить в любой момент'],
+};
+export function PricingIntro({onDone}){
+  const[status,setStatus]=useState(null);
+  const[failed,setFailed]=useState(false);
+  useEffect(()=>{
+    let cancelled=false;
+    billingStatus().then(r=>{if(!cancelled)setStatus(r);}).catch(()=>{if(!cancelled)setFailed(true);});
+    return()=>{cancelled=true;};
+  },[]);
+  // Ошибка загрузки цен (нет сети и т.п.) — не блокируем регистрацию человеку
+  // экраном, который не может отрисоваться корректно, просто пропускаем его.
+  useEffect(()=>{if(failed)onDone();},[failed,onDone]);
+  if(!status)return null;
+  const trialLabel=(()=>{
+    if(!status.trialEndsAt)return 'в течение 30 дней';
+    const d=new Date(status.trialEndsAt);
+    return `До ${d.getDate()} ${MONTH_SHORT[d.getMonth()]} ${d.getFullYear()}`;
+  })();
+  const choose=period=>{
+    // period: null (бесплатно) | 'monthly' | 'yearly' — это только предпочтение
+    // по умолчанию для BillingSection дальше в Настройках; само оформление
+    // подписки и согласие на автосписание карты — там же, не здесь.
+    if(period){try{localStorage.setItem('ff_preferred_billing_period',period);}catch{}}
+    onDone();
+  };
+  const Feats=({items})=>(
+    <ul style={{listStyle:'none',margin:'0 0 14px',padding:0,display:'flex',flexDirection:'column',gap:8}}>
+      {items.map(f=>(
+        <li key={f} style={{display:'flex',gap:8,alignItems:'flex-start',fontSize:12.5,color:C.text2,lineHeight:1.45}}>
+          <span style={{color:C.orange,fontWeight:600,flexShrink:0}}>✓</span>{f}
+        </li>
+      ))}
+    </ul>
+  );
+  return(
+    <div style={{height:'100%',background:C.bg,display:'flex',flexDirection:'column'}}>
+      <div style={{overflowY:'auto',flex:1,minHeight:0}}><div style={{padding:'28px 24px 40px'}}>
+        <div style={{width:52,height:52,borderRadius:16,background:C.orangeL,display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,margin:'0 auto 16px'}}>⭐</div>
+        <h2 style={{fontSize:22,fontWeight:600,letterSpacing:-.3,color:C.text,margin:'0 0 8px',textAlign:'center'}}>Первые 30 дней — бесплатно</h2>
+        <div style={{fontSize:12.5,color:C.text2,lineHeight:1.5,textAlign:'center',marginBottom:22}}>Полный доступ ко всем функциям Pro. Списывать деньги не будем, пока не закончится пробный период.</div>
+
+        <div style={{border:`1px solid ${C.border}`,background:'var(--c-surface)',borderRadius:16,padding:'18px 16px',marginBottom:12}}>
+          <div style={{fontSize:13,fontWeight:600,color:C.text,marginBottom:2}}>Бесплатно</div>
+          <div style={{fontFamily:MONO,fontSize:24,fontWeight:600,color:C.text,margin:'6px 0 2px'}}>0 ₽</div>
+          <div style={{fontSize:11,color:C.muted,marginBottom:14}}>навсегда</div>
+          <Feats items={PLAN_CARD_FEATS.free}/>
+          <Btn label="Начать бесплатно" ghost onClick={()=>choose(null)}/>
+        </div>
+
+        <div style={{border:`2px solid ${C.orange}`,borderRadius:16,padding:'18px 16px',marginBottom:12}}>
+          <span style={{display:'inline-block',fontFamily:MONO,fontSize:10,fontWeight:700,letterSpacing:.5,textTransform:'uppercase',padding:'5px 10px',borderRadius:20,background:C.orangeL,color:C.orangeD,marginBottom:12}}>30 дней бесплатно</span>
+          <div style={{fontSize:13,fontWeight:600,color:C.text,marginBottom:2}}>Pro · месяц</div>
+          <div style={{fontFamily:MONO,fontSize:24,fontWeight:600,color:C.text,margin:'6px 0 2px'}}>{fmtN(status.prices.monthly)} ₽<span style={{fontSize:13,fontWeight:400,color:C.muted}}>/мес</span></div>
+          <div style={{fontSize:11,color:C.muted,lineHeight:1.5,marginBottom:14}}>Карту привязывать не нужно — можно просто попробовать. Не оформите Pro — аккаунт сам перейдёт на бесплатный тариф.</div>
+          <Feats items={PLAN_CARD_FEATS.monthly}/>
+          <Btn label="Попробовать 30 дней" onClick={()=>choose('monthly')}/>
+        </div>
+
+        <div style={{border:`1px solid ${C.border}`,background:'var(--c-surface)',borderRadius:16,padding:'18px 16px',marginBottom:16}}>
+          <span style={{display:'inline-block',fontFamily:MONO,fontSize:10,fontWeight:700,letterSpacing:.5,textTransform:'uppercase',padding:'5px 10px',borderRadius:20,background:C.greenL,color:C.greenD,marginBottom:12}}>выгоднее на {Math.round((1-status.prices.yearly/(status.prices.monthly*12))*100)}%</span>
+          <div style={{fontSize:13,fontWeight:600,color:C.text,marginBottom:2}}>Pro · год</div>
+          <div style={{fontFamily:MONO,fontSize:24,fontWeight:600,color:C.text,margin:'6px 0 2px'}}>{fmtN(status.prices.yearly)} ₽<span style={{fontSize:13,fontWeight:400,color:C.muted}}>/год</span></div>
+          <div style={{fontSize:11,color:C.muted,marginBottom:14}}>≈ {fmtN(Math.round(status.prices.yearly/12))} ₽ в месяц при оплате за год</div>
+          <Feats items={PLAN_CARD_FEATS.yearly}/>
+          <Btn label="Попробовать 30 дней" ghost onClick={()=>choose('yearly')}/>
+        </div>
+
+        <div style={{fontSize:11,color:C.muted,textAlign:'center',lineHeight:1.5}}>{trialLabel} — доступны все возможности Pro. Тариф и автопродление можно выбрать в Настройках → Подписка.</div>
+      </div></div>
     </div>
   );
 }
