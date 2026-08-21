@@ -77,56 +77,39 @@ export function PricingIntro({onDone}){
     const d=new Date(status.trialEndsAt);
     return `До ${d.getDate()} ${MONTH_SHORT[d.getMonth()]} ${d.getFullYear()}`;
   })();
-  const choose=period=>{
-    // period: null (бесплатно) | 'monthly' | 'yearly' — это только предпочтение
-    // по умолчанию для BillingSection дальше в Настройках; само оформление
-    // подписки и согласие на автосписание карты — там же, не здесь.
-    if(period){try{localStorage.setItem('ff_preferred_billing_period',period);}catch{}}
-    onDone();
-  };
   const Feats=({items})=>(
-    <ul style={{listStyle:'none',margin:'0 0 14px',padding:0,display:'flex',flexDirection:'column',gap:8}}>
+    <ul style={{listStyle:'none',margin:'8px 0 0',padding:0,display:'flex',flexDirection:'column',gap:6}}>
       {items.map(f=>(
-        <li key={f} style={{display:'flex',gap:8,alignItems:'flex-start',fontSize:12.5,color:C.text2,lineHeight:1.45}}>
+        <li key={f} style={{display:'flex',gap:6,alignItems:'flex-start',fontSize:11,color:C.text2,lineHeight:1.4}}>
           <span style={{color:C.orange,fontWeight:600,flexShrink:0}}>✓</span>{f}
         </li>
       ))}
     </ul>
+  );
+  const PlanRow=({badge,badgeColor,name,price,per,sub,feats})=>(
+    <div style={{width:'100%',border:`1px solid ${C.border}`,background:'var(--c-surface)',borderRadius:14,padding:'14px 16px',marginBottom:10,textAlign:'left'}}>
+      {badge&&<span style={{display:'inline-block',fontFamily:MONO,fontSize:9,fontWeight:700,letterSpacing:.4,textTransform:'uppercase',padding:'3px 8px',borderRadius:20,background:badgeColor==='green'?C.greenL:C.orangeL,color:badgeColor==='green'?C.greenD:C.orangeD,marginBottom:6}}>{badge}</span>}
+      <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:1}}>
+        <span style={{fontSize:12.5,fontWeight:600,color:C.text}}>{name}</span>
+        <span style={{fontFamily:MONO,fontSize:16,fontWeight:700,color:C.text}}>{price}{per&&<span style={{fontFamily:'inherit',fontSize:10.5,fontWeight:400,color:C.muted}}>{per}</span>}</span>
+      </div>
+      {sub&&<div style={{fontSize:10.5,color:C.muted,marginBottom:feats?0:0}}>{sub}</div>}
+      {feats&&<Feats items={feats}/>}
+    </div>
   );
   return(
     <div style={{height:'100%',background:C.bg,display:'flex',flexDirection:'column'}}>
       <div style={{overflowY:'auto',flex:1,minHeight:0}}><div style={{padding:'28px 24px 40px'}}>
         <div style={{width:52,height:52,borderRadius:16,background:C.orangeL,display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,margin:'0 auto 16px'}}>⭐</div>
         <h2 style={{fontSize:22,fontWeight:600,letterSpacing:-.3,color:C.text,margin:'0 0 8px',textAlign:'center'}}>Первые 30 дней — бесплатно</h2>
-        <div style={{fontSize:12.5,color:C.text2,lineHeight:1.5,textAlign:'center',marginBottom:22}}>Полный доступ ко всем функциям Pro. Списывать деньги не будем, пока не закончится пробный период.</div>
+        <div style={{fontSize:12.5,color:C.text2,lineHeight:1.5,textAlign:'center',marginBottom:22}}>Полный доступ ко всем функциям Pro. Вот что будет дальше.</div>
 
-        <div style={{border:`1px solid ${C.border}`,background:'var(--c-surface)',borderRadius:16,padding:'18px 16px',marginBottom:12}}>
-          <div style={{fontSize:13,fontWeight:600,color:C.text,marginBottom:2}}>Бесплатно</div>
-          <div style={{fontFamily:MONO,fontSize:24,fontWeight:600,color:C.text,margin:'6px 0 2px'}}>0 ₽</div>
-          <div style={{fontSize:11,color:C.muted,marginBottom:14}}>навсегда</div>
-          <Feats items={PLAN_CARD_FEATS.free}/>
-          <Btn label="Начать бесплатно" ghost onClick={()=>choose(null)}/>
-        </div>
+        <PlanRow name="Бесплатно" price="0 ₽" sub="навсегда" feats={PLAN_CARD_FEATS.free}/>
+        <PlanRow badge="30 дней бесплатно" badgeColor="orange" name="Pro · месяц" price={`${fmtN(status.prices.monthly)} ₽`} per="/мес" feats={PLAN_CARD_FEATS.monthly}/>
+        <PlanRow badge={`выгоднее на ${Math.round((1-status.prices.yearly/(status.prices.monthly*12))*100)}%`} badgeColor="green" name="Pro · год" price={`${fmtN(status.prices.yearly)} ₽`} per="/год" sub={`≈ ${fmtN(Math.round(status.prices.yearly/12))} ₽ в месяц при оплате за год`}/>
 
-        <div style={{border:`2px solid ${C.orange}`,borderRadius:16,padding:'18px 16px',marginBottom:12}}>
-          <span style={{display:'inline-block',fontFamily:MONO,fontSize:10,fontWeight:700,letterSpacing:.5,textTransform:'uppercase',padding:'5px 10px',borderRadius:20,background:C.orangeL,color:C.orangeD,marginBottom:12}}>30 дней бесплатно</span>
-          <div style={{fontSize:13,fontWeight:600,color:C.text,marginBottom:2}}>Pro · месяц</div>
-          <div style={{fontFamily:MONO,fontSize:24,fontWeight:600,color:C.text,margin:'6px 0 2px'}}>{fmtN(status.prices.monthly)} ₽<span style={{fontSize:13,fontWeight:400,color:C.muted}}>/мес</span></div>
-          <div style={{fontSize:11,color:C.muted,lineHeight:1.5,marginBottom:14}}>Карту привязывать не нужно — можно просто попробовать. Не оформите Pro — аккаунт сам перейдёт на бесплатный тариф.</div>
-          <Feats items={PLAN_CARD_FEATS.monthly}/>
-          <Btn label="Попробовать 30 дней" onClick={()=>choose('monthly')}/>
-        </div>
-
-        <div style={{border:`1px solid ${C.border}`,background:'var(--c-surface)',borderRadius:16,padding:'18px 16px',marginBottom:16}}>
-          <span style={{display:'inline-block',fontFamily:MONO,fontSize:10,fontWeight:700,letterSpacing:.5,textTransform:'uppercase',padding:'5px 10px',borderRadius:20,background:C.greenL,color:C.greenD,marginBottom:12}}>выгоднее на {Math.round((1-status.prices.yearly/(status.prices.monthly*12))*100)}%</span>
-          <div style={{fontSize:13,fontWeight:600,color:C.text,marginBottom:2}}>Pro · год</div>
-          <div style={{fontFamily:MONO,fontSize:24,fontWeight:600,color:C.text,margin:'6px 0 2px'}}>{fmtN(status.prices.yearly)} ₽<span style={{fontSize:13,fontWeight:400,color:C.muted}}>/год</span></div>
-          <div style={{fontSize:11,color:C.muted,marginBottom:14}}>≈ {fmtN(Math.round(status.prices.yearly/12))} ₽ в месяц при оплате за год</div>
-          <Feats items={PLAN_CARD_FEATS.yearly}/>
-          <Btn label="Попробовать 30 дней" ghost onClick={()=>choose('yearly')}/>
-        </div>
-
-        <div style={{fontSize:11,color:C.muted,textAlign:'center',lineHeight:1.5}}>{trialLabel} — доступны все возможности Pro. Тариф и автопродление можно выбрать в Настройках → Подписка.</div>
+        <div style={{fontSize:11,color:C.muted,textAlign:'center',lineHeight:1.5,margin:'6px 0 16px'}}>Карту привязывать не нужно. Не оформите Pro — аккаунт сам перейдёт на бесплатный тариф. {trialLabel} доступны все возможности Pro, выбрать план можно в Настройках → Подписка.</div>
+        <Btn label="Продолжить" onClick={onDone}/>
       </div></div>
     </div>
   );
