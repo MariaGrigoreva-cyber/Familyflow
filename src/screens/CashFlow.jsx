@@ -129,8 +129,8 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx,weeksSummary,negativeW
           let runningBalance=computeBalances(state).savingStart;
           const curWk=todayKey();
           return weeksSummary.map(({wk,wSp,wTot,wInc,bal,wPiggy},idx)=>{
-            const isFuture=wk>curWk;
-            const deduct=isFuture?wTot:wSp;
+            const isPast=wk<curWk;
+            const deduct=isPast?wSp:wTot;
             runningBalance=runningBalance+wInc-deduct;
             const isCur=wk===curWeek,{week:wNum,year:wYear}=parseWeekKey(wk);
             const runPlus=runningBalance>=0;
