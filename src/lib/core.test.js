@@ -373,14 +373,14 @@ describe('projectCashFlow — прогноз накопительного бал
   test('свободные средства = минимум будущего баланса с запасом на план следующей недели', () => {
     const state = { startBalance: 1000, weekItems: {} };
     const weeksSummary = [
-      { wk: curWk, wSp: 0, wTot: 500, wInc: 500 }, // текущая: факт (wSp=0) → баланс 1000+500-0=1500
-      { wk: nextWk, wSp: 0, wTot: 800, wInc: 200 }, // будущая: план → баланс 1500+200-800=900
-      { wk: wk3, wSp: 0, wTot: 100, wInc: 1000 }, // будущая: план → баланс 900+1000-100=1800
+      { wk: curWk, wSp: 0, wTot: 500, wInc: 500 }, // текущая: план (wTot=500), т.к. неделя ещё не закрыта → баланс 1000+500-500=1000
+      { wk: nextWk, wSp: 0, wTot: 800, wInc: 200 }, // будущая: план → баланс 1000+200-800=400
+      { wk: wk3, wSp: 0, wTot: 100, wInc: 1000 }, // будущая: план → баланс 400+1000-100=1300
     ];
     const { freeSpendableNow, negativeWeek } = projectCashFlow(state, weeksSummary);
     expect(negativeWeek).toBeNull();
-    // С запасом: [1500-800, 900-100, 1800-0] = [700, 800, 1800] → минимум 700
-    expect(freeSpendableNow).toBe(700);
+    // С запасом: [1000-800, 400-100, 1300-0] = [200, 300, 1300] → минимум 200
+    expect(freeSpendableNow).toBe(200);
   });
 
   test('если прогноз уходит в минус — свободные средства 0 (не отрицательное число)', () => {

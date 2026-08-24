@@ -299,8 +299,9 @@ const computeWeeksSummary=state=>{
   });
 };
 
-// Проекция накопительного баланса вперёд по неделям (план для будущих, факт для
-// прошлых/текущей) — общая основа для двух вещей: "когда баланс уйдёт в минус"
+// Проекция накопительного баланса вперёд по неделям (план для будущих И текущей
+// недели — она ещё не закрыта, факт только для прошлых) — общая основа для двух
+// вещей: "когда баланс уйдёт в минус"
 // (банер на Потоке) и "сколько можно потратить сверх плана прямо сейчас, чтобы
 // баланс не ушёл в минус НИКОГДА" (свободные средства на Сегодня). Второе — это
 // минимум проекции от сегодняшней недели и дальше: трата X сегодня сдвигает весь
@@ -321,8 +322,8 @@ const projectCashFlow=(state,weeksSummary)=>{
   const weeklyBalances=[];
   for(let i=0;i<weeksSummary.length;i++){
     const d=weeksSummary[i];
-    const isFuture=d.wk>curWk;
-    bal=bal+d.wInc-(isFuture?d.wTot:d.wSp);
+    const isPast=d.wk<curWk;
+    bal=bal+d.wInc-(isPast?d.wSp:d.wTot);
     weeklyBalances.push({wk:d.wk,bal,wTot:d.wTot});
     if(negativeWeek===null&&bal<0)negativeWeek={wk:d.wk,bal};
     if(d.wk>=curWk){

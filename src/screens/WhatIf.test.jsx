@@ -11,13 +11,16 @@ import { buildDemoState, computeWeeksSummary, projectCashFlow } from '../lib/cor
 // 'risk' vs 'warn') в зависимости от того, сколько зарплат успевало прийти до
 // конца видимого окна. Фиксируем дату — не подменяя таймеры (userEvent на них
 // завязан), только Date, — чтобы сценарий детерминированно был на грани минуса.
+// Дата намеренно НЕ 2026-01-12: демо-ипотека (day:15, ещё не отмечена) в ту
+// неделю задирала базовый прогноз в минус ещё до применения сценария (см. фикс
+// projectCashFlow — текущая неделя теперь учитывает неотмеченные план-платежи).
 const REAL_DATE = Date;
 class FixedDate extends REAL_DATE {
   constructor(...args) {
-    if (args.length === 0) return new REAL_DATE('2026-01-12T09:00:00');
+    if (args.length === 0) return new REAL_DATE('2026-01-19T09:00:00');
     return new REAL_DATE(...args);
   }
-  static now() { return new REAL_DATE('2026-01-12T09:00:00').getTime(); }
+  static now() { return new REAL_DATE('2026-01-19T09:00:00').getTime(); }
 }
 global.Date = FixedDate;
 
@@ -153,7 +156,7 @@ test('декрет: падение дохода при неудачном сце
   const user = userEvent.setup();
   renderScreen();
   await user.click(screen.getByText('Декрет'));
-  await user.type(screen.getByPlaceholderText('0'), '30000');
+  await user.type(screen.getByPlaceholderText('0'), '10000');
   await user.click(screen.getByText('Посчитать'));
   expect(screen.getByText(/уйдёте в минус/)).toBeInTheDocument();
   expect(screen.getByText(/Разрыв уходит, если платёж не выше/)).toBeInTheDocument();
