@@ -147,10 +147,15 @@ describe('Onboarding — полный сценарий', () => {
   });
 });
 
-describe('Onboarding — заполнение с помощью ИИ (шаг 1)', () => {
+describe('Onboarding — заполнение с помощью ИИ (шаг 2)', () => {
+  // Карточка живёт на шаге 2 (доходы) — она не помогает с семьёй/балансом на
+  // шаге 1, поэтому каждый тест сначала переходит туда через «Далее →».
+  const goToStep2 = async user => user.click(screen.getByText('Далее →'));
+
   test('пустой текст — валидация, aiOnboardingDraft не вызывается', async () => {
     const user = userEvent.setup();
     render(<Onboarding onDone={() => {}} showAi={true} />);
+    await goToStep2(user);
     await user.click(screen.getByText('Заполнить'));
     expect(screen.getByText('Опишите доход и расходы свободным текстом')).toBeInTheDocument();
     expect(api.aiOnboardingDraft).not.toHaveBeenCalled();
@@ -166,14 +171,14 @@ describe('Onboarding — заполнение с помощью ИИ (шаг 1)'
     const user = userEvent.setup();
     const onDone = jest.fn();
     render(<Onboarding onDone={onDone} showAi={true} />);
+    await goToStep2(user);
 
     await user.type(screen.getByPlaceholderText(/получаю 120 тысяч/), 'получаю 120 тысяч, трачу 30 тысяч на еду');
     await user.click(screen.getByText('Заполнить'));
-    expect(await screen.findByText('✓ Заполнено — проверьте на следующих шагах')).toBeInTheDocument();
+    expect(await screen.findByText('✓ Заполнено — доход ниже, категории на следующем шаге')).toBeInTheDocument();
     expect(api.aiOnboardingDraft).toHaveBeenCalledWith('получаю 120 тысяч, трачу 30 тысяч на еду');
 
-    // Шаг 2: доход уже подставлен в поле «на руки»
-    await user.click(screen.getByText('Далее →'));
+    // Доход уже подставлен в поле «на руки» — прямо здесь, на этом же шаге
     expect(screen.getByDisplayValue('120000')).toBeInTheDocument();
     await user.click(screen.getByText('Далее →'));
 
@@ -194,12 +199,12 @@ describe('Onboarding — заполнение с помощью ИИ (шаг 1)'
     const user = userEvent.setup();
     const onDone = jest.fn();
     render(<Onboarding onDone={onDone} showAi={true} />);
+    await goToStep2(user);
 
     await user.type(screen.getByPlaceholderText(/получаю 120 тысяч/), 'плачу 500 за непонятную подписку');
     await user.click(screen.getByText('Заполнить'));
-    await screen.findByText('✓ Заполнено — проверьте на следующих шагах');
+    await screen.findByText('✓ Заполнено — доход ниже, категории на следующем шаге');
 
-    await user.click(screen.getByText('Далее →'));
     await user.click(screen.getByText('Далее →'));
     await user.click(screen.getByText('Далее →'));
     await user.click(screen.getByText('Открыть Семейный поток →'));
@@ -213,14 +218,64 @@ describe('Onboarding — заполнение с помощью ИИ (шаг 1)'
     api.aiOnboardingDraft.mockRejectedValue(new Error('ai_parse_failed'));
     const user = userEvent.setup();
     render(<Onboarding onDone={() => {}} showAi={true} />);
+    await goToStep2(user);
 
     await user.type(screen.getByPlaceholderText(/получаю 120 тысяч/), 'непонятный текст');
     await user.click(screen.getByText('Заполнить'));
     expect(await screen.findByText('Ошибка сети — попробуйте ещё раз')).toBeInTheDocument();
   });
 
-  test('showAi не передан (по умолчанию false) — карточки нет', () => {
+  test('showAi не передан (по умолчанию false) — карточки нет даже на шаге 2', async () => {
+    const user = userEvent.setup();
     render(<Onboarding onDone={() => {}} />);
+    await goToStep2(user);
     expect(screen.queryByText('🤖 Заполнить с помощью ИИ')).not.toBeInTheDocument();
+  });
+
+  test('сворачивается и разворачивается по клику на заголовок', async () => {
+    const user = userEvent.setup();
+    render(<Onboarding onDone={() => {}} showAi={true} />);
+    await goToStep2(user);
+
+    expect(screen.getByPlaceholderText(/получаю 120 тысяч/)).toBeInTheDocument();
+    await user.click(screen.getByText('🤖 Заполнить с помощью ИИ'));
+    expect(screen.queryByPlaceholderText(/получаю 120 тысяч/)).not.toBeInTheDocument();
+    await user.click(screen.getByText('🤖 Заполнить с помощью ИИ'));
+    expect(screen.getByPlaceholderText(/получаю 120 тысяч/)).toBeInTheDocument();
+  });
+
+  test('единственный источник дохода описан как оклад до налога — тип «Наёмный сотрудник», НДФЛ досчитывается', async () => {
+    api.aiOnboardingDraft.mockResolvedValue({
+      draft: { income: [{ source: 'оклад', amount: 150000, beforeTax: true }], expenses: [] },
+    });
+    const user = userEvent.setup();
+    render(<Onboarding onDone={() => {}} showAi={true} />);
+    await goToStep2(user);
+
+    await user.type(screen.getByPlaceholderText(/получаю 120 тысяч/), 'оклад 150000 до вычета налога');
+    await user.click(screen.getByText('Заполнить'));
+    await screen.findByText('✓ Заполнено — доход ниже, категории на следующем шаге');
+
+    expect(screen.getByText('Доход до вычета НДФЛ')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('150000')).toBeInTheDocument();
+  });
+
+  test('несколько источников дохода — остаются «на руки», даже если один назван окладом', async () => {
+    api.aiOnboardingDraft.mockResolvedValue({
+      draft: {
+        income: [{ source: 'оклад', amount: 150000, beforeTax: true }, { source: 'фриланс', amount: 30000 }],
+        expenses: [],
+      },
+    });
+    const user = userEvent.setup();
+    render(<Onboarding onDone={() => {}} showAi={true} />);
+    await goToStep2(user);
+
+    await user.type(screen.getByPlaceholderText(/получаю 120 тысяч/), 'оклад 150000 до налога плюс фриланс 30000');
+    await user.click(screen.getByText('Заполнить'));
+    await screen.findByText('✓ Заполнено — доход ниже, категории на следующем шаге');
+
+    expect(screen.getByText('Доход в месяц (на руки)')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('180000')).toBeInTheDocument();
   });
 });

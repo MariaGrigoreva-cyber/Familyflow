@@ -1,6 +1,6 @@
 // FamilyFlow — экран Настройки
 import React, { useState, useEffect } from 'react';
-import {C,MONO,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,PRIVACY_URL,TERMS_URL,TELEGRAM_URL,APP_VERSION,APP_BUILD,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
+import {C,MONO,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,PRIVACY_URL,TERMS_URL,TELEGRAM_URL,APP_VERSION,APP_BUILD,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED,monthlyOf} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,EmojiPicker,ProInline,CatIcon} from '../lib/ui';
 import {isLoggedIn,logout,register,login,familyMe,familyInvite,familyJoin,errText,changePassword,deleteAccount,resetRequest,resetConfirm,resetCloudState,restoreCloudStateBackup,billingStatus,billingCheckout,billingCancelAutoRenew,billingRefund} from '../api';
 import {getPushState,enablePush,disablePush} from '../push';
@@ -22,6 +22,16 @@ export function SettingsScreen({state,onEditCat,onAddCat,onDeleteCustomCat,onEdi
   // сессии», а «вообще один раз» — сама вкладка открывается не при первом
   // запуске, так что сессионного флага недостаточно, нужен постоянный localStorage).
   const[showTgPromo,setShowTgPromo]=useState(false);
+  // Группировка «Запланированных платежей» по категории (пока только за
+  // showAi-флагом, см. ниже) — плоский список растёт на строку с каждой новой
+  // тратой, даже если это та же категория на разных членов семьи; группы со
+  // сворачиванием держат список компактным независимо от того, сколько записей.
+  const[expandedPlanGroups,setExpandedPlanGroups]=useState(()=>new Set());
+  const togglePlanGroup=catId=>setExpandedPlanGroups(prev=>{
+    const next=new Set(prev);
+    next.has(catId)?next.delete(catId):next.add(catId);
+    return next;
+  });
   useEffect(()=>{
     try{
       if(!localStorage.getItem('ff_tg_promo_seen')){
@@ -160,7 +170,47 @@ export function SettingsScreen({state,onEditCat,onAddCat,onDeleteCustomCat,onEdi
       </div>
       {planned.length>0&&<>
         <SecTitle>ЗАПЛАНИРОВАННЫЕ ПЛАТЕЖИ</SecTitle>
-        {planned.map((p,idx)=>{
+        {showAi?(()=>{
+          // Тот же порядок, что и раньше в плоском списке — просто собираем
+          // подряд идущие записи одной категории в одну группу вместо N строк.
+          const groups=[];
+          const byId=new Map();
+          planned.forEach(p=>{
+            let g=byId.get(p.catId);
+            if(!g){g={catId:p.catId,cat:allCats.find(c=>c.id===p.catId),items:[]};byId.set(p.catId,g);groups.push(g);}
+            g.items.push(p);
+          });
+          return groups.map(g=>{
+            const isOpen=expandedPlanGroups.has(g.catId);
+            const monthly=g.items.reduce((s,p)=>s+monthlyOf(p),0);
+            return(
+              <div key={g.catId}>
+                <button onClick={()=>togglePlanGroup(g.catId)} aria-expanded={isOpen} style={{display:'flex',alignItems:'center',gap:11,padding:'9px 0',width:'100%',textAlign:'left',cursor:'pointer',background:'none',border:'none',borderBottom:`1px dashed ${C.border}`,fontFamily:'inherit'}}>
+                  <span style={{width:26,height:26,borderRadius:8,background:g.cat?.color||C.cream,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,flexShrink:0}}><CatIcon cat={g.cat}/></span>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:13.5,fontWeight:500,color:C.text}}>{g.cat?.name||'Прочее'}</div>
+                    <div style={{fontFamily:MONO,fontSize:10,color:C.muted,marginTop:1}}>{g.items.length} {g.items.length===1?'запись':'записи'}</div>
+                  </div>
+                  <span style={{fontFamily:MONO,fontSize:12.5,fontWeight:600,color:C.text,marginRight:2}}>{fmtN(Math.round(monthly))}/мес</span>
+                  <span style={{fontSize:11,color:C.muted,transform:isOpen?'rotate(180deg)':'none',transition:'transform .2s'}}>▾</span>
+                </button>
+                {isOpen&&<div style={{paddingLeft:37}}>
+                  {g.items.map((p,idx)=>{
+                    const mem=members.find(m=>m.id===p.memberId);
+                    const rep=REPEAT_OPTS.find(r=>r.id===p.repeat);
+                    return(
+                      <button key={p.id} onClick={()=>onEditCat(p)} style={{display:'flex',alignItems:'center',gap:11,padding:'9px 0',width:'100%',textAlign:'left',cursor:'pointer',background:'none',border:'none',borderBottom:idx<g.items.length-1?`1px dashed ${C.border}`:'none',fontFamily:'inherit'}}>
+                        <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,color:C.text}}>{p.name}</div><div style={{fontFamily:MONO,fontSize:10,color:C.muted,marginTop:1}}>{rep?.label}{p.days?.length>0?` · ${p.days.join(',')}`:''}{showMember?` · ${mem?.name}`:''}</div></div>
+                        <span style={{fontFamily:MONO,fontSize:12,fontWeight:600,color:C.text,marginRight:4}}>{fmtN(p.amount)}</span>
+                        <span style={{fontSize:13,color:C.muted}}>›</span>
+                      </button>
+                    );
+                  })}
+                </div>}
+              </div>
+            );
+          });
+        })():planned.map((p,idx)=>{
           const cat=allCats.find(c=>c.id===p.catId),mem=members.find(m=>m.id===p.memberId);
           const rep=REPEAT_OPTS.find(r=>r.id===p.repeat);
           return(

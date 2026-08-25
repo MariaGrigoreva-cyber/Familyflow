@@ -459,3 +459,50 @@ describe('AI-поддержка в разделе «Поддержка» — в�
     expect(screen.getByText('🤖 Спросить ИИ-ассистента')).toBeInTheDocument();
   });
 });
+
+describe('Запланированные платежи — группировка по категории (showAi)', () => {
+  // Демо-состояние (buildDemoState) держит «Еда» в двух записях (dp3 — Мария,
+  // dp4 — Сергей) — удобный кейс для проверки и плоского, и группированного вида.
+  test('showAi не передан — плоский список, каждая запись отдельной строкой', () => {
+    render(<SettingsScreen {...baseProps} />);
+    // Плитка в сетке категорий + 2 отдельные строки списка = 3 вхождения
+    expect(screen.getAllByText('Еда')).toHaveLength(3);
+    expect(screen.queryByText('2 записи')).not.toBeInTheDocument();
+  });
+
+  test('showAi=true — записи одной категории сворачиваются в одну группу с количеством', () => {
+    render(<SettingsScreen {...baseProps} showAi={true} />);
+    // Плитка в сетке + один заголовок группы = 2 вхождения (не 3, как без группировки)
+    expect(screen.getAllByText('Еда')).toHaveLength(2);
+    expect(screen.getByText('2 записи')).toBeInTheDocument();
+  });
+
+  // «Сергей» сам по себе неоднозначен — то же имя есть у кнопки «+ Ещё источник»
+  // в разделе «Доходы» — ищем именно leaf-узел строки записи плана вида
+  // «Каждую нед. · Сергей» (children.length===0 отсеивает div-обёртки повыше).
+  const isFoodRowFor = name => (_, el) => el.tagName.toLowerCase() === 'div' && el.children.length === 0 && new RegExp(`нед\\..*${name}`).test(el.textContent);
+  const findFoodRowFor = name => screen.getByText(isFoodRowFor(name));
+
+  test('showAi=true — клик по заголовку группы разворачивает и сворачивает записи, не вызывая onEditCat', async () => {
+    const user = userEvent.setup();
+    const onEditCat = jest.fn();
+    render(<SettingsScreen {...baseProps} showAi={true} onEditCat={onEditCat} />);
+
+    expect(screen.queryAllByText(isFoodRowFor('Сергей'))).toHaveLength(0);
+    await user.click(screen.getByText('2 записи'));
+    expect(onEditCat).not.toHaveBeenCalled();
+    expect(findFoodRowFor('Сергей')).toBeInTheDocument();
+
+    await user.click(screen.getByText('2 записи'));
+    expect(screen.queryAllByText(isFoodRowFor('Сергей'))).toHaveLength(0);
+  });
+
+  test('showAi=true — клик по развёрнутой записи всё ещё открывает редактирование', async () => {
+    const user = userEvent.setup();
+    const onEditCat = jest.fn();
+    render(<SettingsScreen {...baseProps} showAi={true} onEditCat={onEditCat} />);
+    await user.click(screen.getByText('2 записи'));
+    await user.click(findFoodRowFor('Сергей').closest('button'));
+    expect(onEditCat).toHaveBeenCalledWith(expect.objectContaining({ id: 'dp4', catId: 'food' }));
+  });
+});

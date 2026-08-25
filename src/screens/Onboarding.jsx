@@ -135,6 +135,7 @@ export function Onboarding({onDone,showAi=false}){
   const[aiBusy,setAiBusy]=useState(false);
   const[aiError,setAiError]=useState('');
   const[aiApplied,setAiApplied]=useState(false);
+  const[aiCollapsed,setAiCollapsed]=useState(false);
   // Свободный текст (в т.ч. надиктованный голосом на клавиатуре) -> POST
   // /ai/onboarding-draft (см. lib/aiPrompts.js на бэкенде) -> черновик дохода
   // и расходов. Ничего не уходит в облако напрямую — только предзаполняет
@@ -151,10 +152,18 @@ export function Onboarding({onDone,showAi=false}){
     setAiBusy(true);setAiError('');setAiApplied(false);
     try{
       const{draft}=await aiOnboardingDraft(aiText.trim());
-      const totalIncome=(draft.income||[]).reduce((sum,i)=>sum+(parseInt(i.amount)||0),0);
+      const incomeItems=(draft.income||[]).filter(i=>(parseInt(i.amount)||0)>0);
+      const totalIncome=incomeItems.reduce((sum,i)=>sum+(parseInt(i.amount)||0),0);
+      // «Оклад до налога» распознаём как employed (НДФЛ досчитает сам) только
+      // когда источник один — при нескольких источниках с разным beforeTax их
+      // всё равно приходится складывать в одну строку дохода, а смешивать в
+      // ней gross и net было бы неверно, так что для них остаётся безопасный
+      // вариант «на руки» (сумма как есть, без досчёта налога).
+      const singleGross=incomeItems.length===1&&incomeItems[0].beforeTax===true;
       if(totalIncome>0){
         const firstId=incomes[0]?.id;
-        if(firstId)setIncomes(p=>p.map(i=>i.id===firstId?{...i,incomeType:'manual',gross:String(totalIncome)}:i));
+        if(firstId)setIncomes(p=>p.map(i=>i.id===firstId?
+          {...i,incomeType:singleGross?'employed':'manual',gross:String(totalIncome)}:i));
       }
       const newSelections=(draft.expenses||[]).filter(e=>(parseInt(e.amount)||0)>0).map(e=>({
         id:uid(),catId:matchCatId(e.category),amount:String(parseInt(e.amount)||0),repeat:'monthly',days:[1],memberId:members[0]?.id,
@@ -240,18 +249,6 @@ export function Onboarding({onDone,showAi=false}){
       <OSteps current={0}/>
       <div style={{overflowY:'auto',flex:1,minHeight:0}}><div style={pad}>
         <h2 style={{fontSize:24,fontWeight:600,letterSpacing:-.3,color:C.text,margin:'0 0 20px'}}>Семья и стартовый баланс</h2>
-        {showAi&&(
-          <div style={{border:`1.5px dashed ${C.orange}`,background:C.orangeL,borderRadius:14,padding:'14px 16px',marginBottom:20,boxSizing:'border-box'}}>
-            <div style={{fontSize:13,fontWeight:600,color:C.orangeD,marginBottom:8}}>🤖 Заполнить с помощью ИИ</div>
-            <div style={{fontSize:11.5,color:C.orangeD,opacity:.85,marginBottom:10,lineHeight:1.5}}>Опишите свободно, сколько получаете и на что тратите — ИИ заполнит доход и категории расходов, вы сможете всё проверить и поправить на следующих шагах.</div>
-            <textarea rows={3} value={aiText} placeholder="Например: получаю 120 тысяч в месяц, трачу 30 тысяч на еду, 10 тысяч на транспорт"
-              onChange={e=>{setAiText(e.target.value);if(aiError)setAiError('');}}
-              style={{...s.input,resize:'vertical',fontFamily:'inherit'}}/>
-            {aiError&&<div style={{fontSize:12,color:C.red,marginTop:6}}>{aiError}</div>}
-            {aiApplied&&<div style={{fontSize:12,color:C.green,marginTop:6}}>✓ Заполнено — проверьте на следующих шагах</div>}
-            <button onClick={applyAiDraft} disabled={aiBusy} style={{marginTop:10,width:'100%',padding:11,borderRadius:12,border:'none',background:C.orange,color:'#fff',fontWeight:600,fontSize:13.5,cursor:'pointer',fontFamily:'inherit',opacity:aiBusy?.7:1}}>{aiBusy?'Заполняем…':'Заполнить'}</button>
-          </div>
-        )}
         <div style={{fontFamily:MONO,fontSize:10.5,letterSpacing:1.5,color:C.muted,textTransform:'uppercase',marginBottom:8}}>СКОЛЬКО СЕЙЧАС НА СЧЕТАХ?</div>
         <div style={{border:`1.5px solid ${C.orange}`,background:'var(--c-surface)',borderRadius:14,padding:'16px 18px',display:'flex',alignItems:'baseline',justifyContent:'space-between',boxSizing:'border-box'}}>
           <input type="text" inputMode="numeric" value={startBalance} onChange={e=>setStartBalance(e.target.value)} placeholder="0"
@@ -287,6 +284,23 @@ export function Onboarding({onDone,showAi=false}){
       <div style={{overflowY:'auto',flex:1,minHeight:0}}><div style={pad}>
         <h2 style={{fontSize:24,fontWeight:600,letterSpacing:-.3,color:C.text,margin:0}}>Доходы семьи</h2>
         <div style={{fontSize:12.5,color:'var(--c-muted2)',marginTop:4,marginBottom:18}}>Точный доход и дни выплат нужны, чтобы бюджет заранее показывал остаток на каждый день и предупреждал, если денег не хватит</div>
+        {showAi&&(
+          <div style={{border:`1.5px dashed ${C.orange}`,background:C.orangeL,borderRadius:14,padding:'14px 16px',marginBottom:20,boxSizing:'border-box'}}>
+            <button onClick={()=>setAiCollapsed(v=>!v)} aria-expanded={!aiCollapsed} style={{display:'flex',alignItems:'center',justifyContent:'space-between',width:'100%',background:'none',border:'none',padding:0,margin:0,cursor:'pointer',fontFamily:'inherit'}}>
+              <span style={{fontSize:13,fontWeight:600,color:C.orangeD}}>🤖 Заполнить с помощью ИИ</span>
+              <span style={{color:C.orangeD,fontSize:11}}>{aiCollapsed?'▼':'▲'}</span>
+            </button>
+            {!aiCollapsed&&(<>
+              <div style={{fontSize:11.5,color:C.orangeD,opacity:.85,margin:'8px 0 10px',lineHeight:1.5}}>Опишите свободно, сколько получаете и на что тратите — ИИ заполнит доход и категории расходов, вы сможете всё проверить и поправить на следующих шагах.</div>
+              <textarea rows={3} value={aiText} placeholder="Например: получаю 120 тысяч в месяц, трачу 30 тысяч на еду, 10 тысяч на транспорт"
+                onChange={e=>{setAiText(e.target.value);if(aiError)setAiError('');}}
+                style={{...s.input,resize:'vertical',fontFamily:'inherit'}}/>
+              {aiError&&<div style={{fontSize:12,color:C.red,marginTop:6}}>{aiError}</div>}
+              {aiApplied&&<div style={{fontSize:12,color:C.green,marginTop:6}}>✓ Заполнено — доход ниже, категории на следующем шаге</div>}
+              <button onClick={applyAiDraft} disabled={aiBusy} style={{marginTop:10,width:'100%',padding:11,borderRadius:12,border:'none',background:C.orange,color:'#fff',fontWeight:600,fontSize:13.5,cursor:'pointer',fontFamily:'inherit',opacity:aiBusy?.7:1}}>{aiBusy?'Заполняем…':'Заполнить'}</button>
+            </>)}
+          </div>
+        )}
         {memberIncomes.map((inc,idx)=>{
           const m=activeMembers.find(x=>x.id===inc.memberId)||activeMembers[idx];
           const gross=parseInt(inc.gross)||0;
