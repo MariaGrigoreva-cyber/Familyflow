@@ -6,10 +6,11 @@ import {isLoggedIn,logout,register,login,familyMe,familyInvite,familyJoin,errTex
 import {getPushState,enablePush,disablePush} from '../push';
 import {confirmAsync,alertAsync} from '../lib/confirm';
 import {exportFfStateAsXlsx,importFfStateFromXlsxArrayBuffer} from '../lib/excelBackup';
+import {AiSupportChat} from '../AiSupportChat';
 
 const emailOk = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
-export function SettingsScreen({state,onEditCat,onAddCat,onDeleteCustomCat,onEditIncome,onAddIncome,onUpdateMember,onAddMember,onRemoveMember,theme,onSetTheme,isPro=true,resetBackup=null}){
+export function SettingsScreen({state,onEditCat,onAddCat,onDeleteCustomCat,onEditIncome,onAddIncome,onUpdateMember,onAddMember,onRemoveMember,theme,onSetTheme,isPro=true,resetBackup=null,showAi=false}){
   const scrollToTop=()=>{try{document.querySelector('[data-settings-scroll]')?.scrollTo({top:0,behavior:'smooth'});}catch{}};
   const{members,incomes,planned,familyName,customCats=[]}=state;
   const allCats=[...DEFAULT_CATS,...customCats];
@@ -253,6 +254,7 @@ export function SettingsScreen({state,onEditCat,onAddCat,onDeleteCustomCat,onEdi
         }}/>
       </label>
       <SecTitle>ПОДДЕРЖКА</SecTitle>
+      {showAi&&<AiSupportChat/>}
       <a href="mailto:support@myfamilyflow.ru?subject=Семейный поток" style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'9px 0',textDecoration:'none',boxSizing:'border-box'}}>
         <span style={{fontSize:17}}>💬</span>
         <div style={{flex:1}}>

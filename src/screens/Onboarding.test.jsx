@@ -2,6 +2,16 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { EntryScreen, Onboarding } from './Onboarding';
+import * as api from '../api';
+
+jest.mock('../api', () => ({
+  aiOnboardingDraft: jest.fn(),
+  errText: () => 'Ошибка сети — попробуйте ещё раз',
+}));
+
+beforeEach(() => {
+  jest.clearAllMocks();
+});
 
 describe('EntryScreen', () => {
   test('варианты старта вызывают соответствующие коллбэки', async () => {
@@ -134,5 +144,83 @@ describe('Onboarding — полный сценарий', () => {
     expect(onDone).toHaveBeenCalledWith(expect.objectContaining({
       members: [expect.objectContaining({ name: 'Я' })],
     }));
+  });
+});
+
+describe('Onboarding — заполнение с помощью ИИ (шаг 1)', () => {
+  test('пустой текст — валидация, aiOnboardingDraft не вызывается', async () => {
+    const user = userEvent.setup();
+    render(<Onboarding onDone={() => {}} showAi={true} />);
+    await user.click(screen.getByText('Заполнить'));
+    expect(screen.getByText('Опишите доход и расходы свободным текстом')).toBeInTheDocument();
+    expect(api.aiOnboardingDraft).not.toHaveBeenCalled();
+  });
+
+  test('успешный черновик — доход и известная категория из шага 3 предзаполнены', async () => {
+    api.aiOnboardingDraft.mockResolvedValue({
+      draft: {
+        income: [{ source: 'зарплата', amount: 120000 }],
+        expenses: [{ category: 'еда', amount: 30000 }],
+      },
+    });
+    const user = userEvent.setup();
+    const onDone = jest.fn();
+    render(<Onboarding onDone={onDone} showAi={true} />);
+
+    await user.type(screen.getByPlaceholderText(/получаю 120 тысяч/), 'получаю 120 тысяч, трачу 30 тысяч на еду');
+    await user.click(screen.getByText('Заполнить'));
+    expect(await screen.findByText('✓ Заполнено — проверьте на следующих шагах')).toBeInTheDocument();
+    expect(api.aiOnboardingDraft).toHaveBeenCalledWith('получаю 120 тысяч, трачу 30 тысяч на еду');
+
+    // Шаг 2: доход уже подставлен в поле «на руки»
+    await user.click(screen.getByText('Далее →'));
+    expect(screen.getByDisplayValue('120000')).toBeInTheDocument();
+    await user.click(screen.getByText('Далее →'));
+
+    // Шаг 3: категория «Еда» уже выбрана — секция настройки сумм показывает её
+    expect(screen.getByText('НАСТРОЙТЕ СУММЫ')).toBeInTheDocument();
+    await user.click(screen.getByText('Далее →'));
+    await user.click(screen.getByText('Открыть Семейный поток →'));
+
+    expect(onDone).toHaveBeenCalledWith(expect.objectContaining({
+      planned: [expect.objectContaining({ catId: 'food', amount: 30000 })],
+    }));
+  });
+
+  test('категория не из списка — попадает в «Прочее»', async () => {
+    api.aiOnboardingDraft.mockResolvedValue({
+      draft: { income: [], expenses: [{ category: 'подписка на непонятный сервис', amount: 500 }] },
+    });
+    const user = userEvent.setup();
+    const onDone = jest.fn();
+    render(<Onboarding onDone={onDone} showAi={true} />);
+
+    await user.type(screen.getByPlaceholderText(/получаю 120 тысяч/), 'плачу 500 за непонятную подписку');
+    await user.click(screen.getByText('Заполнить'));
+    await screen.findByText('✓ Заполнено — проверьте на следующих шагах');
+
+    await user.click(screen.getByText('Далее →'));
+    await user.click(screen.getByText('Далее →'));
+    await user.click(screen.getByText('Далее →'));
+    await user.click(screen.getByText('Открыть Семейный поток →'));
+
+    expect(onDone).toHaveBeenCalledWith(expect.objectContaining({
+      planned: [expect.objectContaining({ catId: 'other', amount: 500 })],
+    }));
+  });
+
+  test('ошибка (например ai_parse_failed) — показывает текст ошибки, форма не заполняется', async () => {
+    api.aiOnboardingDraft.mockRejectedValue(new Error('ai_parse_failed'));
+    const user = userEvent.setup();
+    render(<Onboarding onDone={() => {}} showAi={true} />);
+
+    await user.type(screen.getByPlaceholderText(/получаю 120 тысяч/), 'непонятный текст');
+    await user.click(screen.getByText('Заполнить'));
+    expect(await screen.findByText('Ошибка сети — попробуйте ещё раз')).toBeInTheDocument();
+  });
+
+  test('showAi не передан (по умолчанию false) — карточки нет', () => {
+    render(<Onboarding onDone={() => {}} />);
+    expect(screen.queryByText('🤖 Заполнить с помощью ИИ')).not.toBeInTheDocument();
   });
 });

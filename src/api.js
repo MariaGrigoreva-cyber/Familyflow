@@ -126,6 +126,13 @@ export const billingRefund = () => req('/billing/refund', { method: 'POST' });
 export const submitFeedback = text => req('/feedback', { method: 'POST', body: { text } });
 export const declineFeedback = () => req('/feedback/decline', { method: 'POST' });
 
+// ── AI-онбординг и AI-поддержка ──────────────────────────────────────────────
+// Черновик от aiOnboardingDraft ничего не пишет в облако сам — вызывающий код
+// (Onboarding.jsx) кладёт его в локальный state формы, а в облако данные, как
+// обычно, уходят через saveCloudState только после явного подтверждения шагов.
+export const aiOnboardingDraft = text => req('/ai/onboarding-draft', { method: 'POST', body: { text } });
+export const aiSupportAsk = question => req('/ai/support-ask', { method: 'POST', body: { question } });
+
 // ── Push-уведомления ───────────────────────────────────────────────────────
 export const pushVapidPublicKey = () => req('/push/vapid-public-key', { auth: false });
 export const pushSubscribe = sub => req('/push/subscribe', { method: 'POST', body: sub });
@@ -173,4 +180,7 @@ export const errText = e => ({
   no_email: 'Яндекс не передал email — разрешите доступ к почте и попробуйте снова',
   no_code: 'Не удалось войти через Яндекс — попробуйте ещё раз',
   bad_text: 'Напишите пару слов в отзыве',
+  bad_question: 'Напишите вопрос',
+  ai_not_configured: 'ИИ-ассистент временно недоступен',
+  ai_parse_failed: 'Не удалось разобрать ответ — сформулируйте иначе или заполните вручную',
 }[e?.message] || 'Ошибка сети — попробуйте ещё раз');

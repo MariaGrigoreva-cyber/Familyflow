@@ -447,3 +447,15 @@ describe('PushSection', () => {
     expect(screen.queryByText('Включить')).not.toBeInTheDocument();
   });
 });
+
+describe('AI-поддержка в разделе «Поддержка» — видна только владельцу (showAi)', () => {
+  test('showAi не передан (по умолчанию false) — виджета нет', () => {
+    render(<SettingsScreen {...baseProps} />);
+    expect(screen.queryByText('🤖 Спросить ИИ-ассистента')).not.toBeInTheDocument();
+  });
+
+  test('showAi=true — виджет показан', () => {
+    render(<SettingsScreen {...baseProps} showAi={true} />);
+    expect(screen.getByText('🤖 Спросить ИИ-ассистента')).toBeInTheDocument();
+  });
+});

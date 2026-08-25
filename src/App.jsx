@@ -719,7 +719,7 @@ useEffect(() => {
   if(!onboarded)return(
     <div style={shell}>
       <Suspense fallback={null}>
-        <Onboarding onDone={handleOnboardingDone}/>
+        <Onboarding onDone={handleOnboardingDone} showAi={isOwnerEmail(userEmail)}/>
       </Suspense>
       <AddToHomeScreenPrompt/>
       <ConfirmHost/>
@@ -777,7 +777,7 @@ useEffect(() => {
           {tab==='plan'&&<PlanScreen state={appState} onToggle={handleToggle} onAdd={(wk)=>{setAddWeek(wk);setShowAdd(true);}} onEditTx={handleEditTx} weeksSummary={weeksSummary} negativeWeek={cashFlowProjection.negativeWeek} isPro={isPro} onUpgrade={()=>setTab('settings')}/>}
           {tab==='budget'&&<BudgetScreen state={appState} onEditPlanned={item=>{setEditItem(item);setShowEdit(true);}} onAddPlanned={handleAddPlanned} onEditPayment={handleEditPayment} onAddExtra={(data)=>{if(data&&data.amount){handleAddExtra(data);}else{setShowAddExtra(true);}}} onWithdrawPiggy={()=>setShowWithdrawPiggy(true)} onSetGoal={handleSetGoal} onAddGoalToPlan={handleEditPlanned}/>}
           {tab==='health'&&<HealthScreen state={appState} isPro={isPro} onUpgrade={()=>setTab('settings')}/>}
-          {tab==='settings'&&<SettingsScreen state={appState} onEditCat={item=>{setEditItem(item||null);setShowEdit(true);}} onAddCat={handleAddPlanned} onDeleteCustomCat={handleDeleteCustomCat} onEditIncome={handleEditIncome} onAddIncome={handleAddIncomeSource} onUpdateMember={handleUpdateMember} onAddMember={handleAddMember} onRemoveMember={handleRemoveMember} theme={theme} onSetTheme={setTheme} isPro={isPro} resetBackup={resetBackup}/>}
+          {tab==='settings'&&<SettingsScreen state={appState} onEditCat={item=>{setEditItem(item||null);setShowEdit(true);}} onAddCat={handleAddPlanned} onDeleteCustomCat={handleDeleteCustomCat} onEditIncome={handleEditIncome} onAddIncome={handleAddIncomeSource} onUpdateMember={handleUpdateMember} onAddMember={handleAddMember} onRemoveMember={handleRemoveMember} theme={theme} onSetTheme={setTheme} isPro={isPro} resetBackup={resetBackup} showAi={isOwnerEmail(userEmail)}/>}
         </Suspense>
       </div>
       {tab==='today'&&<button onClick={()=>setShowAdd(true)} aria-label="Добавить запись"
