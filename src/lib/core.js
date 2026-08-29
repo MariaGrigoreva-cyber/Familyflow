@@ -315,6 +315,11 @@ const projectCashFlow=(state,weeksSummary)=>{
   const curWk=todayKey();
   let negativeWeek=null;
   let minFromNow=null;
+  // Индекс недели, которая и задала minFromNow — то есть та самая «узкая»
+  // неделя, из-за которой свободных денег не больше. Нужен только чтобы
+  // объяснить результат (AI-помощник, см. aiFinancialContext.js); сам расчёт
+  // от него не зависит и остаётся ровно тем же.
+  let minIdx=-1;
   // Полный ряд балансов по неделям — общая основа и для банера на Потоке, и для
   // прогноза кассовых разрывов на Здоровье (там раньше была своя копия этого цикла,
   // которая для будущих недель по ошибке брала только уже отмеченные траты вместо
@@ -334,11 +339,25 @@ const projectCashFlow=(state,weeksSummary)=>{
       // сверх плана или доход, пришедший на день позже, и семья в минусе.
       const nextWTot=weeksSummary[i+1]?.wTot??0;
       const cushioned=bal-nextWTot;
-      minFromNow=minFromNow===null?cushioned:Math.min(minFromNow,cushioned);
+      if(minFromNow===null||cushioned<minFromNow){minFromNow=cushioned;minIdx=i;}
     }
   }
   const projectedFree=minFromNow===null?0:Math.round(minFromNow);
-  return{negativeWeek,freeSpendableNow:Math.max(0,Math.min(cb.balance,projectedFree)),weeklyBalances};
+  const freeSpendableNow=Math.max(0,Math.min(cb.balance,projectedFree));
+  // ── Из чего сложился freeSpendableNow ───────────────────────────────────
+  // Ничего не пересчитываем: возвращаем те же величины, что уже участвовали в
+  // формуле выше. Нужно, чтобы объяснить пользователю, ЧТО именно ограничило
+  // свободные деньги, а не только назвать итог.
+  const limitedBy=projectedFree<=0?'plan'          // план уже съедает всё
+    :cb.balance<projectedFree?'balance'            // денег ещё физически нет на счету
+    :'forecast';                                   // упираемся в узкую будущую неделю
+  const bindingWeek=minIdx>=0?{
+    wk:weeksSummary[minIdx].wk,
+    balanceAfter:Math.round(weeklyBalances[minIdx].bal),
+    nextWeekPlanned:Math.round(weeksSummary[minIdx+1]?.wTot??0),
+  }:null;
+  return{negativeWeek,freeSpendableNow,weeklyBalances,
+    currentBalance:Math.round(cb.balance),projectedFree,limitedBy,bindingWeek};
 };
 
 // ── «Что если?»: симулятор крупных решений (ипотека/кредит/декрет/трата) ────

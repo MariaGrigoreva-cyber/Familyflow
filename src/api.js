@@ -131,7 +131,32 @@ export const declineFeedback = () => req('/feedback/decline', { method: 'POST' }
 // (Onboarding.jsx) кладёт его в локальный state формы, а в облако данные, как
 // обычно, уходят через saveCloudState только после явного подтверждения шагов.
 export const aiOnboardingDraft = text => req('/ai/onboarding-draft', { method: 'POST', body: { text } });
-export const aiSupportAsk = question => req('/ai/support-ask', { method: 'POST', body: { question } });
+// Доступен ли помощник этому пользователю — решает сервер (закрытая бета +
+// рубильник AI_ENABLED). Фронт свой email больше не проверяет.
+export const aiStatus = () => req('/ai/status');
+// Оценка конкретного ответа. requestId выдал сервер вместе с ответом; ни
+// вопрос, ни ответ, ни финансовые данные сюда не отправляются.
+export const aiFeedback = (requestId, rating, comment) =>
+  req('/ai/feedback', { method: 'POST', body: { requestId, rating, comment: comment || undefined } });
+// history — предыдущие реплики диалога БЕЗ текущего вопроса (иначе он ушёл бы
+// в модель дважды); сервер сам режет её до последних 20 и валидирует роли.
+// screen — код текущего экрана из закрытого списка (см. AI_SCREEN_CODES);
+// сервер сопоставляет его со своим справочником названий, произвольный текст
+// в промпт не попадает.
+// financialContext — компактный обезличенный снимок бюджета
+// (src/lib/aiFinancialContext.js), не appState. Может быть null — тогда
+// помощник отвечает только по базе знаний, и это штатный режим.
+export const aiSupportAsk = (question, { screen = 'unknown', history = [], financialContext = null, decisionContext = null } = {}) =>
+  req('/ai/support-ask', {
+    method: 'POST',
+    body: {
+      question, screen, history,
+      ...(financialContext ? { financialContext } : {}),
+      // Готовый вердикт приложения (например, помещается ли трата в свободный
+      // остаток) — считается кодом, см. lib/aiSpendingCheck.js.
+      ...(decisionContext ? { decisionContext } : {}),
+    },
+  });
 
 // ── Push-уведомления ───────────────────────────────────────────────────────
 export const pushVapidPublicKey = () => req('/push/vapid-public-key', { auth: false });
@@ -181,6 +206,9 @@ export const errText = e => ({
   no_code: 'Не удалось войти через Яндекс — попробуйте ещё раз',
   bad_text: 'Напишите пару слов в отзыве',
   bad_question: 'Напишите вопрос',
+  bad_history: 'Не удалось отправить историю диалога — очистите её и попробуйте снова',
+  bad_financial_context: 'Не удалось передать данные бюджета — обновите страницу и попробуйте снова',
   ai_not_configured: 'ИИ-ассистент временно недоступен',
   ai_parse_failed: 'Не удалось разобрать ответ — сформулируйте иначе или заполните вручную',
+  ai_daily_limit: 'На сегодня лимит вопросов исчерпан — попробуйте завтра',
 }[e?.message] || 'Ошибка сети — попробуйте ещё раз');

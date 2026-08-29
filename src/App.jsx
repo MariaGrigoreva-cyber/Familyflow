@@ -12,8 +12,9 @@ const HealthScreen=lazy(()=>import('./screens/Health').then(m=>({default:m.Healt
 const SettingsScreen=lazy(()=>import('./screens/Settings').then(m=>({default:m.SettingsScreen})));
 const TipsPhilosophyOverlay=lazy(()=>import('./TipsPhilosophy').then(m=>({default:m.TipsPhilosophyOverlay})));
 const WhatIfScreen=lazy(()=>import('./screens/WhatIf').then(m=>({default:m.WhatIfScreen})));
+const AssistantScreen=lazy(()=>import('./screens/Assistant').then(m=>({default:m.AssistantScreen})));
 import {EditPaymentModal,AddExtraModal,AddTxModal,EditCatModal,EditTxModal,EditIncomeModal,WithdrawPiggyModal,SalaryCheckModal,TabBar} from './modals';
-import { isLoggedIn, loadCloudState, saveCloudState, authMe, resendVerification, billingStatus, familyMe, errText } from './api';
+import { isLoggedIn, loadCloudState, saveCloudState, authMe, resendVerification, billingStatus, familyMe, aiStatus, errText } from './api';
 import { markLocalTrialStart, getLocalPlan, isProPlan } from './lib/plan';
 import { SplashScreen } from './SplashScreen';
 import { StartLoginForm } from './StartLoginForm';
@@ -22,6 +23,7 @@ import { FeedbackPrompt } from './FeedbackPrompt';
 import { CookieBanner } from './CookieBanner';
 import { isMetrikaConsented, loadMetrika, ymGoal, isOwnerEmail } from './lib/metrika';
 import { ConfirmHost, confirmAsync, alertAsync } from './lib/confirm';
+import { buildAiFinancialContext } from './lib/aiFinancialContext';
 import { PiggyLogo } from './lib/ui';
 export default function App({initialYandexError}={}){
   // ── localStorage: загружаем сохранённые данные при старте ──────────────
@@ -88,6 +90,13 @@ export default function App({initialYandexError}={}){
   const[showAdd,setShowAdd]=useState(false);
   const[addWeek,setAddWeek]=useState(null); // неделя для добавления транзакции
   const[showTips,setShowTips]=useState(false); // оверлей советов/философии — по кнопке "?" на любой вкладке
+  const[showHelpMenu,setShowHelpMenu]=useState(false); // меню по кнопке "?": помощник / как это работает
+  const[showAssistant,setShowAssistant]=useState(false);
+  // Экран, С КОТОРОГО открыли помощника. Именно он уходит на бэкенд как
+  // screen — не 'assistant', иначе контекст экрана потерял бы смысл. Живёт
+  // только в памяти: это транзиентный UI-контекст, не часть истории диалога.
+  const[assistantOrigin,setAssistantOrigin]=useState('unknown');
+  const openAssistantFrom=origin=>{setAssistantOrigin(origin||'unknown');setShowHelpMenu(false);setShowAssistant(true);};
   const[showWhatIf,setShowWhatIf]=useState(false); // «А что если?» — карточка на Сегодня
   const[showEdit,setShowEdit]=useState(false);
   const[editItem,setEditItem]=useState(null);
@@ -117,6 +126,11 @@ const [cloudError, setCloudError] = useState(null);
 const [resetBackup, setResetBackup] = useState(null);
 const [emailVerified, setEmailVerified] = useState(null); // null = ещё не знаем
 const [userEmail, setUserEmail] = useState(null); // для isOwnerEmail() — не гонять свои тесты в цели Метрики
+// Доступен ли AI-помощник — решает СЕРВЕР (закрытая бета + рубильник
+// AI_ENABLED, см. lib/aiAccess.js). Фронт по своему email это больше не
+// определяет: подменить состояние в браузере и получить доступ нельзя,
+// эндпоинты всё равно проверяют allowlist сами.
+const [aiAvailable, setAiAvailable] = useState(false);
 const [verifyDismissed, setVerifyDismissed] = useState(false);
 const [resendBusy, setResendBusy] = useState(false);
 const [resendSent, setResendSent] = useState(false);
@@ -234,6 +248,11 @@ useEffect(() => {
   useEffect(() => {
     if (!isLoggedIn()) return;
     authMe().then(r => { setEmailVerified(r.emailVerified); setUserEmail(r.email); }).catch(() => {});
+  }, []);
+  // Доступность помощника спрашиваем у сервера один раз при входе.
+  useEffect(() => {
+    if (!isLoggedIn()) return;
+    aiStatus().then(r => setAiAvailable(!!r.available)).catch(() => setAiAvailable(false));
   }, []);
   // Попап обратной связи — сервер сам решает (14+ дней с регистрации, ещё не
   // ответил), см. showFeedbackPrompt в api.js/routes/family.js.
@@ -719,7 +738,7 @@ useEffect(() => {
   if(!onboarded)return(
     <div style={shell}>
       <Suspense fallback={null}>
-        <Onboarding onDone={handleOnboardingDone} showAi={isOwnerEmail(userEmail)}/>
+        <Onboarding onDone={handleOnboardingDone} showAi={aiAvailable}/>
       </Suspense>
       <AddToHomeScreenPrompt/>
       <ConfirmHost/>
@@ -777,12 +796,12 @@ useEffect(() => {
           {tab==='plan'&&<PlanScreen state={appState} onToggle={handleToggle} onAdd={(wk)=>{setAddWeek(wk);setShowAdd(true);}} onEditTx={handleEditTx} weeksSummary={weeksSummary} negativeWeek={cashFlowProjection.negativeWeek} isPro={isPro} onUpgrade={()=>setTab('settings')}/>}
           {tab==='budget'&&<BudgetScreen state={appState} onEditPlanned={item=>{setEditItem(item);setShowEdit(true);}} onAddPlanned={handleAddPlanned} onEditPayment={handleEditPayment} onAddExtra={(data)=>{if(data&&data.amount){handleAddExtra(data);}else{setShowAddExtra(true);}}} onWithdrawPiggy={()=>setShowWithdrawPiggy(true)} onSetGoal={handleSetGoal} onAddGoalToPlan={handleEditPlanned}/>}
           {tab==='health'&&<HealthScreen state={appState} isPro={isPro} onUpgrade={()=>setTab('settings')}/>}
-          {tab==='settings'&&<SettingsScreen state={appState} onEditCat={item=>{setEditItem(item||null);setShowEdit(true);}} onAddCat={handleAddPlanned} onDeleteCustomCat={handleDeleteCustomCat} onEditIncome={handleEditIncome} onAddIncome={handleAddIncomeSource} onUpdateMember={handleUpdateMember} onAddMember={handleAddMember} onRemoveMember={handleRemoveMember} theme={theme} onSetTheme={setTheme} isPro={isPro} resetBackup={resetBackup} showAi={isOwnerEmail(userEmail)}/>}
+          {tab==='settings'&&<SettingsScreen state={appState} onEditCat={item=>{setEditItem(item||null);setShowEdit(true);}} onAddCat={handleAddPlanned} onDeleteCustomCat={handleDeleteCustomCat} onEditIncome={handleEditIncome} onAddIncome={handleAddIncomeSource} onUpdateMember={handleUpdateMember} onAddMember={handleAddMember} onRemoveMember={handleRemoveMember} theme={theme} onSetTheme={setTheme} isPro={isPro} resetBackup={resetBackup} showAi={aiAvailable} onOpenAssistant={()=>openAssistantFrom('settings')}/>}
         </Suspense>
       </div>
       {tab==='today'&&<button onClick={()=>setShowAdd(true)} aria-label="Добавить запись"
         style={{position:'absolute',right:16,bottom:'calc(78px + env(safe-area-inset-bottom))',width:52,height:52,borderRadius:26,border:'none',background:C.orange,color:'#fff',fontSize:26,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 6px 16px rgba(0,0,0,.18)',fontFamily:'inherit',zIndex:120}}>+</button>}
-      <button onClick={()=>setShowTips(true)} aria-label="Советы и как это работает" data-tour="2"
+      <button onClick={()=>setShowHelpMenu(true)} aria-label="Помощь" data-tour="2"
         style={{position:'absolute',right:16,bottom:tab==='today'?'calc(138px + env(safe-area-inset-bottom))':'calc(78px + env(safe-area-inset-bottom))',width:48,height:48,borderRadius:24,border:`1px solid ${C.orangeB}`,background:'var(--c-surface)',color:C.orangeD,fontSize:19,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 4px 12px rgba(0,0,0,.12)',fontFamily:'inherit',zIndex:120,...(tourStep===2?{animation:'ffTourGlow 1.4s ease infinite'}:{})}}>?</button>
       <TabBar active={tab} onPress={setTab}/>
       <AddToHomeScreenPrompt/>
@@ -790,6 +809,35 @@ useEffect(() => {
       <ConfirmHost/>
       <CookieBanner/>
       <AddTxModal visible={showAdd} onClose={()=>setShowAdd(false)} onSave={handleAddTx} members={appState.members} planned={appState.planned} customCats={appState.customCats}/>
+      {/* Меню по кнопке «?». Помощник в нём — только при включённом AI-гейте
+          (закрытый тест); «Как работает Семейный поток» доступно всем, как и
+          раньше, поэтому обычный пользователь не видит пустого меню. */}
+      {showHelpMenu&&(
+        <div style={{position:'fixed',inset:0,zIndex:400,display:'flex',alignItems:'flex-end',justifyContent:'center'}} onClick={()=>setShowHelpMenu(false)}>
+          <div style={{position:'absolute',inset:0,background:'rgba(28,25,22,0.45)'}}/>
+          <div onClick={e=>e.stopPropagation()} style={{position:'relative',width:'100%',maxWidth:480,background:C.bg,borderRadius:'20px 20px 0 0',padding:'20px 20px calc(24px + env(safe-area-inset-bottom))',boxSizing:'border-box'}}>
+            <div style={{fontSize:15,fontWeight:600,color:C.text,marginBottom:14}}>Чем помочь?</div>
+            {aiAvailable&&(
+              <button onClick={()=>openAssistantFrom(tab)} style={{width:'100%',display:'flex',alignItems:'center',gap:13,border:`1.5px solid ${C.orange}`,background:C.orangeL,borderRadius:14,padding:'14px 16px',cursor:'pointer',textAlign:'left',fontFamily:'inherit',boxSizing:'border-box',marginBottom:8}}>
+                <span style={{fontSize:19,flexShrink:0}}>✨</span>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:14,fontWeight:600,color:C.orangeD}}>Спросить помощника</div>
+                  <div style={{fontSize:11.5,color:C.orangeD,opacity:.8,marginTop:1}}>Разобраться с бюджетом или приложением</div>
+                </div>
+              </button>
+            )}
+            <button onClick={()=>{setShowHelpMenu(false);setShowTips(true);}} style={{width:'100%',display:'flex',alignItems:'center',gap:13,border:`1px solid ${C.border}`,background:'var(--c-surface)',borderRadius:14,padding:'14px 16px',cursor:'pointer',textAlign:'left',fontFamily:'inherit',boxSizing:'border-box'}}>
+              <span style={{fontSize:19,flexShrink:0}}>💡</span>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:14,fontWeight:600,color:C.text}}>Как работает Семейный поток</div>
+                <div style={{fontSize:11.5,color:C.muted,marginTop:1}}>Методика и основные принципы</div>
+              </div>
+            </button>
+            <button onClick={()=>setShowHelpMenu(false)} style={{marginTop:8,width:'100%',padding:10,background:'none',border:'none',color:C.muted,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>Закрыть</button>
+          </div>
+        </div>
+      )}
+      {showAssistant&&<Suspense fallback={null}><AssistantScreen screen={assistantOrigin} getFinancialContext={()=>buildAiFinancialContext(appState)} onClose={()=>setShowAssistant(false)}/></Suspense>}
       {showTips&&<Suspense fallback={null}><TipsPhilosophyOverlay onClose={()=>setShowTips(false)}/></Suspense>}
       {showWhatIf&&<Suspense fallback={null}><WhatIfScreen state={appState} weeklyBalances={cashFlowProjection.weeklyBalances} onClose={()=>setShowWhatIf(false)}/></Suspense>}
       <EditCatModal visible={showEdit} item={editItem} members={appState.members} customCats={appState.customCats} onClose={()=>{setShowEdit(false);setEditItem(null);}} onSave={item=>{const{isNew,...rest}=item||{};handleEditPlanned(isNew?{...rest,isNew:true}:rest);}} onDelete={handleDeletePlanned}/>

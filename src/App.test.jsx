@@ -13,6 +13,7 @@ jest.mock('./api', () => ({
   resendVerification: jest.fn(),
   billingStatus: jest.fn(),
   familyMe: jest.fn(),
+  aiStatus: jest.fn(),
   errText: jest.requireActual('./api').errText,
   yandexLoginAvailable: () => false,
   yandexAuthUrl: () => '',
@@ -34,6 +35,7 @@ beforeEach(() => {
   api.authMe.mockResolvedValue({ emailVerified: true });
   api.billingStatus.mockResolvedValue({ plan: 'trial' });
   api.familyMe.mockResolvedValue({ showFeedbackPrompt: false });
+  api.aiStatus.mockResolvedValue({ available: false });
 });
 
 test('новый пользователь видит стартовый экран с двумя вариантами', async () => {

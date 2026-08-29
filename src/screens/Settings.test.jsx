@@ -448,15 +448,26 @@ describe('PushSection', () => {
   });
 });
 
-describe('AI-поддержка в разделе «Поддержка» — видна только владельцу (showAi)', () => {
-  test('showAi не передан (по умолчанию false) — виджета нет', () => {
-    render(<SettingsScreen {...baseProps} />);
-    expect(screen.queryByText('🤖 Спросить ИИ-ассистента')).not.toBeInTheDocument();
+describe('Помощник в разделе «Поддержка» — только точка входа, видна владельцу (showAi)', () => {
+  test('showAi не передан (по умолчанию false) — входа нет', () => {
+    render(<SettingsScreen {...baseProps} onOpenAssistant={() => {}} />);
+    expect(screen.queryByText('Помощник Семейного потока')).not.toBeInTheDocument();
   });
 
-  test('showAi=true — виджет показан', () => {
-    render(<SettingsScreen {...baseProps} showAi={true} />);
-    expect(screen.getByText('🤖 Спросить ИИ-ассистента')).toBeInTheDocument();
+  test('showAi=true — показана строка входа, а не встроенный чат', () => {
+    render(<SettingsScreen {...baseProps} showAi={true} onOpenAssistant={() => {}} />);
+    expect(screen.getByText('Помощник Семейного потока')).toBeInTheDocument();
+    // Диалог переехал на отдельный экран — поля ввода в Настройках быть не должно.
+    expect(screen.queryByText('🤖 Спросить ИИ-ассистента')).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/как пригласить второго родителя/)).not.toBeInTheDocument();
+  });
+
+  test('клик по строке открывает помощника', async () => {
+    const onOpenAssistant = jest.fn();
+    const user = userEvent.setup();
+    render(<SettingsScreen {...baseProps} showAi={true} onOpenAssistant={onOpenAssistant} />);
+    await user.click(screen.getByText('Помощник Семейного потока'));
+    expect(onOpenAssistant).toHaveBeenCalled();
   });
 });
 

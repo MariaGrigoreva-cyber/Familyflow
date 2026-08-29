@@ -6,11 +6,10 @@ import {isLoggedIn,logout,register,login,familyMe,familyInvite,familyJoin,errTex
 import {getPushState,enablePush,disablePush} from '../push';
 import {confirmAsync,alertAsync} from '../lib/confirm';
 import {exportFfStateAsXlsx,importFfStateFromXlsxArrayBuffer} from '../lib/excelBackup';
-import {AiSupportChat} from '../AiSupportChat';
 
 const emailOk = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
-export function SettingsScreen({state,onEditCat,onAddCat,onDeleteCustomCat,onEditIncome,onAddIncome,onUpdateMember,onAddMember,onRemoveMember,theme,onSetTheme,isPro=true,resetBackup=null,showAi=false}){
+export function SettingsScreen({state,onEditCat,onAddCat,onDeleteCustomCat,onEditIncome,onAddIncome,onUpdateMember,onAddMember,onRemoveMember,theme,onSetTheme,isPro=true,resetBackup=null,showAi=false,onOpenAssistant=null}){
   const scrollToTop=()=>{try{document.querySelector('[data-settings-scroll]')?.scrollTo({top:0,behavior:'smooth'});}catch{}};
   const{members,incomes,planned,familyName,customCats=[]}=state;
   const allCats=[...DEFAULT_CATS,...customCats];
@@ -304,7 +303,18 @@ export function SettingsScreen({state,onEditCat,onAddCat,onDeleteCustomCat,onEdi
         }}/>
       </label>
       <SecTitle>ПОДДЕРЖКА</SecTitle>
-      {showAi&&<AiSupportChat/>}
+      {/* Только точка входа: сам диалог живёт на отдельном экране «Помощник»
+          (см. App.jsx), чтобы не было двух параллельных AI-интерфейсов. */}
+      {showAi&&onOpenAssistant&&(
+        <button onClick={onOpenAssistant} style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'9px 0',border:'none',background:'none',cursor:'pointer',fontFamily:'inherit',textAlign:'left',boxSizing:'border-box'}}>
+          <span style={{fontSize:17}}>✨</span>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:13.5,color:C.text}}>Помощник Семейного потока</div>
+            <div style={{fontSize:11,color:C.muted,marginTop:1}}>Вопросы о бюджете и работе приложения</div>
+          </div>
+          <span style={{fontSize:13,color:C.muted}}>›</span>
+        </button>
+      )}
       <a href="mailto:support@myfamilyflow.ru?subject=Семейный поток" style={{width:'100%',display:'flex',alignItems:'center',gap:10,padding:'9px 0',textDecoration:'none',boxSizing:'border-box'}}>
         <span style={{fontSize:17}}>💬</span>
         <div style={{flex:1}}>
