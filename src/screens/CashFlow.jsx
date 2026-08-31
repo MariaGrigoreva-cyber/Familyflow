@@ -7,6 +7,16 @@ const Chip=({active,onClick,children})=>(
   <button onClick={onClick} style={{flexShrink:0,fontFamily:MONO,fontSize:10.5,fontWeight:600,textTransform:'uppercase',padding:'6px 12px',borderRadius:20,border:`1px solid ${active?C.orange:C.border}`,background:active?C.orange:'var(--c-surface)',color:active?'#fff':'var(--c-muted2)',cursor:'pointer'}}>{children}</button>
 );
 
+// Прошедшие недели и месяцы по умолчанию свёрнуты: за год их набегают десятки,
+// и живая часть сводки (текущий период и прогноз вперёд) уезжала вниз за экран.
+// Сворачивание — чисто визуальное: накопительный баланс по-прежнему считается по
+// ВСЕМ периодам подряд, скрытые строки из расчёта не выпадают.
+const PastToggle=({open,count,label,onClick})=>(
+  <button onClick={onClick} aria-expanded={open} style={{width:'100%',display:'flex',alignItems:'center',justifyContent:'center',gap:6,padding:'11px 0',background:'none',border:'none',borderBottom:`1px dashed ${C.border}`,color:C.muted,fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>
+    <span style={{fontSize:9}}>{open?'▼':'▶'}</span>{label} · {count}
+  </button>
+);
+
 export function PlanScreen({state,onToggle,onAdd,onEditTx,weeksSummary,negativeWeek,isPro=true,onUpgrade}){
   const{members,planned,weekItems,incomes,customCats=[],transactions=[],payments={},extraPayments=[]}=state;
   const showMember=members.length>1; // при одном члене семьи не дублируем его имя в каждой строке
@@ -17,6 +27,8 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx,weeksSummary,negativeW
   const[week,setWeek]=useState(curWeek);
   const[filter,setFilter]=useState('all');
   const[curMonth,setCurMonth]=useState(todayMonthKey());
+  const[showPastWeeks,setShowPastWeeks]=useState(false);
+  const[showPastMonths,setShowPastMonths]=useState(false);
   const planItems=weekItems[week]||[];
   const txWeekItems=(transactions||[]).filter(t=>t.week===week&&t.type!=='income').map(t=>({...t,isTx:true,isDone:true}));
   const wItems=[...planItems,...txWeekItems];
@@ -32,9 +44,9 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx,weeksSummary,negativeW
   const filtered=wItems.filter(i=>filter==='pending'?!i.isDone:filter==='done'?i.isDone:true);
   // weeksSummary/negativeWeek теперь приходят из App.jsx пропсами (считаются один раз
   // на всё приложение — Поток и Сегодня используют один и тот же прогноз баланса).
-  const monthsSummary=useMemo(()=>{const curWk2=todayKey();const map={};weeksSummary.forEach(d=>{const wS=weekKeyToDate(d.wk);const mk=monthKey(wS);if(!map[mk])map[mk]={mk,wTot:0,wSp:0,wInc:0,wDeduct:0};map[mk].wTot+=d.wTot;map[mk].wSp+=d.wSp;map[mk].wInc+=d.wInc;map[mk].wDeduct+=(d.wk>curWk2?d.wTot:d.wSp);});return Object.values(map).sort((a,b)=>a.mk.localeCompare(b.mk));},[weeksSummary]);
-  const yearsSummary=useMemo(()=>{const curWk3=todayKey();const map={};weeksSummary.forEach(d=>{const yr=weekKeyToDate(d.wk).getFullYear(); // календарный год по дате начала недели
-    if(!map[yr])map[yr]={yr,wTot:0,wSp:0,wInc:0,wDeduct:0,weeks:0};map[yr].wTot+=d.wTot;map[yr].wSp+=d.wSp;map[yr].wInc+=d.wInc;map[yr].wDeduct+=(d.wk>curWk3?d.wTot:d.wSp);map[yr].weeks+=1;});return Object.values(map).sort((a,b)=>a.yr-b.yr);},[weeksSummary]);
+  const monthsSummary=useMemo(()=>{const map={};weeksSummary.forEach(d=>{const wS=weekKeyToDate(d.wk);const mk=monthKey(wS);if(!map[mk])map[mk]={mk,wTot:0,wSp:0,wInc:0,wDeduct:0};map[mk].wTot+=d.wTot;map[mk].wSp+=d.wSp;map[mk].wInc+=d.wInc;map[mk].wDeduct+=d.wDeduct;});return Object.values(map).sort((a,b)=>a.mk.localeCompare(b.mk));},[weeksSummary]);
+  const yearsSummary=useMemo(()=>{const map={};weeksSummary.forEach(d=>{const yr=weekKeyToDate(d.wk).getFullYear(); // календарный год по дате начала недели
+    if(!map[yr])map[yr]={yr,wTot:0,wSp:0,wInc:0,wDeduct:0,weeks:0};map[yr].wTot+=d.wTot;map[yr].wSp+=d.wSp;map[yr].wInc+=d.wInc;map[yr].wDeduct+=d.wDeduct;map[yr].weeks+=1;});return Object.values(map).sort((a,b)=>a.yr-b.yr);},[weeksSummary]);
   // Крупнейшая необязательная категория (фонд «Комфорт») — куда в первую очередь стоит урезать
   const trimCat=useMemo(()=>{
     const allCats2=[...DEFAULT_CATS,...(state.customCats||[])];
@@ -126,14 +138,20 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx,weeksSummary,negativeW
         })()}
         {weeksSummary.length===0?<div style={{textAlign:'center',padding:20,color:C.muted,fontSize:13}}>Нет данных</div>
         :(()=>{
+          // Накопительный баланс копим по всем неделям подряд, и только потом
+          // решаем, какие строки показать — иначе скрытые недели выпали бы из
+          // ряда и баланс поехал бы.
           let runningBalance=computeBalances(state).savingStart;
-          const curWk=todayKey();
-          return weeksSummary.map(({wk,wSp,wTot,wInc,bal,wPiggy},idx)=>{
-            const isPast=wk<curWk;
-            const deduct=isPast?wSp:wTot;
-            runningBalance=runningBalance+wInc-deduct;
+          const rows=weeksSummary.map(d=>{runningBalance=runningBalance+d.wInc-d.wDeduct;return{...d,runBal:runningBalance};});
+          const past=rows.filter(r=>r.wk<curWeek),upcoming=rows.filter(r=>r.wk>=curWeek);
+          // Если впереди ничего нет (все недели уже прошли) — показываем как есть,
+          // иначе экран выглядел бы пустым.
+          const visible=showPastWeeks||upcoming.length===0?rows:upcoming;
+          return<>
+          {past.length>0&&upcoming.length>0&&<PastToggle open={showPastWeeks} count={past.length} label="Прошедшие недели" onClick={()=>setShowPastWeeks(v=>!v)}/>}
+          {visible.map(({wk,wSp,wTot,wInc,wPiggy,runBal})=>{
             const isCur=wk===curWeek,{week:wNum,year:wYear}=parseWeekKey(wk);
-            const runPlus=runningBalance>=0;
+            const runPlus=runBal>=0;
             return(
               <button key={wk} onClick={()=>{setWeek(wk);setViewMode('detail');}} style={{width:'100%',textAlign:'left',cursor:'pointer',background:'none',border:'none',borderBottom:`1px dashed ${C.border}`,padding:'12px 0',fontFamily:'inherit'}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:10}}>
@@ -146,10 +164,11 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx,weeksSummary,negativeW
                   <Stat label="факт" value={wSp>0?fmtN(wSp):'—'} color={C.orange} valueColor={wSp>0?C.orangeD:C.muted}/>
                 </div>
                 {wPiggy>0&&<div style={{fontSize:11,color:C.greenD,marginTop:8,display:'flex',alignItems:'center',gap:4}}><PiggyLogo size={12}/>в т.ч. копилка {fmtN(wPiggy)}</div>}
-                <div style={{fontFamily:MONO,fontSize:11.5,fontWeight:600,color:runPlus?C.green:C.red,marginTop:8}}>Накопительный баланс: {runPlus?'+':'−'}{fmtN(runningBalance)}</div>
+                <div style={{fontFamily:MONO,fontSize:11.5,fontWeight:600,color:runPlus?C.green:C.red,marginTop:8}}>Накопительный баланс: {runPlus?'+':'−'}{fmtN(runBal)}</div>
               </button>
             );
-          });
+          })}
+          </>;
         })()}
       </>}
 
@@ -164,11 +183,15 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx,weeksSummary,negativeW
         :(()=>{
           let runBal=computeBalances(state).savingStart;
           const curMk=todayMonthKey();
-          return monthsSummary.map(({mk,wTot,wSp,wInc,wDeduct})=>{
+          const rows=monthsSummary.map(d=>{runBal=runBal+d.wInc-d.wDeduct;return{...d,runBal};});
+          const past=rows.filter(r=>r.mk<curMk),upcoming=rows.filter(r=>r.mk>=curMk);
+          const visible=showPastMonths||upcoming.length===0?rows:upcoming;
+          return<>
+          {past.length>0&&upcoming.length>0&&<PastToggle open={showPastMonths} count={past.length} label="Прошедшие месяцы" onClick={()=>setShowPastMonths(v=>!v)}/>}
+          {visible.map(({mk,wTot,wSp,wInc,wDeduct,runBal:runBalM})=>{
           const isCur=mk===curMk;
           const bal=wInc-wDeduct,inPlus=bal>=0,pctD=wTot>0?Math.round(wSp/wTot*100):0;
-          runBal=runBal+wInc-wDeduct;
-          const runPlus=runBal>=0;
+          const runPlus=runBalM>=0;
           return(
             <div key={mk} style={{padding:'12px 0',borderBottom:`1px dashed ${C.border}`}}>
               <div style={{display:'flex',justifyContent:'space-between',alignItems:'baseline',marginBottom:8}}>
@@ -181,10 +204,12 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx,weeksSummary,negativeW
                 <Stat label="план" value={wTot>0?fmtN(wTot):'—'} color={C.borderS}/>
                 <Stat label="факт" value={wSp>0?fmtN(wSp):'—'} color={C.orange} valueColor={wSp>0?C.orangeD:C.muted}/>
               </div>
-              <div style={{fontFamily:MONO,fontSize:11.5,fontWeight:600,color:runPlus?C.green:C.red,marginTop:8}}>Накопительный баланс: {runPlus?'+':'−'}{fmtN(runBal)}</div>
+              <div style={{fontFamily:MONO,fontSize:11.5,fontWeight:600,color:runPlus?C.green:C.red,marginTop:8}}>Накопительный баланс: {runPlus?'+':'−'}{fmtN(runBalM)}</div>
             </div>
           );
-        })})()}
+        })}
+          </>;
+        })()}
       </>}
 
       {viewMode==='year'&&isPro&&<>

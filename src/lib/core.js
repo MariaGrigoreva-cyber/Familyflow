@@ -206,11 +206,18 @@ const computeBalances=(state)=>{
   // Доп. доходы (все недели)
   const txIncome=(transactions||[]).filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
 
-  // Piggy Bank без дублей: ручная запись недели приоритетнее плановой галочки
+  // Копилка недели = отмеченные плановые отчисления + ручные записи в копилку
+  // (снятие тоже ручная запись, только с отрицательной суммой). Раньше ручная
+  // запись недели ЗАМЕНЯЛА плановую галочку — защита от дублей тех времён, когда
+  // ручные записи копировались ещё и в weekItems. Сейчас они живут только в
+  // transactions (см. regenWeeksKeepDone), и замена молча съедала отложенное:
+  // отметил плановую копилку в неделе, где уже была ручная запись или снятие, —
+  // в копилку ничего не добавлялось и с остатка не списывалось, хотя в «Потоке»
+  // расход был виден (computeWeeksSummary обе части всегда складывал).
   const txPiggyByWeek={};
   (transactions||[]).filter(t=>t.catId==='piggy').forEach(t=>{txPiggyByWeek[t.week]=(txPiggyByWeek[t.week]||0)+t.amount;});
-  const piggyForWeek=(wk,items)=>txPiggyByWeek[wk]!==undefined?txPiggyByWeek[wk]
-    :(items||[]).filter(i=>isPiggy(i)&&i.isDone).reduce((s,i)=>s+i.amount,0);
+  const piggyForWeek=(wk,items)=>(txPiggyByWeek[wk]||0)
+    +(items||[]).filter(i=>isPiggy(i)&&i.isDone).reduce((s,i)=>s+i.amount,0);
   const totalSaved=Object.entries(weekItems).reduce((t,[wk,items])=>t+piggyForWeek(wk,items),0)
     +Object.entries(txPiggyByWeek).filter(([wk])=>!weekItems[wk]).reduce((s,[,v])=>s+v,0);
 
@@ -289,18 +296,33 @@ const computeWeeksSummary=state=>{
     const txExp=(transactions||[]).filter(t=>t.week===wk&&(t.type==='expense'||t.catId==='piggy')).reduce((s,t)=>s+t.amount,0);
     const wSp=items.filter(x=>x.isDone).reduce((s,x)=>s+x.amount,0)+txExp;
     const wTot=items.reduce((s,x)=>s+x.amount,0);
-    const wPiggy=items.filter(x=>x.catId==='piggy').reduce((s,x)=>s+x.amount,0)
+    // Сколько неделя реально снимает с баланса — единственная величина, по
+    // которой считают и прогноз, и накопительный баланс на «Потоке» (раньше это
+    // правило было переписано в трёх местах по-своему и разъезжалось на текущей
+    // неделе). Прошедшая неделя — по факту: неотмеченное так и не случилось.
+    // Текущая и будущие — по плану: неотмеченное обязательство никуда не делось,
+    // его ещё предстоит оплатить. Ручные записи — факт всегда и в любой неделе:
+    // это либо уже совершённая трата, либо осознанно внесённая будущая, и из
+    // прогноза она выпадать не должна.
+    const wDeduct=wk<curWk?wSp:wTot+txExp;
+    // «в т.ч. копилка» в строке недели считаем по тому же правилу, по которому
+    // сама строка списывает деньги (CashFlow: прошлая неделя — факт wSp, текущая
+    // и будущие — план wTot). Раньше плановые отчисления попадали сюда всегда,
+    // и прошлая неделя показывала отложенным то, что так и не было отмечено.
+    const wPiggyPastFact=wk<curWk;
+    const wPiggy=items.filter(x=>x.catId==='piggy'&&(!wPiggyPastFact||x.isDone)).reduce((s,x)=>s+x.amount,0)
       +(transactions||[]).filter(t=>t.week===wk&&t.catId==='piggy').reduce((s,t)=>s+t.amount,0);
     const wS=weekKeyToDate(wk),wE=new Date(wS.getTime()+6*86400000);
     const wInc=incomes.reduce((s,inc)=>s+scheduledIncomeForWeek(inc,wS,wE,payments,curWk),0);
     const txInc=(transactions||[]).filter(t=>t.week===wk&&t.type==='income').reduce((s,t)=>s+t.amount,0);
     const exInc=extraIncomeInRange(wS,wE);
-    return{wk,wSp,wTot,wInc:wInc+txInc+exInc,bal:(wInc+txInc+exInc)-wTot,wPiggy};
+    return{wk,wSp,wTot,wDeduct,wInc:wInc+txInc+exInc,bal:(wInc+txInc+exInc)-wTot,wPiggy};
   });
 };
 
-// Проекция накопительного баланса вперёд по неделям (план для будущих И текущей
-// недели — она ещё не закрыта, факт только для прошлых) — общая основа для двух
+// Проекция накопительного баланса вперёд по неделям (списание за неделю — общее
+// wDeduct из computeWeeksSummary: план для будущих и текущей недели, она ещё не
+// закрыта, факт для прошлых) — общая основа для двух
 // вещей: "когда баланс уйдёт в минус"
 // (банер на Потоке) и "сколько можно потратить сверх плана прямо сейчас, чтобы
 // баланс не ушёл в минус НИКОГДА" (свободные средства на Сегодня). Второе — это
@@ -327,8 +349,7 @@ const projectCashFlow=(state,weeksSummary)=>{
   const weeklyBalances=[];
   for(let i=0;i<weeksSummary.length;i++){
     const d=weeksSummary[i];
-    const isPast=d.wk<curWk;
-    bal=bal+d.wInc-(isPast?d.wSp:d.wTot);
+    bal=bal+d.wInc-d.wDeduct;
     weeklyBalances.push({wk:d.wk,bal,wTot:d.wTot});
     if(negativeWeek===null&&bal<0)negativeWeek={wk:d.wk,bal};
     if(d.wk>=curWk){
@@ -337,8 +358,8 @@ const projectCashFlow=(state,weeksSummary)=>{
       // Иначе трата "всех свободных" вгоняла бы ближайшую тесную неделю ровно
       // в ноль — а это уже не запас, а хождение по грани: одна случайная трата
       // сверх плана или доход, пришедший на день позже, и семья в минусе.
-      const nextWTot=weeksSummary[i+1]?.wTot??0;
-      const cushioned=bal-nextWTot;
+      const nextWCost=weeksSummary[i+1]?.wDeduct??0;
+      const cushioned=bal-nextWCost;
       if(minFromNow===null||cushioned<minFromNow){minFromNow=cushioned;minIdx=i;}
     }
   }
@@ -354,7 +375,7 @@ const projectCashFlow=(state,weeksSummary)=>{
   const bindingWeek=minIdx>=0?{
     wk:weeksSummary[minIdx].wk,
     balanceAfter:Math.round(weeklyBalances[minIdx].bal),
-    nextWeekPlanned:Math.round(weeksSummary[minIdx+1]?.wTot??0),
+    nextWeekPlanned:Math.round(weeksSummary[minIdx+1]?.wDeduct??0),
   }:null;
   return{negativeWeek,freeSpendableNow,weeklyBalances,
     currentBalance:Math.round(cb.balance),projectedFree,limitedBy,bindingWeek};

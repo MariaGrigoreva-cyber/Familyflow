@@ -373,9 +373,9 @@ describe('projectCashFlow — прогноз накопительного бал
   test('свободные средства = минимум будущего баланса с запасом на план следующей недели', () => {
     const state = { startBalance: 1000, weekItems: {} };
     const weeksSummary = [
-      { wk: curWk, wSp: 0, wTot: 500, wInc: 500 }, // текущая: план (wTot=500), т.к. неделя ещё не закрыта → баланс 1000+500-500=1000
-      { wk: nextWk, wSp: 0, wTot: 800, wInc: 200 }, // будущая: план → баланс 1000+200-800=400
-      { wk: wk3, wSp: 0, wTot: 100, wInc: 1000 }, // будущая: план → баланс 400+1000-100=1300
+      { wk: curWk, wSp: 0, wTot: 500, wDeduct: 500, wInc: 500 }, // текущая: план (wTot=500), т.к. неделя ещё не закрыта → баланс 1000+500-500=1000
+      { wk: nextWk, wSp: 0, wTot: 800, wDeduct: 800, wInc: 200 }, // будущая: план → баланс 1000+200-800=400
+      { wk: wk3, wSp: 0, wTot: 100, wDeduct: 100, wInc: 1000 }, // будущая: план → баланс 400+1000-100=1300
     ];
     const { freeSpendableNow, negativeWeek } = projectCashFlow(state, weeksSummary);
     expect(negativeWeek).toBeNull();
@@ -386,13 +386,30 @@ describe('projectCashFlow — прогноз накопительного бал
   test('если прогноз уходит в минус — свободные средства 0 (не отрицательное число)', () => {
     const state = { startBalance: 0, weekItems: {} };
     const weeksSummary = [
-      { wk: curWk, wSp: 0, wTot: 0, wInc: 0 },
-      { wk: nextWk, wSp: 0, wTot: 5000, wInc: 100 }, // план сильно превышает доход
+      { wk: curWk, wSp: 0, wTot: 0, wDeduct: 0, wInc: 0 },
+      { wk: nextWk, wSp: 0, wTot: 5000, wDeduct: 5000, wInc: 100 }, // план сильно превышает доход
     ];
     const { freeSpendableNow, negativeWeek } = projectCashFlow(state, weeksSummary);
     expect(freeSpendableNow).toBe(0);
     expect(negativeWeek).not.toBeNull();
     expect(negativeWeek.wk).toBe(nextWk);
+  });
+
+  // Сквозная проверка на настоящем состоянии (а не на собранных вручную строках):
+  // ручная трата текущей недели — уже свершившийся факт и должна уменьшать
+  // прогноз наравне с неотмеченным планом этой же недели.
+  test('на реальном состоянии: текущая неделя списывает и неотмеченный план, и ручную трату', () => {
+    const mk = (transactions) => {
+      const state = {
+        startBalance: 100000, weekItems: { [curWk]: [
+          { id: 'w1', catId: 'mortgage', name: 'Ипотека', amount: 40000, isDone: false },
+        ] },
+        incomes: [], payments: {}, transactions, extraPayments: [],
+      };
+      return projectCashFlow(state, computeWeeksSummary(state)).weeklyBalances.find((w) => w.wk === curWk).bal;
+    };
+    expect(mk([])).toBe(60000); // 100000 − неотмеченная ипотека 40000
+    expect(mk([{ id: 't1', week: curWk, type: 'expense', catId: 'food', amount: 7000, isDone: true }])).toBe(53000);
   });
 
   test('пустой прогноз — свободные средства 0, дефицита нет', () => {
@@ -412,8 +429,8 @@ describe('projectCashFlow — прогноз накопительного бал
       weekItems: { [curWk]: [{ id: 'a', catId: 'other', amount: 3000, isDone: true }] }, // потратили 3000 → на руках 2000
     };
     const weeksSummary = [
-      { wk: curWk, wSp: 0, wTot: 0, wInc: 0 },
-      { wk: nextWk, wSp: 0, wTot: 0, wInc: 0 },
+      { wk: curWk, wSp: 0, wTot: 0, wDeduct: 0, wInc: 0 },
+      { wk: nextWk, wSp: 0, wTot: 0, wDeduct: 0, wInc: 0 },
     ];
     const { freeSpendableNow } = projectCashFlow(state, weeksSummary);
     expect(freeSpendableNow).toBe(2000); // не 5000 (прогноз), а именно то, что реально на руках
@@ -427,10 +444,10 @@ describe('projectCashFlow — прогноз накопительного бал
     const wk4 = nextWeekKey(wk3);
     const state = { startBalance: 70950, weekItems: {} };
     const weeksSummary = [
-      { wk: curWk, wSp: 0, wTot: 0, wInc: 0 }, // текущая — уже учтено в startBalance
-      { wk: nextWk, wSp: 0, wTot: 61000, wInc: 0 }, // тесная неделя → баланс 70950-61000=9950
-      { wk: wk3, wSp: 0, wTot: 75000, wInc: 159415 }, // баланс 9950+159415-75000=94365
-      { wk: wk4, wSp: 0, wTot: 61000, wInc: 0 }, // баланс 94365-61000=33365
+      { wk: curWk, wSp: 0, wTot: 0, wDeduct: 0, wInc: 0 }, // текущая — уже учтено в startBalance
+      { wk: nextWk, wSp: 0, wTot: 61000, wDeduct: 61000, wInc: 0 }, // тесная неделя → баланс 70950-61000=9950
+      { wk: wk3, wSp: 0, wTot: 75000, wDeduct: 75000, wInc: 159415 }, // баланс 9950+159415-75000=94365
+      { wk: wk4, wSp: 0, wTot: 61000, wDeduct: 61000, wInc: 0 }, // баланс 94365-61000=33365
     ];
     const { freeSpendableNow } = projectCashFlow(state, weeksSummary);
     // Без запаса было бы 9950 (минимум bal) — и трата всех 9950 сейчас обнулила
@@ -494,6 +511,123 @@ describe('computeBalances', () => {
     const r = computeBalances(baseState);
     expect(r.balance).toBe(baseState.startBalance);
     expect(r.totalSaved).toBe(0);
+  });
+});
+
+// Копилка в неделе может набираться двумя путями сразу: галочкой на плановом
+// отчислении (weekItems) и ручной записью в категорию «Копилка» (transactions,
+// туда же с минусом попадает «Снять с копилки»). Раньше ручная запись недели
+// ЗАМЕНЯЛА собой плановую галочку — и отметка планового отчисления в такой
+// неделе не делала ничего: в копилку не приходило, с остатка не списывалось,
+// а «Денежный поток» при этом расход показывал (он всегда складывал обе части).
+describe('computeBalances — копилка: плановая галочка и ручная запись складываются', () => {
+  const wk = todayKey();
+  const mkState = (piggyDone, transactions) => ({
+    incomes: [], weekItems: { [wk]: [
+      { id: 'w1', catId: 'food', name: 'Еда', amount: 10000, isDone: true },
+      { id: 'w2', catId: 'piggy', name: 'Копилка', amount: 5000, isDone: piggyDone },
+    ] },
+    startBalance: 100000, payments: {}, transactions,
+    budgetStartDate: new Date(2000, 0, 1).toISOString(), extraPayments: [],
+  });
+  const piggyTx = (amount) => [{ id: 't1', week: wk, type: 'expense', catId: 'piggy', amount, isDone: true }];
+
+  test('ручная запись в копилку не отменяет отмеченное плановое отчисление', () => {
+    const r = computeBalances(mkState(true, piggyTx(3000)));
+    expect(r.totalSaved).toBe(8000);
+    expect(r.balance).toBe(100000 - 10000 - 8000);
+  });
+
+  test('галочка на плановой копилке в неделе со снятием — списывает и откладывает', () => {
+    const withdrawn = computeBalances(mkState(false, piggyTx(-4000)));
+    const marked = computeBalances(mkState(true, piggyTx(-4000)));
+    expect(withdrawn.totalSaved).toBe(-4000);
+    expect(marked.totalSaved).toBe(1000);          // −4000 снято + 5000 отложено
+    expect(marked.balance).toBe(withdrawn.balance - 5000);
+  });
+
+  test('копилка в балансе и в «Потоке» сходится: факт недели − расходы = копилка', () => {
+    const state = mkState(true, piggyTx(3000));
+    const r = computeBalances(state);
+    const w = computeWeeksSummary(state).find((x) => x.wk === wk);
+    expect(w.wSp - r.allSpentTotal).toBe(r.totalSaved);
+  });
+});
+
+// Сколько неделя снимает с баланса (wDeduct) — общая величина для прогноза и
+// для всех трёх видов «Потока». Раньше это правило было переписано в трёх
+// местах по-своему: недельный вид считал текущую неделю по плану, месячный и
+// годовой — по факту, и накопительный баланс за один период расходился между
+// видами. Ручные записи текущей недели не попадали в него вообще.
+describe('computeWeeksSummary — wDeduct: прошлое по факту, будущее по плану, ручные записи всегда', () => {
+  const curWk = todayKey();
+  const pastWk = prevWeekKey(curWk);
+  const futWk = nextWeekKey(curWk);
+  const items = [
+    { id: 'w1', catId: 'food', name: 'Еда', amount: 10000, isDone: true },
+    { id: 'w2', catId: 'mortgage', name: 'Ипотека', amount: 40000, isDone: false },
+  ];
+  const mkState = (wk, transactions = []) => ({
+    weekItems: { [wk]: items }, incomes: [], payments: {}, transactions, extraPayments: [],
+  });
+  const rowOf = (state, wk) => computeWeeksSummary(state).find((x) => x.wk === wk);
+  const tx = (wk, amount) => [{ id: 't1', week: wk, type: 'expense', catId: 'food', amount, isDone: true }];
+
+  test('прошлая неделя: неотмеченная ипотека не списывается — это факт', () => {
+    expect(rowOf(mkState(pastWk), pastWk).wDeduct).toBe(10000);
+  });
+
+  test('текущая неделя: неотмеченная ипотека списывается — обязательство ещё предстоит', () => {
+    expect(rowOf(mkState(curWk), curWk).wDeduct).toBe(50000);
+  });
+
+  test('будущая неделя: списывается весь план', () => {
+    expect(rowOf(mkState(futWk), futWk).wDeduct).toBe(50000);
+  });
+
+  test('ручная запись текущей недели уходит в списание сверх плана', () => {
+    expect(rowOf(mkState(curWk, tx(curWk, 3000)), curWk).wDeduct).toBe(53000);
+  });
+
+  test('ручная запись прошлой и будущей недели тоже считается', () => {
+    expect(rowOf(mkState(pastWk, tx(pastWk, 3000)), pastWk).wDeduct).toBe(13000);
+    expect(rowOf(mkState(futWk, tx(futWk, 3000)), futWk).wDeduct).toBe(53000);
+  });
+
+  test('прошлая неделя: wDeduct совпадает с «фактом» строки', () => {
+    const r = rowOf(mkState(pastWk, tx(pastWk, 3000)), pastWk);
+    expect(r.wDeduct).toBe(r.wSp);
+  });
+});
+
+// Строка недели в «Потоке» списывает деньги по-разному: прошлая неделя — по
+// факту (wSp), текущая и будущие — по плану (wTot). Подпись «в т.ч. копилка»
+// должна следовать тому же правилу, иначе за прошлую неделю она показывает
+// отложенным плановое отчисление, которое так и не отметили.
+describe('computeWeeksSummary — «в т.ч. копилка»: прошлое по факту, будущее по плану', () => {
+  const curWk = todayKey();
+  const pastWk = prevWeekKey(curWk);
+  const futWk = nextWeekKey(curWk);
+  const piggyItems = (done) => [{ id: 'w1', catId: 'piggy', name: 'Копилка', amount: 5000, isDone: done }];
+  const mkState = (wk, done, transactions = []) => ({
+    weekItems: { [wk]: piggyItems(done) }, incomes: [], payments: {}, transactions, extraPayments: [],
+  });
+  const piggyOf = (state, wk) => computeWeeksSummary(state).find((x) => x.wk === wk).wPiggy;
+
+  test('прошлая неделя: неотмеченное плановое отчисление не считается отложенным', () => {
+    expect(piggyOf(mkState(pastWk, false), pastWk)).toBe(0);
+    expect(piggyOf(mkState(pastWk, true), pastWk)).toBe(5000);
+  });
+
+  test('прошлая неделя: ручные записи остаются фактом и без плановой галочки', () => {
+    const tx = [{ id: 't1', week: pastWk, type: 'expense', catId: 'piggy', amount: 3000, isDone: true }];
+    expect(piggyOf(mkState(pastWk, false, tx), pastWk)).toBe(3000);
+    expect(piggyOf(mkState(pastWk, true, tx), pastWk)).toBe(8000);
+  });
+
+  test('текущая и будущая недели: план виден до отметки (поведение не изменилось)', () => {
+    expect(piggyOf(mkState(curWk, false), curWk)).toBe(5000);
+    expect(piggyOf(mkState(futWk, false), futWk)).toBe(5000);
   });
 });
 
