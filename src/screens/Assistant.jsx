@@ -214,7 +214,12 @@ export function AssistantScreen({ screen = 'unknown', getFinancialContext = null
                   ))}
                 </div>
               )}
-              {commentFor === m.requestId && (
+              {commentFor === m.requestId && (<>
+                {/* Честно предупреждаем: с 👎 сохраняется текст этого ответа,
+                    а он может содержать суммы пользователя. */}
+                <div style={{ fontSize: 11, color: C.muted, marginBottom: 4, lineHeight: 1.4 }}>
+                  Чтобы разобраться, мы сохраним текст этого ответа.
+                </div>
                 <div style={{ display: 'flex', gap: 6, marginBottom: 4 }}>
                   <input value={comment} placeholder="Что было не так? (необязательно)"
                     onChange={e => setComment(e.target.value)}
@@ -225,7 +230,7 @@ export function AssistantScreen({ screen = 'unknown', getFinancialContext = null
                       padding: '0 12px', fontSize: 12.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
                     }}>Отправить</button>
                 </div>
-              )}
+              </>)}
             </React.Fragment>
           ))}
 

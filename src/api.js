@@ -136,8 +136,17 @@ export const aiOnboardingDraft = text => req('/ai/onboarding-draft', { method: '
 export const aiStatus = () => req('/ai/status');
 // Оценка конкретного ответа. requestId выдал сервер вместе с ответом; ни
 // вопрос, ни ответ, ни финансовые данные сюда не отправляются.
-export const aiFeedback = (requestId, rating, comment) =>
-  req('/ai/feedback', { method: 'POST', body: { requestId, rating, comment: comment || undefined } });
+// answer — текст оценённого ответа. Отправляется ТОЛЬКО с 👎: он нужен, чтобы
+// разобрать жалобу (см. routes/ai.js). Переписка целиком на сервер не уходит.
+export const aiFeedback = (requestId, rating, comment, answer) =>
+  req('/ai/feedback', {
+    method: 'POST',
+    body: {
+      requestId, rating,
+      comment: comment || undefined,
+      answer: rating === 'down' && answer ? answer : undefined,
+    },
+  });
 // history — предыдущие реплики диалога БЕЗ текущего вопроса (иначе он ушёл бы
 // в модель дважды); сервер сам режет её до последних 20 и валидирует роли.
 // screen — код текущего экрана из закрытого списка (см. AI_SCREEN_CODES);

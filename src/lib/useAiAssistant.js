@@ -103,10 +103,20 @@ export function useAiAssistant({ screen = 'unknown', getFinancialContext = null 
   // до ответа сервера, и не блокируем чат, если отправка не удалась.
   const rate = useCallback(async (requestId, rating, comment) => {
     if (!requestId) return false;
+    // Текст оценённого ответа берём из истории здесь, а не просим у UI: так
+    // вызывающему коду не нужно его таскать. Отправляем его ТОЛЬКО с 👎 —
+    // отсев делают и здесь, и в api.js, и на бэкенде, чтобы случайная правка
+    // в одном месте не начала тихо отгружать текст при 👍.
+    // Читаем из history напрямую, а НЕ внутри updater'а setHistory: updater
+    // выполняется во время рендера, то есть уже после отправки запроса, и
+    // текст ответа всегда оказывался бы пустым.
+    const answer = rating === 'down'
+      ? (history.find(m => m.requestId === requestId)?.content || null)
+      : null;
     setHistory(prev => prev.map(m => m.requestId === requestId ? { ...m, rating } : m));
-    try { await aiFeedback(requestId, rating, comment); return true; }
+    try { await aiFeedback(requestId, rating, comment, answer); return true; }
     catch (e) { console.error('ai feedback failed:', e); return false; }
-  }, []);
+  }, [history]);
 
   // Чистим только ключ истории помощника — бюджет, настройки и всё остальное
   // в localStorage не трогаем.

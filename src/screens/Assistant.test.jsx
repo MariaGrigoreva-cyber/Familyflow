@@ -271,7 +271,8 @@ describe('AssistantScreen — оценка ответа (этап 6)', () => {
     await askOnce(user);
 
     await user.click(screen.getByLabelText('Полезный ответ'));
-    await waitFor(() => expect(api.aiFeedback).toHaveBeenCalledWith('req-1', 'up', undefined));
+    // Текст ответа с 👍 не уходит — сохранять нечего.
+    await waitFor(() => expect(api.aiFeedback).toHaveBeenCalledWith('req-1', 'up', undefined, null));
   });
 
   test('👎 сразу сохраняется и открывает необязательное поле комментария', async () => {
@@ -281,7 +282,7 @@ describe('AssistantScreen — оценка ответа (этап 6)', () => {
 
     await user.click(screen.getByLabelText('Плохой ответ'));
     // Оценка ушла ещё до комментария — писать его необязательно.
-    await waitFor(() => expect(api.aiFeedback).toHaveBeenCalledWith('req-1', 'down', undefined));
+    await waitFor(() => expect(api.aiFeedback).toHaveBeenCalledWith('req-1', 'down', undefined, 'Ответ.'));
     expect(screen.getByPlaceholderText(/Что было не так/)).toBeInTheDocument();
   });
 
@@ -294,8 +295,31 @@ describe('AssistantScreen — оценка ответа (этап 6)', () => {
     await user.type(screen.getByPlaceholderText(/Что было не так/), 'перепутал цифры');
     await user.click(screen.getByText('Отправить'));
 
-    await waitFor(() => expect(api.aiFeedback).toHaveBeenLastCalledWith('req-1', 'down', 'перепутал цифры'));
+    await waitFor(() => expect(api.aiFeedback)
+      .toHaveBeenLastCalledWith('req-1', 'down', 'перепутал цифры', 'Ответ.'));
     expect(screen.queryByPlaceholderText(/Что было не так/)).not.toBeInTheDocument();
+  });
+
+  test('перед комментарием пользователю сказано, что ответ сохранится', async () => {
+    const user = userEvent.setup();
+    render(<AssistantScreen screen="today" onClose={() => {}} />);
+    await askOnce(user);
+
+    // До 👎 никакого предупреждения быть не должно — ничего и не сохраняется.
+    expect(screen.queryByText(/сохраним текст этого ответа/i)).not.toBeInTheDocument();
+    await user.click(screen.getByLabelText('Плохой ответ'));
+    expect(screen.getByText(/сохраним текст этого ответа/i)).toBeInTheDocument();
+  });
+
+  test('после смены 👎 на 👍 текст ответа больше не отправляется', async () => {
+    const user = userEvent.setup();
+    render(<AssistantScreen screen="today" onClose={() => {}} />);
+    await askOnce(user);
+
+    await user.click(screen.getByLabelText('Плохой ответ'));
+    await waitFor(() => expect(api.aiFeedback).toHaveBeenCalledWith('req-1', 'down', undefined, 'Ответ.'));
+    await user.click(screen.getByLabelText('Полезный ответ'));
+    await waitFor(() => expect(api.aiFeedback).toHaveBeenLastCalledWith('req-1', 'up', undefined, null));
   });
 
   test('сбой отправки оценки не ломает чат', async () => {
