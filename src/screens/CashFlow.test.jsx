@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PlanScreen } from './CashFlow';
-import { buildDemoState, computeWeeksSummary, projectCashFlow, todayKey, prevWeekKey, weekKeyToDate, monthKey, todayMonthKey } from '../lib/core';
+import { buildDemoState, computeWeeksSummary, projectCashFlow, todayKey, prevWeekKey, nextWeekKey, weekKeyToDate, monthKey, todayMonthKey } from '../lib/core';
 
 const state = buildDemoState();
 const weeksSummary = computeWeeksSummary(state);
@@ -66,6 +66,26 @@ describe('«Поток»: прошедшие недели и месяцы свё
   };
   const balances = () => screen.getAllByText(/Накопительный баланс/).map((el) => el.textContent);
 
+  // Для разреза «Месяцы» состояние собираем отдельно. Ключ недели считается по
+  // её ПОНЕДЕЛЬНИКУ, поэтому в первые дни месяца текущая неделя относится ещё к
+  // прошлому месяцу (пн 31 августа при сегодня — вторник 1 сентября). Тогда
+  // предстоящих месяцев не остаётся ни одного, экран осознанно показывает все
+  // месяцы без кнопки (см. upcoming.length===0 в CashFlow.jsx) — и проверять
+  // тут нечего. Добавляем неделю, которая гарантированно лежит в текущем
+  // месяце, чтобы тест проверял саму кнопку, а не календарное совпадение.
+  let curMonthWk = curWk;
+  while (monthKey(weekKeyToDate(curMonthWk)) < todayMonthKey()) curMonthWk = nextWeekKey(curMonthWk);
+  const monthWks = [...new Set([...pastWks, curWk, curMonthWk])];
+  const monthState = {
+    ...buildDemoState(),
+    weekItems: Object.fromEntries(monthWks.map((k, i) => [k, [item(`m${i}`, 5000, k < curWk)]])),
+  };
+  const monthSummary = computeWeeksSummary(monthState);
+  const monthProps = {
+    ...props, state: monthState, weeksSummary: monthSummary,
+    negativeWeek: projectCashFlow(monthState, monthSummary).negativeWeek,
+  };
+
   test('недели: прошедшие скрыты, раскрываются кнопкой и не меняют накопительный баланс', async () => {
     const user = userEvent.setup();
     render(<PlanScreen {...props} />);
@@ -86,10 +106,12 @@ describe('«Поток»: прошедшие недели и месяцы свё
   });
 
   test('месяцы: прошедшие скрыты, раскрываются кнопкой и не меняют накопительный баланс', async () => {
-    const pastMonths = new Set(pastWks.map((k) => monthKey(weekKeyToDate(k))).filter((mk) => mk < todayMonthKey()));
+    // Считаем по неделям самого состояния, а не по одним лишь pastWks: текущая
+    // неделя тоже может оказаться в прошлом месяце (см. curMonthWk выше).
+    const pastMonths = new Set(monthWks.map((k) => monthKey(weekKeyToDate(k))).filter((mk) => mk < todayMonthKey()));
     expect(pastMonths.size).toBeGreaterThan(0); // иначе тест ничего не проверяет
     const user = userEvent.setup();
-    render(<PlanScreen {...props} />);
+    render(<PlanScreen {...monthProps} />);
     await user.click(screen.getByText('Месяцы'));
     const collapsed = balances();
     const toggle = screen.getByText(/Прошедшие месяцы/);
