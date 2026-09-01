@@ -9,6 +9,15 @@ import {exportFfStateAsXlsx,importFfStateFromXlsxArrayBuffer} from '../lib/excel
 
 const emailOk = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
+// «1 платёж / 2 платежа / 5 платежей» — прежний тернарник давал «5 записи».
+const plural=(n,one,few,many)=>{
+  const mod100=Math.abs(n)%100, mod10=mod100%10;
+  if(mod100>=11&&mod100<=14) return many;
+  if(mod10===1) return one;
+  if(mod10>=2&&mod10<=4) return few;
+  return many;
+};
+
 export function SettingsScreen({state,onEditCat,onAddCat,onDeleteCustomCat,onEditIncome,onAddIncome,onUpdateMember,onAddMember,onRemoveMember,theme,onSetTheme,isPro=true,resetBackup=null,showAi=false,onOpenAssistant=null}){
   const scrollToTop=()=>{try{document.querySelector('[data-settings-scroll]')?.scrollTo({top:0,behavior:'smooth'});}catch{}};
   const{members,incomes,planned,familyName,customCats=[]}=state;
@@ -21,10 +30,13 @@ export function SettingsScreen({state,onEditCat,onAddCat,onDeleteCustomCat,onEdi
   // сессии», а «вообще один раз» — сама вкладка открывается не при первом
   // запуске, так что сессионного флага недостаточно, нужен постоянный localStorage).
   const[showTgPromo,setShowTgPromo]=useState(false);
-  // Группировка «Запланированных платежей» по категории (пока только за
-  // showAi-флагом, см. ниже) — плоский список растёт на строку с каждой новой
-  // тратой, даже если это та же категория на разных членов семьи; группы со
-  // сворачиванием держат список компактным независимо от того, сколько записей.
+  // «Запланированные платежи» свёрнуты в два уровня: весь раздел (planOpen) и
+  // внутри него — группы по категории. Плоский список рос на строку с каждой
+  // тратой, даже если это одна категория на разных членов семьи, и у семьи с
+  // десятком регулярных платежей занимал пол-экрана настроек.
+  // Сворачивание намеренно НЕ запоминается между заходами: раздел справочный,
+  // и предсказуемо компактные настройки важнее сэкономленного клика.
+  const[planOpen,setPlanOpen]=useState(false);
   const[expandedPlanGroups,setExpandedPlanGroups]=useState(()=>new Set());
   const togglePlanGroup=catId=>setExpandedPlanGroups(prev=>{
     const next=new Set(prev);
@@ -167,61 +179,71 @@ export function SettingsScreen({state,onEditCat,onAddCat,onDeleteCustomCat,onEdi
           <span style={{fontSize:10.5,fontWeight:500,color:C.orangeD}}>Своя</span>
         </button>
       </div>
-      {planned.length>0&&<>
-        <SecTitle>ЗАПЛАНИРОВАННЫЕ ПЛАТЕЖИ</SecTitle>
-        {showAi?(()=>{
-          // Тот же порядок, что и раньше в плоском списке — просто собираем
-          // подряд идущие записи одной категории в одну группу вместо N строк.
-          const groups=[];
-          const byId=new Map();
-          planned.forEach(p=>{
-            let g=byId.get(p.catId);
-            if(!g){g={catId:p.catId,cat:allCats.find(c=>c.id===p.catId),items:[]};byId.set(p.catId,g);groups.push(g);}
-            g.items.push(p);
-          });
-          return groups.map(g=>{
-            const isOpen=expandedPlanGroups.has(g.catId);
-            const monthly=g.items.reduce((s,p)=>s+monthlyOf(p),0);
-            return(
-              <div key={g.catId}>
-                <button onClick={()=>togglePlanGroup(g.catId)} aria-expanded={isOpen} style={{display:'flex',alignItems:'center',gap:11,padding:'9px 0',width:'100%',textAlign:'left',cursor:'pointer',background:'none',border:'none',borderBottom:`1px dashed ${C.border}`,fontFamily:'inherit'}}>
-                  <span style={{width:26,height:26,borderRadius:8,background:g.cat?.color||C.cream,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,flexShrink:0}}><CatIcon cat={g.cat}/></span>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontSize:13.5,fontWeight:500,color:C.text}}>{g.cat?.name||'Прочее'}</div>
-                    <div style={{fontFamily:MONO,fontSize:10,color:C.muted,marginTop:1}}>{g.items.length} {g.items.length===1?'запись':'записи'}</div>
-                  </div>
-                  <span style={{fontFamily:MONO,fontSize:12.5,fontWeight:600,color:C.text,marginRight:2}}>{fmtN(Math.round(monthly))}/мес</span>
-                  <span style={{fontSize:11,color:C.muted,transform:isOpen?'rotate(180deg)':'none',transition:'transform .2s'}}>▾</span>
-                </button>
-                {isOpen&&<div style={{paddingLeft:37}}>
-                  {g.items.map((p,idx)=>{
-                    const mem=members.find(m=>m.id===p.memberId);
-                    const rep=REPEAT_OPTS.find(r=>r.id===p.repeat);
-                    return(
-                      <button key={p.id} onClick={()=>onEditCat(p)} style={{display:'flex',alignItems:'center',gap:11,padding:'9px 0',width:'100%',textAlign:'left',cursor:'pointer',background:'none',border:'none',borderBottom:idx<g.items.length-1?`1px dashed ${C.border}`:'none',fontFamily:'inherit'}}>
-                        <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,color:C.text}}>{p.name}</div><div style={{fontFamily:MONO,fontSize:10,color:C.muted,marginTop:1}}>{rep?.label}{p.days?.length>0?` · ${p.days.join(',')}`:''}{showMember?` · ${mem?.name}`:''}</div></div>
-                        <span style={{fontFamily:MONO,fontSize:12,fontWeight:600,color:C.text,marginRight:4}}>{fmtN(p.amount)}</span>
-                        <span style={{fontSize:13,color:C.muted}}>›</span>
-                      </button>
-                    );
-                  })}
-                </div>}
+      {planned.length>0&&(()=>{
+        // Группы по категории: подряд идущие записи одной категории — одна
+        // строка со сворачиванием вместо N отдельных строк.
+        const groups=[];
+        const byId=new Map();
+        planned.forEach(p=>{
+          let g=byId.get(p.catId);
+          if(!g){g={catId:p.catId,cat:allCats.find(c=>c.id===p.catId),items:[]};byId.set(p.catId,g);groups.push(g);}
+          g.items.push(p);
+        });
+        const totalMonthly=planned.reduce((sum,p)=>sum+monthlyOf(p),0);
+        return(<>
+          <SecTitle>ЗАПЛАНИРОВАННЫЕ ПЛАТЕЖИ</SecTitle>
+          {/* Открывающая строка — именно кнопка, а не заголовок: рамка, слово
+              «Показать» и шеврон, чтобы не приходилось догадываться, что по
+              ней можно нажать. Сводка (сколько платежей и сколько это в месяц)
+              видна и в свёрнутом виде — ради неё раздел обычно и открывают. */}
+          <button onClick={()=>setPlanOpen(o=>!o)} aria-expanded={planOpen} aria-controls="planned-groups"
+            style={{width:'100%',display:'flex',alignItems:'center',gap:11,padding:'11px 13px',minHeight:48,boxSizing:'border-box',
+              border:`1px solid ${planOpen?C.orangeB:C.border}`,borderRadius:12,background:planOpen?C.orangeL:'var(--c-surface)',
+              cursor:'pointer',fontFamily:'inherit',textAlign:'left'}}>
+            <span style={{fontSize:17,flexShrink:0}}>📅</span>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:13.5,fontWeight:500,color:C.text}}>
+                {planned.length} {plural(planned.length,'платёж','платежа','платежей')} · {groups.length} {plural(groups.length,'категория','категории','категорий')}
               </div>
-            );
-          });
-        })():planned.map((p,idx)=>{
-          const cat=allCats.find(c=>c.id===p.catId),mem=members.find(m=>m.id===p.memberId);
-          const rep=REPEAT_OPTS.find(r=>r.id===p.repeat);
-          return(
-            <button key={p.id} onClick={()=>onEditCat(p)} style={{display:'flex',alignItems:'center',gap:11,padding:'9px 0',width:'100%',textAlign:'left',cursor:'pointer',background:'none',border:'none',borderBottom:idx<planned.length-1?`1px dashed ${C.border}`:'none',fontFamily:'inherit'}}>
-              <span style={{width:26,height:26,borderRadius:8,background:cat?.color||C.cream,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,flexShrink:0}}><CatIcon cat={cat}/></span>
-              <div style={{flex:1,minWidth:0}}><div style={{fontSize:13.5,fontWeight:500,color:C.text}}>{p.name}</div><div style={{fontFamily:MONO,fontSize:10,color:C.muted,marginTop:1}}>{rep?.label}{p.days?.length>0?` · ${p.days.join(',')}`:''}{showMember?` · ${mem?.name}`:''}</div></div>
-              <span style={{fontFamily:MONO,fontSize:12.5,fontWeight:600,color:C.text,marginRight:4}}>{fmtN(p.amount)}</span>
-              <span style={{fontSize:13,color:C.muted}}>›</span>
-            </button>
-          );
-        })}
-      </>}
+              <div style={{fontFamily:MONO,fontSize:10.5,color:C.muted,marginTop:2}}>{fmtN(Math.round(totalMonthly))}/мес</div>
+            </div>
+            <span style={{fontFamily:MONO,fontSize:10,letterSpacing:1,fontWeight:600,color:C.orangeD,textTransform:'uppercase',flexShrink:0}}>{planOpen?'Скрыть':'Показать'}</span>
+            <span style={{fontSize:11,color:C.orangeD,flexShrink:0,transform:planOpen?'rotate(180deg)':'none',transition:'transform .2s'}}>▾</span>
+          </button>
+          {planOpen&&<div id="planned-groups" style={{marginTop:4}}>
+            {groups.map(g=>{
+              const isOpen=expandedPlanGroups.has(g.catId);
+              const monthly=g.items.reduce((sum,p)=>sum+monthlyOf(p),0);
+              return(
+                <div key={g.catId}>
+                  <button onClick={()=>togglePlanGroup(g.catId)} aria-expanded={isOpen} style={{display:'flex',alignItems:'center',gap:11,padding:'9px 0',width:'100%',textAlign:'left',cursor:'pointer',background:'none',border:'none',borderBottom:`1px dashed ${C.border}`,fontFamily:'inherit'}}>
+                    <span style={{width:26,height:26,borderRadius:8,background:g.cat?.color||C.cream,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,flexShrink:0}}><CatIcon cat={g.cat}/></span>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:13.5,fontWeight:500,color:C.text}}>{g.cat?.name||'Прочее'}</div>
+                      <div style={{fontFamily:MONO,fontSize:10,color:C.muted,marginTop:1}}>{g.items.length} {plural(g.items.length,'запись','записи','записей')}</div>
+                    </div>
+                    <span style={{fontFamily:MONO,fontSize:12.5,fontWeight:600,color:C.text,marginRight:2}}>{fmtN(Math.round(monthly))}/мес</span>
+                    <span style={{fontSize:11,color:C.muted,transform:isOpen?'rotate(180deg)':'none',transition:'transform .2s'}}>▾</span>
+                  </button>
+                  {isOpen&&<div style={{paddingLeft:37}}>
+                    {g.items.map((p,idx)=>{
+                      const mem=members.find(m=>m.id===p.memberId);
+                      const rep=REPEAT_OPTS.find(r=>r.id===p.repeat);
+                      return(
+                        <button key={p.id} onClick={()=>onEditCat(p)} style={{display:'flex',alignItems:'center',gap:11,padding:'9px 0',width:'100%',textAlign:'left',cursor:'pointer',background:'none',border:'none',borderBottom:idx<g.items.length-1?`1px dashed ${C.border}`:'none',fontFamily:'inherit'}}>
+                          <div style={{flex:1,minWidth:0}}><div style={{fontSize:13,color:C.text}}>{p.name}</div><div style={{fontFamily:MONO,fontSize:10,color:C.muted,marginTop:1}}>{rep?.label}{p.days?.length>0?` · ${p.days.join(',')}`:''}{showMember?` · ${mem?.name}`:''}</div></div>
+                          <span style={{fontFamily:MONO,fontSize:12,fontWeight:600,color:C.text,marginRight:4}}>{fmtN(p.amount)}</span>
+                          <span style={{fontSize:13,color:C.muted}}>›</span>
+                        </button>
+                      );
+                    })}
+                  </div>}
+                </div>
+              );
+            })}
+          </div>}
+        </>);
+      })()}
       {/* ═══ Внешний вид ═══ */}
       {onSetTheme&&<>
         <SecTitle>ВНЕШНИЙ ВИД</SecTitle>

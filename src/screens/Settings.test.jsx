@@ -106,9 +106,15 @@ describe('SettingsScreen — базовые разделы (не залогин�
     const user = userEvent.setup();
     const onEditCat = jest.fn();
     render(<SettingsScreen {...baseProps} onEditCat={onEditCat} />);
-    // «Ипотека» есть и в сетке категорий (первое вхождение), и в списке
-    // плановых платежей (второе) — кликаем по записи из списка.
+    // Раздел плановых платежей свёрнут — раскрываем его, затем группу
+    // категории. «Ипотека» есть и в сетке категорий (первое вхождение), и в
+    // заголовке группы (второе) — кликаем по записи внутри группы.
+    await user.click(screen.getByText('Показать'));
     await user.click(screen.getAllByText('Ипотека')[1]);
+    expect(onEditCat).not.toHaveBeenCalled();   // раскрытие группы — не редактирование
+    // После раскрытия группы «Ипотека» встречается трижды: плитка, заголовок
+    // группы, сама запись — кликаем по записи.
+    await user.click(screen.getAllByText('Ипотека')[2]);
     expect(onEditCat).toHaveBeenCalledWith(expect.objectContaining({ id: 'dp1', catId: 'mortgage' }));
   });
 
@@ -471,21 +477,49 @@ describe('Помощник в разделе «Поддержка» — толь
   });
 });
 
-describe('Запланированные платежи — группировка по категории (showAi)', () => {
+describe('Запланированные платежи — раздел свёрнут, разворачивается по кнопке', () => {
   // Демо-состояние (buildDemoState) держит «Еда» в двух записях (dp3 — Мария,
-  // dp4 — Сергей) — удобный кейс для проверки и плоского, и группированного вида.
-  test('showAi не передан — плоский список, каждая запись отдельной строкой', () => {
+  // dp4 — Сергей) — удобный кейс, чтобы проверить и группировку, и сворачивание.
+  // Раздел больше не зависит от showAi: он часть продукта, а не AI-беты.
+  const openSection = user => user.click(screen.getByText('Показать'));
+
+  test('по умолчанию раздел свёрнут: ни групп, ни отдельных записей не видно', () => {
     render(<SettingsScreen {...baseProps} />);
-    // Плитка в сетке категорий + 2 отдельные строки списка = 3 вхождения
-    expect(screen.getAllByText('Еда')).toHaveLength(3);
+    // «Еда» остаётся только плиткой в сетке категорий — строки списка скрыты.
+    expect(screen.getAllByText('Еда')).toHaveLength(1);
     expect(screen.queryByText('2 записи')).not.toBeInTheDocument();
   });
 
-  test('showAi=true — записи одной категории сворачиваются в одну группу с количеством', () => {
-    render(<SettingsScreen {...baseProps} showAi={true} />);
-    // Плитка в сетке + один заголовок группы = 2 вхождения (не 3, как без группировки)
-    expect(screen.getAllByText('Еда')).toHaveLength(2);
+  test('в свёрнутом виде видно, куда нажать, и сводка по платежам', () => {
+    render(<SettingsScreen {...baseProps} />);
+    const toggle = screen.getByText('Показать').closest('button');
+    expect(toggle).toBeInTheDocument();
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    // Сводка — ради неё раздел обычно и открывают, поэтому она видна сразу.
+    expect(toggle).toHaveTextContent(/\d+ платеж\S* · \d+ категор\S*/);
+    expect(toggle).toHaveTextContent(/\/мес/);
+  });
+
+  test('клик разворачивает раздел и меняет надпись на «Скрыть», повторный — сворачивает', async () => {
+    const user = userEvent.setup();
+    render(<SettingsScreen {...baseProps} />);
+
+    await openSection(user);
     expect(screen.getByText('2 записи')).toBeInTheDocument();
+    expect(screen.getByText('Скрыть').closest('button')).toHaveAttribute('aria-expanded', 'true');
+    // Записи одной категории собраны в одну группу, а не в 2 строки.
+    expect(screen.getAllByText('Еда')).toHaveLength(2);
+
+    await user.click(screen.getByText('Скрыть'));
+    expect(screen.queryByText('2 записи')).not.toBeInTheDocument();
+  });
+
+  test('раскрытие раздела не открывает редактирование', async () => {
+    const user = userEvent.setup();
+    const onEditCat = jest.fn();
+    render(<SettingsScreen {...baseProps} onEditCat={onEditCat} />);
+    await openSection(user);
+    expect(onEditCat).not.toHaveBeenCalled();
   });
 
   // «Сергей» сам по себе неоднозначен — то же имя есть у кнопки «+ Ещё источник»
@@ -494,10 +528,11 @@ describe('Запланированные платежи — группировк
   const isFoodRowFor = name => (_, el) => el.tagName.toLowerCase() === 'div' && el.children.length === 0 && new RegExp(`нед\\..*${name}`).test(el.textContent);
   const findFoodRowFor = name => screen.getByText(isFoodRowFor(name));
 
-  test('showAi=true — клик по заголовку группы разворачивает и сворачивает записи, не вызывая onEditCat', async () => {
+  test('клик по заголовку группы разворачивает и сворачивает записи, не вызывая onEditCat', async () => {
     const user = userEvent.setup();
     const onEditCat = jest.fn();
-    render(<SettingsScreen {...baseProps} showAi={true} onEditCat={onEditCat} />);
+    render(<SettingsScreen {...baseProps} onEditCat={onEditCat} />);
+    await openSection(user);
 
     expect(screen.queryAllByText(isFoodRowFor('Сергей'))).toHaveLength(0);
     await user.click(screen.getByText('2 записи'));
@@ -508,12 +543,25 @@ describe('Запланированные платежи — группировк
     expect(screen.queryAllByText(isFoodRowFor('Сергей'))).toHaveLength(0);
   });
 
-  test('showAi=true — клик по развёрнутой записи всё ещё открывает редактирование', async () => {
+  test('клик по развёрнутой записи всё ещё открывает редактирование', async () => {
     const user = userEvent.setup();
     const onEditCat = jest.fn();
-    render(<SettingsScreen {...baseProps} showAi={true} onEditCat={onEditCat} />);
+    render(<SettingsScreen {...baseProps} onEditCat={onEditCat} />);
+    await openSection(user);
     await user.click(screen.getByText('2 записи'));
     await user.click(findFoodRowFor('Сергей').closest('button'));
     expect(onEditCat).toHaveBeenCalledWith(expect.objectContaining({ id: 'dp4', catId: 'food' }));
+  });
+
+  test('раздел не зависит от showAi — виден и без AI-беты, и с ней', async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<SettingsScreen {...baseProps} showAi={false} />);
+    await openSection(user);
+    expect(screen.getByText('2 записи')).toBeInTheDocument();
+    unmount();
+
+    render(<SettingsScreen {...baseProps} showAi={true} onOpenAssistant={() => {}} />);
+    await openSection(user);
+    expect(screen.getByText('2 записи')).toBeInTheDocument();
   });
 });
