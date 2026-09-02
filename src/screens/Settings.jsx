@@ -5,7 +5,11 @@ import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,EmojiPicker,P
 import {isLoggedIn,logout,register,login,familyMe,familyInvite,familyJoin,errText,changePassword,deleteAccount,resetRequest,resetConfirm,resetCloudState,restoreCloudStateBackup,billingStatus,billingCheckout,billingCancelAutoRenew,billingRefund} from '../api';
 import {getPushState,enablePush,disablePush} from '../push';
 import {confirmAsync,alertAsync} from '../lib/confirm';
-import {exportFfStateAsXlsx,importFfStateFromXlsxArrayBuffer} from '../lib/excelBackup';
+// lib/excelBackup.js тянет за собой SheetJS (xlsx) — ~180 КБ gzip, больше чем
+// весь остальной код приложения вместе взятый. Экспорт и импорт .xlsx — редкие
+// действия по явному клику, поэтому библиотека грузится отдельным chunk'ом в
+// момент нажатия, а не вместе с экраном настроек.
+const loadExcelBackup=()=>import('../lib/excelBackup');
 
 const emailOk = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
@@ -69,9 +73,10 @@ export function SettingsScreen({state,onEditCat,onAddCat,onDeleteCustomCat,onEdi
   const RESET_GRACE_DAYS=90;
   const[localTrashAt,setLocalTrashAt]=useState(()=>{try{return localStorage.getItem('ff_state_trash_at');}catch{return null;}});
   const fmtShortDate=d=>{const dt=new Date(d);return `${dt.getDate()} ${MONTH_SHORT[dt.getMonth()]} ${dt.getFullYear()}`;};
-  const doExport=()=>{
+  const doExport=async()=>{
     try{
       const raw=localStorage.getItem('ff_state')||'{}';
+      const {exportFfStateAsXlsx}=await loadExcelBackup();
       const blob=exportFfStateAsXlsx(JSON.parse(raw));
       const url=URL.createObjectURL(blob);
       const a=document.createElement('a');
@@ -311,6 +316,7 @@ export function SettingsScreen({state,onEditCat,onAddCat,onDeleteCustomCat,onEdi
           const r=new FileReader();
           r.onload=async ev=>{
             try{
+              const {importFfStateFromXlsxArrayBuffer}=await loadExcelBackup();
               const parsed=importFfStateFromXlsxArrayBuffer(ev.target.result);
               if(!parsed?.appState?.members?.length)throw new Error('это не файл Семейного потока или он пуст');
               if(!await confirmAsync('Заменить текущие данные данными из файла? Отменить будет нельзя.',{danger:true}))return;

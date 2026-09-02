@@ -1,15 +1,22 @@
 import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
 import {C,MONO,uid,weekKey,todayKey,getISOWeek,calcAvgMonthlyNet,calcNetFor,generateAllWeeks,regenWeeksKeepDone,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED,DEFAULT_CATS,nextMemberTint,computeBalances,compactWeekItemsForSave,isLegacyWeekKeyFormat,computeWeeksSummary,projectCashFlow} from './lib/core';
+// ── Пять основных вкладок нижней навигации грузятся вместе с основным бандлом ──
+// Раньше четыре из них (Поток/Бюджет/Здоровье/Ещё) были на React.lazy: первое
+// переключение вкладки упиралось в сетевую загрузку отдельного chunk'а (в проде —
+// секунды на мобильной сети), а Suspense fallback={null} рисовал в это время
+// пустой белый экран. Вкладки открывают в первую же минуту работы, экономии от
+// их отложенной загрузки нет — только задержка ровно там, где её видно.
 import {TodayScreen} from './screens/Today';
-// Экран сплэша нужен мгновенно каждому пользователю — держим его прямо здесь,
-// а не тянем весь Onboarding.jsx (со сторис/формой/анкетой) в основной бандл.
+import {PlanScreen} from './screens/CashFlow';
+import {BudgetScreen} from './screens/Budget';
+import {HealthScreen} from './screens/Health';
+import {SettingsScreen} from './screens/Settings';
+// Ниже — редкие и/или тяжёлые экраны, которые открывают не все и не всегда:
+// онбординг (один раз за жизнь аккаунта), советы, «А что если?» и AI-помощник
+// (закрытая бета). Они остаются на lazy — но уже с видимым лоадером, а не null.
 const EntryScreen=lazy(()=>import('./screens/Onboarding').then(m=>({default:m.EntryScreen})));
 const Onboarding=lazy(()=>import('./screens/Onboarding').then(m=>({default:m.Onboarding})));
 const PricingIntro=lazy(()=>import('./screens/Onboarding').then(m=>({default:m.PricingIntro})));
-const PlanScreen=lazy(()=>import('./screens/CashFlow').then(m=>({default:m.PlanScreen})));
-const BudgetScreen=lazy(()=>import('./screens/Budget').then(m=>({default:m.BudgetScreen})));
-const HealthScreen=lazy(()=>import('./screens/Health').then(m=>({default:m.HealthScreen})));
-const SettingsScreen=lazy(()=>import('./screens/Settings').then(m=>({default:m.SettingsScreen})));
 const TipsPhilosophyOverlay=lazy(()=>import('./TipsPhilosophy').then(m=>({default:m.TipsPhilosophyOverlay})));
 const WhatIfScreen=lazy(()=>import('./screens/WhatIf').then(m=>({default:m.WhatIfScreen})));
 const AssistantScreen=lazy(()=>import('./screens/Assistant').then(m=>({default:m.AssistantScreen})));
@@ -25,6 +32,23 @@ import { isMetrikaConsented, loadMetrika, ymGoal, isOwnerEmail } from './lib/met
 import { ConfirmHost, confirmAsync, alertAsync } from './lib/confirm';
 import { buildAiFinancialContext } from './lib/aiFinancialContext';
 import { PiggyLogo } from './lib/ui';
+// Как часто фоновый пулл вправе перезапрашивать GET /state при возврате в
+// приложение. Возврат из свёрнутого состояния через полминуты — реальный повод
+// свериться с облаком; десять переключений фокуса за минуту — нет.
+const PULL_MIN_INTERVAL_MS = 30000;
+
+// Заглушка для lazy-оверлеев (помощник, советы, «А что если?») — раньше здесь
+// стоял fallback={null}, и между тапом и загрузкой chunk'а экран оставался пустым,
+// без единого признака, что что-то происходит.
+function OverlayLoader(){
+  return(
+    <div style={{position:'fixed',inset:0,zIndex:400,display:'flex',alignItems:'center',justifyContent:'center',background:'rgba(28,25,22,0.35)'}}>
+      <div style={{width:34,height:34,borderRadius:17,border:`3px solid ${C.orangeB}`,borderTopColor:C.orange,animation:'ffSpin .8s linear infinite'}}/>
+      <style>{'@keyframes ffSpin{to{transform:rotate(360deg)}}'}</style>
+    </div>
+  );
+}
+
 export default function App({initialYandexError}={}){
   // ── localStorage: загружаем сохранённые данные при старте ──────────────
   const loadFromStorage = () => {
@@ -140,6 +164,10 @@ const handleResendVerify = () => {
   resendVerification().then(() => setResendSent(true)).catch(() => {}).finally(() => setResendBusy(false));
 };
 const cloudSaveBusyRef = useRef(false);
+// Фоновый пулл облачного состояния (см. эффект с visibilitychange/focus ниже):
+// in-flight-гейт и минимальный интервал между запросами.
+const pullBusyRef = useRef(false);
+const lastPullAtRef = useRef(0);
   // Раньше держали заставку фиксированные 1300мс независимо от готовности данных —
   // это чистая добавленная задержка при каждом запуске (данные из localStorage уже
   // готовы синхронно к первому рендеру). Оставляем короткую паузу только чтобы не
@@ -148,6 +176,21 @@ const cloudSaveBusyRef = useRef(false);
   // Уже согласился на cookies раньше (напр. на прошлом визите) — грузим Метрику
   // сразу, не дожидаясь повторного показа баннера (см. CookieBanner.jsx).
   useEffect(()=>{if(isMetrikaConsented())loadMetrika();},[]);
+  // Оставшиеся lazy-экраны (советы, «А что если?», помощник) подтягиваем в
+  // простое после старта — к моменту, когда пользователь их откроет, chunk уже
+  // лежит в кеше и Suspense не успевает показать лоадер. Ошибки глотаем: это
+  // предзагрузка, реальный import() при открытии всё равно повторится.
+  useEffect(()=>{
+    const prefetch=()=>{
+      import('./TipsPhilosophy').catch(()=>{});
+      import('./screens/WhatIf').catch(()=>{});
+      import('./screens/Assistant').catch(()=>{});
+    };
+    const ric=window.requestIdleCallback;
+    if(ric){const id=ric(prefetch,{timeout:4000});return()=>window.cancelIdleCallback?.(id);}
+    const t=setTimeout(prefetch,2000);
+    return()=>clearTimeout(t);
+  },[]);
 const skipNextCloudSaveRef = useRef(false);
 const appStateRef = useRef(null); // после принятия серверной версии не шлём её эхом обратно
 const cloudSaveAgainRef = useRef(false);
@@ -214,6 +257,10 @@ useEffect(() => {
       // уже вычистил) — сказать пользователю это, а не общее "не удалось загрузить".
       setCloudError(error.status === 401 ? errText(error) : 'Не удалось загрузить данные из облака');
     } finally {
+      // Стартовая загрузка засчитывается фоновому пуллу как «только что
+      // сверялись»: иначе первое же событие focus/visibilitychange сразу после
+      // запуска сходило бы за тем же самым состоянием второй раз.
+      lastPullAtRef.current = Date.now();
       if (!cancelled) {
         setCloudReady(true);
       }
@@ -289,10 +336,22 @@ useEffect(() => {
 
   // Возврат на вкладку: если в облаке версия свежее — принимаем её.
   // Так два открытых окна видят изменения друг друга без F5.
+  //
+  // Здесь два слушателя (visibilitychange и focus) на одно по смыслу событие:
+  // мобильные браузеры при возврате в приложение шлют оба, десктоп — то одно,
+  // то другое. Раньше это означало два GET /state подряд на каждый возврат, а
+  // короткие расфокусировки (открыл клавиатуру, свернул на секунду, кликнул
+  // мимо окна) перезапрашивали весь бюджет семьи с нуля. Гейт ниже оставляет
+  // не больше одного запроса: пока предыдущий не завершился — не начинаем
+  // новый, и не чаще раза в PULL_MIN_INTERVAL_MS.
   useEffect(() => {
     const pull = async () => {
       if (document.visibilityState !== 'visible') return;
       if (!isLoggedIn() || appStateRef.current?.demoMode) return;
+      if (pullBusyRef.current) return;
+      if (Date.now() - lastPullAtRef.current < PULL_MIN_INTERVAL_MS) return;
+      pullBusyRef.current = true;
+      lastPullAtRef.current = Date.now();
       try {
         const r = await loadCloudState();
         const localAt = localStorage.getItem('ff_cloud_updated_at');
@@ -317,6 +376,9 @@ useEffect(() => {
         // вычищен в api.js) — это стоит показать, иначе пользователь не поймёт,
         // почему бюджет перестал синхронизироваться между устройствами.
         if (error.status === 401) setCloudError(errText(error));
+      } finally {
+        pullBusyRef.current = false;
+        lastPullAtRef.current = Date.now();
       }
     };
     document.addEventListener('visibilitychange', pull);
@@ -705,7 +767,7 @@ useEffect(() => {
   const backToDemo=()=>{setDemoExited(false);startDemo();};
   if(!consented)return(
     <div style={shell}>
-      <Suspense fallback={null}>
+      <Suspense fallback={<SplashScreen/>}>
         <EntryScreen
           onDemo={()=>{ymGoal('demo_started');setConsented(true);startDemo();}}
           onLoginClick={()=>{setStartLoginMode('register');setStartLogin(true);}}
@@ -719,7 +781,7 @@ useEffect(() => {
   );
   if(demoExited)return(
     <div style={shell}>
-      <Suspense fallback={null}>
+      <Suspense fallback={<SplashScreen/>}>
         <EntryScreen onDemo={backToDemo} onLoginClick={()=>{setStartLoginMode('register');setStartLogin(true);}} onLoginExisting={openLoginExisting}/>
       </Suspense>
       {startLogin&&<StartLoginForm onClose={closeStartLogin} initialError={yandexError?errText({message:yandexError}):""} initialMode={startLoginMode}/>}
@@ -729,7 +791,7 @@ useEffect(() => {
   );
   if(isLoggedIn()&&!appState.demoMode&&!onboarded&&!pricingSeen)return(
     <div style={shell}>
-      <Suspense fallback={null}>
+      <Suspense fallback={<SplashScreen/>}>
         <PricingIntro onDone={()=>setPricingSeen(true)}/>
       </Suspense>
       <ConfirmHost/>
@@ -737,7 +799,7 @@ useEffect(() => {
   );
   if(!onboarded)return(
     <div style={shell}>
-      <Suspense fallback={null}>
+      <Suspense fallback={<SplashScreen/>}>
         <Onboarding onDone={handleOnboardingDone} showAi={aiAvailable}/>
       </Suspense>
       <AddToHomeScreenPrompt/>
@@ -792,12 +854,10 @@ useEffect(() => {
       </div>
       <div style={{flex:1,display:'flex',flexDirection:'column',minHeight:0}} onTouchStart={handleTabTouchStart} onTouchEnd={handleTabTouchEnd}>
         {tab==='today'&&<TodayScreen state={appState} onToggle={handleToggle} onEditPayment={handleEditPayment} onEditTx={handleEditTx} onQuickMark={handleQuickMark} onWithdrawPiggy={()=>setShowWithdrawPiggy(true)} onOpenWhatIf={()=>setShowWhatIf(true)} tourStep={tourStep} freeSpendableNow={cashFlowProjection.freeSpendableNow} weeklyBalances={cashFlowProjection.weeklyBalances}/>}
-        <Suspense fallback={null}>
-          {tab==='plan'&&<PlanScreen state={appState} onToggle={handleToggle} onAdd={(wk)=>{setAddWeek(wk);setShowAdd(true);}} onEditTx={handleEditTx} weeksSummary={weeksSummary} negativeWeek={cashFlowProjection.negativeWeek} isPro={isPro} onUpgrade={()=>setTab('settings')}/>}
-          {tab==='budget'&&<BudgetScreen state={appState} onEditPlanned={item=>{setEditItem(item);setShowEdit(true);}} onAddPlanned={handleAddPlanned} onEditPayment={handleEditPayment} onAddExtra={(data)=>{if(data&&data.amount){handleAddExtra(data);}else{setShowAddExtra(true);}}} onWithdrawPiggy={()=>setShowWithdrawPiggy(true)} onSetGoal={handleSetGoal} onAddGoalToPlan={handleEditPlanned}/>}
-          {tab==='health'&&<HealthScreen state={appState} isPro={isPro} onUpgrade={()=>setTab('settings')}/>}
-          {tab==='settings'&&<SettingsScreen state={appState} onEditCat={item=>{setEditItem(item||null);setShowEdit(true);}} onAddCat={handleAddPlanned} onDeleteCustomCat={handleDeleteCustomCat} onEditIncome={handleEditIncome} onAddIncome={handleAddIncomeSource} onUpdateMember={handleUpdateMember} onAddMember={handleAddMember} onRemoveMember={handleRemoveMember} theme={theme} onSetTheme={setTheme} isPro={isPro} resetBackup={resetBackup} showAi={aiAvailable} onOpenAssistant={()=>openAssistantFrom('settings')}/>}
-        </Suspense>
+        {tab==='plan'&&<PlanScreen state={appState} onToggle={handleToggle} onAdd={(wk)=>{setAddWeek(wk);setShowAdd(true);}} onEditTx={handleEditTx} weeksSummary={weeksSummary} negativeWeek={cashFlowProjection.negativeWeek} isPro={isPro} onUpgrade={()=>setTab('settings')}/>}
+        {tab==='budget'&&<BudgetScreen state={appState} onEditPlanned={item=>{setEditItem(item);setShowEdit(true);}} onAddPlanned={handleAddPlanned} onEditPayment={handleEditPayment} onAddExtra={(data)=>{if(data&&data.amount){handleAddExtra(data);}else{setShowAddExtra(true);}}} onWithdrawPiggy={()=>setShowWithdrawPiggy(true)} onSetGoal={handleSetGoal} onAddGoalToPlan={handleEditPlanned}/>}
+        {tab==='health'&&<HealthScreen state={appState} isPro={isPro} onUpgrade={()=>setTab('settings')}/>}
+        {tab==='settings'&&<SettingsScreen state={appState} onEditCat={item=>{setEditItem(item||null);setShowEdit(true);}} onAddCat={handleAddPlanned} onDeleteCustomCat={handleDeleteCustomCat} onEditIncome={handleEditIncome} onAddIncome={handleAddIncomeSource} onUpdateMember={handleUpdateMember} onAddMember={handleAddMember} onRemoveMember={handleRemoveMember} theme={theme} onSetTheme={setTheme} isPro={isPro} resetBackup={resetBackup} showAi={aiAvailable} onOpenAssistant={()=>openAssistantFrom('settings')}/>}
       </div>
       {tab==='today'&&<button onClick={()=>setShowAdd(true)} aria-label="Добавить запись"
         style={{position:'absolute',right:16,bottom:'calc(78px + env(safe-area-inset-bottom))',width:52,height:52,borderRadius:26,border:'none',background:C.orange,color:'#fff',fontSize:26,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 6px 16px rgba(0,0,0,.18)',fontFamily:'inherit',zIndex:120}}>+</button>}
@@ -837,9 +897,9 @@ useEffect(() => {
           </div>
         </div>
       )}
-      {showAssistant&&<Suspense fallback={null}><AssistantScreen screen={assistantOrigin} getFinancialContext={()=>buildAiFinancialContext(appState)} onClose={()=>setShowAssistant(false)}/></Suspense>}
-      {showTips&&<Suspense fallback={null}><TipsPhilosophyOverlay onClose={()=>setShowTips(false)}/></Suspense>}
-      {showWhatIf&&<Suspense fallback={null}><WhatIfScreen state={appState} weeklyBalances={cashFlowProjection.weeklyBalances} onClose={()=>setShowWhatIf(false)}/></Suspense>}
+      {showAssistant&&<Suspense fallback={<OverlayLoader/>}><AssistantScreen screen={assistantOrigin} getFinancialContext={()=>buildAiFinancialContext(appState)} onClose={()=>setShowAssistant(false)}/></Suspense>}
+      {showTips&&<Suspense fallback={<OverlayLoader/>}><TipsPhilosophyOverlay onClose={()=>setShowTips(false)}/></Suspense>}
+      {showWhatIf&&<Suspense fallback={<OverlayLoader/>}><WhatIfScreen state={appState} weeklyBalances={cashFlowProjection.weeklyBalances} onClose={()=>setShowWhatIf(false)}/></Suspense>}
       <EditCatModal visible={showEdit} item={editItem} members={appState.members} customCats={appState.customCats} onClose={()=>{setShowEdit(false);setEditItem(null);}} onSave={item=>{const{isNew,...rest}=item||{};handleEditPlanned(isNew?{...rest,isNew:true}:rest);}} onDelete={handleDeletePlanned}/>
       <EditPaymentModal visible={showEditPay} payment={editPayment} onClose={()=>{setShowEditPay(false);setEditPayment(null);}} onSave={handleSavePayment} onDelete={handleDeleteExtra}/>
       <SalaryCheckModal visible={showSalaryCheck} payment={salaryCheckPayment} onConfirm={handleSalaryCheckConfirm} onNotYet={handleSalaryCheckNotYet}/>

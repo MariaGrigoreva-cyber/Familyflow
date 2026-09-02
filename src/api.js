@@ -100,7 +100,24 @@ export async function login(email, password) {
 }
 
 // ── Состояние семьи ────────────────────────────────────────────────────────
-export const loadCloudState = () => req('/state');
+// Один общий in-flight запрос на всё приложение. GET /state тянет весь бюджет
+// семьи и стоит дорого и на клиенте, и на сервере; при этом его умеют звать
+// сразу несколько мест (первая загрузка в App.jsx и фоновый пулл по
+// visibilitychange/focus — а эти два события на мобильных браузерах приходят
+// парой при каждом возврате в приложение). Без дедупликации это давало
+// одновременные дубли одного и того же запроса, которые упирались в лимит
+// параллельных соединений браузера и вставали в очередь (Stalled в DevTools).
+let cloudStateInFlight = null;
+export const loadCloudState = () => {
+  if (cloudStateInFlight) return cloudStateInFlight;
+  const p = req('/state');
+  cloudStateInFlight = p;
+  // Освобождаем слот и на успехе, и на ошибке — но не превращаем это в новый
+  // «повисший» промис: обработчики здесь ничего не перебрасывают дальше.
+  const clear = () => { if (cloudStateInFlight === p) cloudStateInFlight = null; };
+  p.then(clear, clear);
+  return p;
+};
 export const saveCloudState = (data, baseUpdatedAt) =>
   req('/state', { method: 'PUT', body: { data, baseUpdatedAt: baseUpdatedAt || undefined } });
 // Отложенное удаление (90 дней): сервер сам бэкапит текущие данные перед обнулением

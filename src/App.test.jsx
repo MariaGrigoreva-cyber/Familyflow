@@ -217,3 +217,62 @@ test('просроченная неотмеченная выплата: «Ещё
   expect(screen.queryByText('Пришла выплата?')).not.toBeInTheDocument();
   expect(JSON.parse(localStorage.getItem('ff_state')).appState.payments).toEqual({});
 });
+
+// ── Регрессия: сколько раз приложение ходит за GET /state ───────────────────
+// Раньше вкладки Поток/Бюджет/Здоровье/Ещё были на React.lazy, а фоновая
+// синхронизация висела двумя слушателями (visibilitychange + focus) без
+// in-flight-гейта. В итоге возврат в приложение давал пару одновременных
+// запросов за полным снапшотом бюджета, а первое открытие каждой вкладки —
+// ещё и загрузку отдельного JS-chunk'а. Тесты ниже фиксируют оба инварианта.
+describe('GET /state вызывается ровно один раз', () => {
+  const loggedInDemoFreeState = () => {
+    api.isLoggedIn.mockReturnValue(true);
+    // Вкладка «Ещё» рисует блок тарифа — ему нужен полный ответ /billing/status
+    // (сервер всегда отдаёт prices, см. routes/billing.js).
+    api.billingStatus.mockResolvedValue({ plan: 'trial', prices: { monthly: 199, yearly: 999 } });
+    localStorage.setItem('ff_state', JSON.stringify({
+      consented: true, onboarded: true, appState: { ...buildDemoState(), demoMode: false },
+    }));
+  };
+
+  test('при запуске приложения — один запрос', async () => {
+    loggedInDemoFreeState();
+    render(<App />);
+    expect(await screen.findByText('ОСТАТОК НА РУКАХ', {}, { timeout: 2000 })).toBeInTheDocument();
+    expect(api.loadCloudState).toHaveBeenCalledTimes(1);
+  });
+
+  test('переключение всех вкладок не порождает новых запросов', async () => {
+    const user = userEvent.setup();
+    loggedInDemoFreeState();
+    render(<App />);
+    expect(await screen.findByText('ОСТАТОК НА РУКАХ', {}, { timeout: 2000 })).toBeInTheDocument();
+
+    // Экраны вкладок больше не lazy — контент каждой появляется сразу, без
+    // сетевой загрузки chunk'а, поэтому findByText здесь ничего не «ждёт».
+    await user.click(screen.getByText('ПОТОК'));
+    expect(await screen.findByText('план')).toBeInTheDocument();
+    await user.click(screen.getByText('БЮДЖЕТ'));
+    expect(await screen.findByText('РАСХОДЫ ЗА ГОД · ПЛАН')).toBeInTheDocument();
+    await user.click(screen.getByText('ЗДОРОВЬЕ'));
+    expect(await screen.findByText('РАСПРЕДЕЛЕНИЕ РАСХОДОВ')).toBeInTheDocument();
+    await user.click(screen.getByText('ЕЩЁ'));
+    expect(await screen.findByText('АККАУНТ И СИНХРОНИЗАЦИЯ')).toBeInTheDocument();
+    await user.click(screen.getByText('СЕГОДНЯ'));
+    expect(await screen.findByText('ОСТАТОК НА РУКАХ')).toBeInTheDocument();
+
+    expect(api.loadCloudState).toHaveBeenCalledTimes(1);
+  });
+
+  test('focus + visibilitychange подряд дают не больше одного запроса', async () => {
+    loggedInDemoFreeState();
+    render(<App />);
+    expect(await screen.findByText('ОСТАТОК НА РУКАХ', {}, { timeout: 2000 })).toBeInTheDocument();
+    expect(api.loadCloudState).toHaveBeenCalledTimes(1);
+
+    // Возврат в приложение: мобильные браузеры шлют оба события парой.
+    document.dispatchEvent(new Event('visibilitychange'));
+    window.dispatchEvent(new Event('focus'));
+    await waitFor(() => expect(api.loadCloudState).toHaveBeenCalledTimes(1));
+  });
+});
