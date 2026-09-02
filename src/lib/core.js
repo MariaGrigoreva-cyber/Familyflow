@@ -161,6 +161,42 @@ const paymentKey=(inc,type,year,month,day)=>{
 // payments заполнен старыми ключами, и молча терять их галочки нельзя. Новый
 // ключ применяется последним — если правка есть в обоих видах, побеждает он.
 const applyPaymentEdit=(p,payments={})=>({...p,...(payments[p.displayLabel]||{}),...((p.key&&payments[p.key])||{})});
+// Разовая выплата может нести с собой правки обычных выплат: планировщик
+// отпуска урезает зарплату и аванс за месяц отпуска. Эти правки живут в
+// state.payments — отдельно от самой записи об отпускных, — поэтому удаление
+// отпускных их не трогало, и зарплата так и оставалась урезанной, хотя отпуска
+// в бюджете уже нет. Чтобы удаление можно было откатить, при добавлении
+// запоминаем предыдущее состояние каждой затронутой выплаты.
+const applyExtraPaymentEdits=(payments={},overrides={})=>{
+  const next={...payments},prev={};
+  Object.entries(overrides).forEach(([k,v])=>{
+    prev[k]=payments[k]?{...payments[k]}:null;
+    // Мёрж, а не замена: у выплаты уже может стоять галочка «получено» и
+    // заметка — отпуск меняет только сумму и не должен их сбрасывать.
+    next[k]={...(payments[k]||{}),...v};
+  });
+  return{payments:next,prev};
+};
+// Откат правок при удалении разовой выплаты. Возвращаем ровно то, что меняли:
+// сумму. Галочку и заметку не трогаем — их мог поставить пользователь уже
+// после отпуска. Если сумма с тех пор изменена вручную (не совпадает с той,
+// что проставил отпуск), выплату оставляем как есть — это уже осознанная
+// правка пользователя, и молча её перезаписывать нельзя.
+const undoExtraPaymentEdits=(payments={},extra)=>{
+  const applied=extra?.paymentOverrides;
+  if(!applied)return payments;
+  const next={...payments};
+  Object.entries(applied).forEach(([k,v])=>{
+    const cur=next[k];
+    if(!cur)return;
+    if(v.actualAmount!==undefined&&cur.actualAmount!==v.actualAmount)return;
+    const{actualAmount,...rest}=cur;
+    const before=extra.paymentOverridesPrev?.[k];
+    const restored=before&&before.actualAmount!==undefined?{...rest,actualAmount:before.actualAmount}:rest;
+    if(Object.keys(restored).length)next[k]=restored;else delete next[k];
+  });
+  return next;
+};
 // Мёрж: регенерирует недели по новому плану, сохраняя отметки isDone и ручные записи.
 // Если позиция была отредактирована (edited:true — напр. заранее поменяли сумму через
 // ✏️, ещё не отметив выполненной), берём её целиком, а не только isDone — иначе правка
@@ -656,4 +692,4 @@ const DEMO_MEMBERS=[{id:'m1',name:'Мария',avatar:'👩',color:'oklch(0.9 0.
 const DEMO_PLANNED=[{id:'p1',catId:'mortgage',name:'Ипотека',amount:55000,memberId:'m1',repeat:'monthly',days:[20]},{id:'p2',catId:'food',name:'Еда',amount:10000,memberId:'m1',repeat:'weekly',days:[]},{id:'p3',catId:'food',name:'Еда',amount:10000,memberId:'m2',repeat:'weekly',days:[]},{id:'p4',catId:'beauty',name:'Красота',amount:15000,memberId:'m1',repeat:'biweekly',days:[]},{id:'p5',catId:'edu',name:'Образование',amount:20000,memberId:'m2',repeat:'monthly',days:[1]},{id:'p6',catId:'piggy',name:'Копилка',amount:10000,memberId:'m1',repeat:'weekly',days:[]}];
 
 
-export {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,isWorkday,getActualPayDate,fmtPayDate,paymentTypeLabel,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,buildPaymentScheduleSpan,paymentKey,applyPaymentEdit,regenWeeksKeepDone,computeBalances,computeBudgetMetrics,computeWeeksSummary,scheduledIncomeForWeek,projectCashFlow,annuityPayment,simulateScenario,maxSustainablePayment,verdictFor,compactWeekItemsForSave,isLegacyWeekKeyFormat,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,FUND_LABELS,getCatFund,PIE_COLORS,FACE_EMOJIS,MEMBER_TINTS,nextMemberTint,PRIVACY_URL,TERMS_URL,TELEGRAM_URL,APP_VERSION,APP_BUILD,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED};
+export {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,isWorkday,getActualPayDate,fmtPayDate,paymentTypeLabel,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,buildPaymentScheduleSpan,paymentKey,applyPaymentEdit,applyExtraPaymentEdits,undoExtraPaymentEdits,regenWeeksKeepDone,computeBalances,computeBudgetMetrics,computeWeeksSummary,scheduledIncomeForWeek,projectCashFlow,annuityPayment,simulateScenario,maxSustainablePayment,verdictFor,compactWeekItemsForSave,isLegacyWeekKeyFormat,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,FUND_LABELS,getCatFund,PIE_COLORS,FACE_EMOJIS,MEMBER_TINTS,nextMemberTint,PRIVACY_URL,TERMS_URL,TELEGRAM_URL,APP_VERSION,APP_BUILD,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED};

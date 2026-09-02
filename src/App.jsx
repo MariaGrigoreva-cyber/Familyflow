@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
-import {C,MONO,uid,weekKey,todayKey,getISOWeek,calcAvgMonthlyNet,calcNetFor,generateAllWeeks,regenWeeksKeepDone,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED,DEFAULT_CATS,nextMemberTint,computeBalances,compactWeekItemsForSave,isLegacyWeekKeyFormat,computeWeeksSummary,projectCashFlow} from './lib/core';
+import {C,MONO,uid,weekKey,todayKey,getISOWeek,calcAvgMonthlyNet,calcNetFor,generateAllWeeks,regenWeeksKeepDone,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED,DEFAULT_CATS,nextMemberTint,computeBalances,compactWeekItemsForSave,isLegacyWeekKeyFormat,computeWeeksSummary,projectCashFlow,applyExtraPaymentEdits,undoExtraPaymentEdits} from './lib/core';
 // ── Пять основных вкладок нижней навигации грузятся вместе с основным бандлом ──
 // Раньше четыре из них (Поток/Бюджет/Здоровье/Ещё) были на React.lazy: первое
 // переключение вкладки упиралось в сетевую загрузку отдельного chunk'а (в проде —
@@ -660,12 +660,20 @@ useEffect(() => {
     };
     // Отпуск (см. Budget.jsx: планировщик отпуска) заодно урезает зарплату/аванс
     // за месяц отпуска пропорционально отработанным дням — иначе за отпускные
-    // дни платили бы дважды (полный оклад поверх отпускных).
-    setAppState(prev=>({
-      ...prev,
-      extraPayments:[...prev.extraPayments,ep],
-      payments: paymentOverrides && Object.keys(paymentOverrides).length ? {...prev.payments,...paymentOverrides} : prev.payments,
-    }));
+    // дни платили бы дважды (полный оклад поверх отпускных). Что именно
+    // поменяли и что было до этого, храним в самой записи об отпускных —
+    // иначе её удаление не смогло бы вернуть зарплаты на место.
+    setAppState(prev=>{
+      if(!paymentOverrides||!Object.keys(paymentOverrides).length){
+        return{...prev,extraPayments:[...prev.extraPayments,ep]};
+      }
+      const{payments,prev:before}=applyExtraPaymentEdits(prev.payments,paymentOverrides);
+      return{
+        ...prev,
+        extraPayments:[...prev.extraPayments,{...ep,paymentOverrides,paymentOverridesPrev:before}],
+        payments,
+      };
+    });
   });
   const handleWithdrawPiggy=guarded(({amount,catId,name,memberId})=>{
     const n=parseInt(amount)||0;
@@ -679,7 +687,17 @@ useEffect(() => {
     setAppState(prev=>({...prev,savingsGoal:goal}));
   });
   const handleDeleteExtra=guarded((id)=>{
-    setAppState(prev=>({...prev,extraPayments:prev.extraPayments.filter(ep=>ep.id!==id)}));
+    setAppState(prev=>{
+      // Удаляем не только саму выплату, но и её след в payments: отпускные
+      // урезали зарплату и аванс за месяц отпуска, и без отката они остались бы
+      // урезанными навсегда (см. undoExtraPaymentEdits).
+      const ep=prev.extraPayments.find(x=>x.id===id);
+      return{
+        ...prev,
+        extraPayments:prev.extraPayments.filter(x=>x.id!==id),
+        payments:undoExtraPaymentEdits(prev.payments,ep),
+      };
+    });
   });
   const handleAddIncomeSource=guarded((memberId)=>{
     const ni={id:uid(),memberId,name:'',gross:'',salaryDays:[],advanceDays:[],advancePct:'40',advanceMode:'pct'};

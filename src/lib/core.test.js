@@ -7,6 +7,8 @@ import {
   buildPaymentSchedule,
   buildPaymentScheduleSpan,
   applyPaymentEdit,
+  applyExtraPaymentEdits,
+  undoExtraPaymentEdits,
   computeBalances,
   computeBudgetMetrics,
   calcAvgMonthlyNet,
@@ -900,5 +902,47 @@ describe('правки выплат привязаны к источнику д�
     const salaries = schedFor(mkInc('A')).filter((p) => p.type === 'salary');
     expect(salaries.some((p) => p.shifted)).toBe(true); // иначе тест ничего не проверяет
     expect(salaries.every((p) => /-10·A$/.test(p.key))).toBe(true);
+  });
+});
+
+// Отпускные урезают зарплату и аванс за месяц отпуска, и эти правки лежат в
+// state.payments — отдельно от самой записи об отпускных. Удаление отпускных их
+// не трогало: отпуска в бюджете уже нет, а зарплата так и оставалась урезанной.
+describe('удаление разовой выплаты откатывает правки выплат, которые она внесла', () => {
+  const overrides = { 'Зарплата·2026-11-10·i1': { actualAmount: 35432 }, 'Аванс·2026-10-25·i1': { actualAmount: 31004 } };
+  const mkExtra = (payments) => {
+    const { payments: next, prev } = applyExtraPaymentEdits(payments, overrides);
+    return { payments: next, extra: { id: 'v1', type: 'vacation', paymentOverrides: overrides, paymentOverridesPrev: prev } };
+  };
+
+  test('выплаты, которых раньше в payments не было, исчезают из него полностью', () => {
+    const { payments, extra } = mkExtra({});
+    expect(payments['Зарплата·2026-11-10·i1'].actualAmount).toBe(35432);
+    expect(undoExtraPaymentEdits(payments, extra)).toEqual({});
+  });
+
+  test('уже отмеченной выплате возвращается прежняя сумма, галочка остаётся', () => {
+    const before = { 'Зарплата·2026-11-10·i1': { actualAmount: 157675, isDone: true, note2: 'премия' } };
+    const { payments, extra } = mkExtra(before);
+    expect(payments['Зарплата·2026-11-10·i1']).toEqual({ actualAmount: 35432, isDone: true, note2: 'премия' }); // галочку отпуск не сбивает
+    expect(undoExtraPaymentEdits(payments, extra)['Зарплата·2026-11-10·i1']).toEqual(before['Зарплата·2026-11-10·i1']);
+  });
+
+  test('галочка, поставленная уже ПОСЛЕ отпуска, при удалении сохраняется', () => {
+    const { payments, extra } = mkExtra({});
+    const marked = { ...payments, 'Аванс·2026-10-25·i1': { ...payments['Аванс·2026-10-25·i1'], isDone: true } };
+    const after = undoExtraPaymentEdits(marked, extra);
+    expect(after['Аванс·2026-10-25·i1']).toEqual({ isDone: true }); // сумма откатилась, отметка на месте
+  });
+
+  test('сумму, исправленную вручную после отпуска, откат не трогает', () => {
+    const { payments, extra } = mkExtra({});
+    const edited = { ...payments, 'Зарплата·2026-11-10·i1': { actualAmount: 90000 } };
+    expect(undoExtraPaymentEdits(edited, extra)['Зарплата·2026-11-10·i1']).toEqual({ actualAmount: 90000 });
+  });
+
+  test('у выплаты без правок (премия, добавленная вручную) откатывать нечего', () => {
+    const payments = { 'Зарплата·2026-11-10·i1': { isDone: true } };
+    expect(undoExtraPaymentEdits(payments, { id: 'b1', type: 'bonus' })).toBe(payments);
   });
 });
