@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BudgetScreen } from './Budget';
 import { buildDemoState, buildPaymentScheduleSpan } from '../lib/core';
@@ -83,17 +83,17 @@ test('планировщик отпуска (начало до 15-го): уре�
   const schedule = buildPaymentScheduleSpan(2027, inc0.salaryDays, inc0.advanceDays, inc0.advancePct, inc0.gross, inc0);
   // Аванс за июнь (выплата 25 июня, за первую половину июня) — должен уменьшиться.
   const juneAdvance = schedule.find(p => p.type === 'advance' && p.date.getMonth() === 5 && p.date.getFullYear() === 2027);
-  expect(paymentOverrides[juneAdvance.displayLabel]).toBeDefined();
-  expect(paymentOverrides[juneAdvance.displayLabel].actualAmount).toBeLessThan(juneAdvance.amount);
+  expect(paymentOverrides[juneAdvance.key]).toBeDefined();
+  expect(paymentOverrides[juneAdvance.key].actualAmount).toBeLessThan(juneAdvance.amount);
   // Зарплата ЗА июнь (окончательный расчёт, выплата 10 июля) — должна уменьшиться.
   const juneSalary = schedule.find(p => p.type === 'salary' && p.workMonth === 6 && p.workYear === 2027);
-  expect(paymentOverrides[juneSalary.displayLabel]).toBeDefined();
-  expect(paymentOverrides[juneSalary.displayLabel].actualAmount).toBeLessThan(juneSalary.amount);
+  expect(paymentOverrides[juneSalary.key]).toBeDefined();
+  expect(paymentOverrides[juneSalary.key].actualAmount).toBeLessThan(juneSalary.amount);
   // Зарплата ЗА май (окончательный расчёт, выплата 10 июня — просто попадает в тот
   // же календарный месяц, что и отпуск) отпуска в июне не касается — не должна
   // фигурировать в overrides вовсе. Именно это раньше было багом.
   const maySalary = schedule.find(p => p.type === 'salary' && p.workMonth === 5 && p.workYear === 2027);
-  expect(paymentOverrides[maySalary.displayLabel]).toBeUndefined();
+  expect(paymentOverrides[maySalary.key]).toBeUndefined();
 });
 
 test('планировщик отпуска (начало после 15-го): аванс не меняется, меняется только зарплата за месяц', async () => {
@@ -109,10 +109,10 @@ test('планировщик отпуска (начало после 15-го): �
   const { paymentOverrides } = onAddExtra.mock.calls[0][0];
   const schedule = buildPaymentScheduleSpan(2027, inc0.salaryDays, inc0.advanceDays, inc0.advancePct, inc0.gross, inc0);
   const juneAdvance = schedule.find(p => p.type === 'advance' && p.date.getMonth() === 5 && p.date.getFullYear() === 2027);
-  expect(paymentOverrides[juneAdvance.displayLabel]).toBeUndefined(); // аванс за первую половину июня не тронут
+  expect(paymentOverrides[juneAdvance.key]).toBeUndefined(); // аванс за первую половину июня не тронут
   const juneSalary = schedule.find(p => p.type === 'salary' && p.workMonth === 6 && p.workYear === 2027);
-  expect(paymentOverrides[juneSalary.displayLabel]).toBeDefined();
-  expect(paymentOverrides[juneSalary.displayLabel].actualAmount).toBeLessThan(juneSalary.amount);
+  expect(paymentOverrides[juneSalary.key]).toBeDefined();
+  expect(paymentOverrides[juneSalary.key].actualAmount).toBeLessThan(juneSalary.amount);
 });
 
 test('планировщик отпуска: зарплата считается от фактических дней за месяц, а не как доля от аванса (баг с переплатой)', async () => {
@@ -134,7 +134,7 @@ test('планировщик отпуска: зарплата считается
   const schedule = buildPaymentScheduleSpan(2027, inc0.salaryDays, inc0.advanceDays, inc0.advancePct, inc0.gross, inc0);
   const juneAdvance = schedule.find(p => p.type === 'advance' && p.date.getMonth() === 5 && p.date.getFullYear() === 2027);
   const juneSalary = schedule.find(p => p.type === 'salary' && p.workMonth === 6 && p.workYear === 2027);
-  expect(paymentOverrides[juneAdvance.displayLabel]).toBeUndefined(); // аванс не тронут
+  expect(paymentOverrides[juneAdvance.key]).toBeUndefined(); // аванс не тронут
 
   // Независимый расчёт «правильной» суммы за месяц по фактическим дням.
   let totalWD = 0, vacWD = 0;
@@ -152,8 +152,143 @@ test('планировщик отпуска: зарплата считается
   const dailyRate = (juneAdvance.amount + juneSalary.amount) / totalWD;
   const expectedSalary = Math.max(0, Math.round(dailyRate * workedD - juneAdvance.amount));
 
-  expect(paymentOverrides[juneSalary.displayLabel].actualAmount).toBe(expectedSalary);
+  expect(paymentOverrides[juneSalary.key].actualAmount).toBe(expectedSalary);
   // Сама регрессия: старая (ошибочная) формула здесь давала бы гораздо больше.
   const buggyValue = Math.round(juneSalary.amount * (workedD / totalWD));
-  expect(paymentOverrides[juneSalary.displayLabel].actualAmount).toBeLessThan(buggyValue);
+  expect(paymentOverrides[juneSalary.key].actualAmount).toBeLessThan(buggyValue);
+});
+
+// Реальный баг из аккаунта пользователя: планировщик отпуска жёстко брал
+// incomes[0]. Если первым источником оказывался не оклад (самозанятость,
+// «на руки», пустая подработка), планировщик считал по нему молча: годовая
+// база выходила 0, а урезание зарплаты уходило в выплаты, которых нет в
+// «Выплатах года». Отпускные добавлялись, а зарплата за месяц отпуска —
+// нет.
+describe('планировщик отпуска: считает по окладу, а не по первому источнику дохода', () => {
+  const demo = buildDemoState();
+  const selfIncome = { id: 'i0', memberId: 'm1', gross: 0, incomeType: 'self', taxRate: '6', salaryDays: [], advanceDays: [], advancePct: '40' };
+  const openPlanner = async (user, st, onAddExtra = noop) => {
+    render(<BudgetScreen state={st} onEditPlanned={noop} onAddPlanned={noop} onEditPayment={noop} onAddExtra={onAddExtra} onWithdrawPiggy={noop} onSetGoal={noop} onAddGoalToPlan={noop} />);
+    await user.click(screen.getByText('✈️ Отпуск'));
+    const dateInput = document.querySelector('input[type="date"]');
+    await user.type(dateInput, '2027-06-01');
+    return dateInput;
+  };
+
+  test('нерегулярный доход первым в списке не ломает ни базу расчёта, ни урезание зарплаты', async () => {
+    const user = userEvent.setup();
+    const onAddExtra = jest.fn();
+    const st = { ...demo, incomes: [selfIncome, ...demo.incomes] };
+    await openPlanner(user, st, onAddExtra);
+    // База — оклад первого ОКЛАДНОГО источника (gross × 12), а не 0 от подработки
+    const employed = demo.incomes[0];
+    const basisInput = screen.getByPlaceholderText(/годовая сумма/);
+    expect(basisInput.placeholder.replace(/\D/g, '')).toBe(String(employed.gross * 12));
+    // И зарплата за месяц отпуска реально урезается
+    expect(screen.getByText(/Зарплата за июн — уменьшится/)).toBeInTheDocument();
+    await user.click(screen.getByText('Добавить отпускные в бюджет'));
+    const arg = onAddExtra.mock.calls[0][0];
+    expect(arg.amount).toBeGreaterThan(0);
+    expect(Object.keys(arg.paymentOverrides).length).toBeGreaterThan(0);
+    expect(arg.memberId).toBe(employed.memberId);
+  });
+
+  test('без окладного дохода вместо калькулятора — объяснение, почему он недоступен', async () => {
+    const user = userEvent.setup();
+    const st = { ...demo, incomes: [selfIncome] };
+    render(<BudgetScreen state={st} onEditPlanned={noop} onAddPlanned={noop} onEditPayment={noop} onAddExtra={noop} onWithdrawPiggy={noop} onSetGoal={noop} onAddGoalToPlan={noop} />);
+    await user.click(screen.getByText('✈️ Отпуск'));
+    expect(screen.getByText(/нет ни одного/)).toBeInTheDocument();
+    expect(document.querySelector('input[type="date"]')).toBeNull();
+  });
+
+  test('несколько окладов — можно выбрать, чей отпуск, и расчёт идёт по выбранному', async () => {
+    const user = userEvent.setup();
+    const onAddExtra = jest.fn();
+    await openPlanner(user, demo, onAddExtra); // в демо два оклада: Мария и Сергей
+    const picker = screen.getByText('Чей отпуск').parentElement;
+    await user.click(within(picker).getByText(/Сергей/));
+    await user.click(screen.getByText('Добавить отпускные в бюджет'));
+    expect(onAddExtra.mock.calls[0][0].memberId).toBe(demo.incomes[1].memberId);
+  });
+});
+
+// Разовые выплаты рисовались отдельным блоком выше всех зарплат и без даты:
+// отпускные за октябрь оказывались первой строкой списка, над августовской
+// зарплатой, и выглядели как выплата в августе.
+test('разовая выплата стоит в списке по своей дате, а не первой строкой', () => {
+  const demo = buildDemoState();
+  const inAMonth = new Date(); inAMonth.setMonth(inAMonth.getMonth() + 1);
+  const st = { ...demo, extraPayments: [{ id: 'e1', label: 'Отпускные (7 дн.)', amount: 51962, date: inAMonth.toISOString(), type: 'vacation', isExtra: true }] };
+  render(<BudgetScreen state={st} onEditPlanned={noop} onAddPlanned={noop} onEditPayment={noop} onAddExtra={noop} onWithdrawPiggy={noop} onSetGoal={noop} onAddGoalToPlan={noop} />);
+  // jsdom не реализует innerText — берём textContent
+  const rows = [...document.querySelectorAll('button')].filter(b => /^\d+ [а-я]+/.test(b.textContent));
+  const vacIdx = rows.findIndex(b => b.textContent.includes('Отпускные'));
+  expect(vacIdx).toBeGreaterThan(0); // не первая строка
+  // у отпускных своя дата-плашка, как у зарплат
+  expect(rows[vacIdx].textContent).toMatch(/^\d+ [а-я]+/);
+});
+
+// Сквозная проверка того же на планировщике отпуска: у двух окладов совпадают
+// дни выплат (10-е и 25-е), поэтому подписи выплат одинаковые. Урезание за
+// отпуск одного человека не должно попасть на выплаты второго.
+test('отпуск одного из двух окладов с одинаковыми днями выплат не трогает второй', async () => {
+  const user = userEvent.setup();
+  const onAddExtra = jest.fn();
+  const demo = buildDemoState();
+  const sameDays = { salaryDays: [10], advanceDays: [25], advancePct: '40' };
+  const incA = { ...demo.incomes[0], id: 'iA', memberId: 'm1', ...sameDays };
+  const incB = { ...demo.incomes[1], id: 'iB', memberId: 'm2', ...sameDays };
+  const st = { ...demo, incomes: [incA, incB] };
+  render(<BudgetScreen state={st} onEditPlanned={noop} onAddPlanned={noop} onEditPayment={noop} onAddExtra={onAddExtra} onWithdrawPiggy={noop} onSetGoal={noop} onAddGoalToPlan={noop} />);
+  await user.click(screen.getByText('✈️ Отпуск'));
+  await user.type(document.querySelector('input[type="date"]'), '2027-06-01');
+  await user.click(await screen.findByText('Добавить отпускные в бюджет'));
+
+  const { paymentOverrides } = onAddExtra.mock.calls[0][0];
+  const keys = Object.keys(paymentOverrides);
+  expect(keys.length).toBeGreaterThan(0);
+  expect(keys.every(k => k.endsWith('·iA'))).toBe(true);  // только первый оклад
+  expect(keys.some(k => k.endsWith('·iB'))).toBe(false);
+  // и ни один ключ не является голой подписью выплаты, общей для обоих окладов
+  const schedule = buildPaymentScheduleSpan(2027, sameDays.salaryDays, sameDays.advanceDays, sameDays.advancePct, incB.gross, incB);
+  expect(keys.some(k => schedule.some(p => p.displayLabel === k))).toBe(false);
+});
+
+test('в подписи отпускных есть год, если отпуск не в текущем году', async () => {
+  const user = userEvent.setup();
+  const onAddExtra = jest.fn();
+  render(<BudgetScreen state={state} onEditPlanned={noop} onAddPlanned={noop} onEditPayment={noop} onAddExtra={onAddExtra} onWithdrawPiggy={noop} onSetGoal={noop} onAddGoalToPlan={noop} />);
+  await user.click(screen.getByText('✈️ Отпуск'));
+  await user.type(document.querySelector('input[type="date"]'), '2027-06-01');
+  await user.click(await screen.findByText('Добавить отпускные в бюджет'));
+  expect(onAddExtra.mock.calls[0][0].label).toContain('.2027');
+});
+
+// Точный случай из выгрузки реального аккаунта: в доходах болтается пустая
+// заготовка источника (gross 0, дней выплат нет, incomeType не задан — а значит
+// по умолчанию «наёмный»), а настоящий оклад заведён вторым. Планировщик брал
+// первую и молча считал по ней: годовая база 0, расписания выплат нет, урезать
+// нечего — отпускные добавлялись, зарплата за месяц отпуска не менялась.
+test('пустая заготовка источника дохода не перехватывает планировщик отпуска', async () => {
+  const user = userEvent.setup();
+  const onAddExtra = jest.fn();
+  const demo = buildDemoState();
+  const stub = { id: 'i1', memberId: 'm1', gross: 0, net: 0, advancePct: '40', advanceMode: 'pct' };
+  const real = { ...demo.incomes[0], id: 'iReal', memberId: 'm1', gross: 371000, incomeType: 'employed', salaryDays: [10], advanceDays: [25], advancePct: '50' };
+  const st = { ...demo, members: [demo.members[0]], incomes: [stub, real] };
+  render(<BudgetScreen state={st} onEditPlanned={noop} onAddPlanned={noop} onEditPayment={noop} onAddExtra={onAddExtra} onWithdrawPiggy={noop} onSetGoal={noop} onAddGoalToPlan={noop} />);
+  await user.click(screen.getByText('✈️ Отпуск'));
+  // база считается по настоящему окладу, а не по нулевой заготовке
+  expect(screen.getByPlaceholderText(/годовая сумма/).placeholder.replace(/\D/g, '')).toBe(String(371000 * 12));
+  // заготовку не предлагают выбрать — оклад ровно один
+  expect(screen.queryByText('Чей отпуск')).not.toBeInTheDocument();
+
+  await user.type(document.querySelector('input[type="date"]'), '2027-06-01');
+  await user.click(await screen.findByText('Добавить отпускные в бюджет'));
+  const arg = onAddExtra.mock.calls[0][0];
+  const keys = Object.keys(arg.paymentOverrides);
+  expect(keys.length).toBeGreaterThan(0);            // зарплата/аванс реально урезаны
+  expect(keys.every(k => k.endsWith('·iReal'))).toBe(true);
+  expect(arg.incomeId).toBe('iReal');
 });

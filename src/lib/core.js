@@ -130,8 +130,8 @@ const buildPaymentSchedule=(year,salaryDays=[],advanceDays=[],advancePct=40,mont
     const cur=calcFor(m);      // заработок текущего месяца → аванс
     const prev=calcFor(m-1);   // заработок прошлого месяца → зарплата-расчёт
     const daysInM=new Date(year,m,0).getDate(); // напр. 31-е число в феврале не существует — берём последний день месяца
-    for(const d of advanceDays){const info=fmtPayDate(year,m,Math.min(d,daysInM));result.push({type:'advance',amount:cur.advAmt,month:m,bracket:cur.bracket,...info,displayLabel:`Аванс·${info.label}`,actualAmount:cur.advAmt,isDone:false,note2:''});}
-    for(const d of salaryDays){const info=fmtPayDate(year,m,Math.min(d,daysInM));result.push({type:'salary',amount:prev.salAmt,month:m,bracket:prev.bracket,...info,displayLabel:`Зарплата·${info.label}`,actualAmount:prev.salAmt,isDone:false,note2:'',ndfl:prev.monthlyNDFL,workMonth:m===1?12:m-1,workYear:m===1?year-1:year});}}
+    for(const d of advanceDays){const day=Math.min(d,daysInM);const info=fmtPayDate(year,m,day);result.push({type:'advance',amount:cur.advAmt,month:m,bracket:cur.bracket,...info,displayLabel:`Аванс·${info.label}`,key:paymentKey(inc,'advance',year,m,day),actualAmount:cur.advAmt,isDone:false,note2:''});}
+    for(const d of salaryDays){const day=Math.min(d,daysInM);const info=fmtPayDate(year,m,day);result.push({type:'salary',amount:prev.salAmt,month:m,bracket:prev.bracket,...info,displayLabel:`Зарплата·${info.label}`,key:paymentKey(inc,'salary',year,m,day),actualAmount:prev.salAmt,isDone:false,note2:'',ndfl:prev.monthlyNDFL,workMonth:m===1?12:m-1,workYear:m===1?year-1:year});}}
   return result.sort((a,b)=>a.date-b.date);
 };
 // Выплата у границы года (напр. 10 января за декабрь) может из-за праздников сдвинуться в предыдущий
@@ -139,6 +139,24 @@ const buildPaymentSchedule=(year,salaryDays=[],advanceDays=[],advancePct=40,mont
 // Поэтому берём соседние года тоже: конкретная выплата всё равно попадёт в диапазон только один раз.
 const buildPaymentScheduleSpan=(year,salaryDays,advanceDays,advancePct,monthlyGross,inc)=>
   [year-1,year,year+1].flatMap(y=>buildPaymentSchedule(y,salaryDays,advanceDays,advancePct,monthlyGross,inc));
+// Ключ, под которым в state.payments лежат правки выплаты (галочка «получено»,
+// фактическая сумма, заметка). Раньше ключом была подпись displayLabel вида
+// «Зарплата·10 ноя (вт)» — в ней нет ни года, ни источника дохода, поэтому два
+// оклада с одинаковым днём выплаты делили одну запись: отметка или урезание
+// зарплаты у одного человека молча применялись и ко второму. Ключ строим из
+// вида выплаты, ПЛАНОВОЙ даты (до переноса по праздникам) и id источника:
+// перенос зависит от производственного календаря, и привязка к перенесённой
+// дате теряла бы правки при каждом уточнении календаря.
+const paymentKey=(inc,type,year,month,day)=>{
+  if(!inc?.id)return null; // старые вызовы без источника — работают по displayLabel
+  const date=`${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+  return `${type==='salary'?'Зарплата':'Аванс'}·${date}·${inc.id}`;
+};
+// Наложить правки пользователя на выплату из расписания. Читаем и по новому
+// ключу, и по старой подписи: у всех, кто пользовался приложением раньше,
+// payments заполнен старыми ключами, и молча терять их галочки нельзя. Новый
+// ключ применяется последним — если правка есть в обоих видах, побеждает он.
+const applyPaymentEdit=(p,payments={})=>({...p,...(payments[p.displayLabel]||{}),...((p.key&&payments[p.key])||{})});
 // Мёрж: регенерирует недели по новому плану, сохраняя отметки isDone и ручные записи.
 // Если позиция была отредактирована (edited:true — напр. заранее поменяли сумму через
 // ✏️, ещё не отметив выполненной), берём её целиком, а не только isDone — иначе правка
@@ -179,7 +197,7 @@ const computeBalances=(state)=>{
   // тот же доход считался бы дважды или "обещанные" деньги приходили бы сами.
   const allPaymentsActual=incomes.filter(inc=>(inc.incomeType||'employed')==='employed').flatMap(inc=>{
     const sch=buildPaymentScheduleSpan(year,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc);
-    return sch.map(p=>({...p,...(payments[p.displayLabel]||{})}));
+    return sch.map(p=>applyPaymentEdit(p,payments));
   });
   const budgetStart=new Date(budgetStartDate||new Date()); budgetStart.setHours(0,0,0,0);
   const now=new Date(); now.setHours(23,59,59,999);
@@ -290,7 +308,7 @@ const scheduledIncomeForWeek=(inc,wS,wE,payments,curWk,cache)=>{
   let sch=cache?.get(inc)?.get(yr);
   if(!sch){
     sch=buildPaymentScheduleSpan(yr,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc)
-      .map(p=>({...p,...(payments[p.displayLabel]||{})}));
+      .map(p=>applyPaymentEdit(p,payments));
     if(cache){
       const byYear=cache.get(inc)||new Map();
       byYear.set(yr,sch);
@@ -619,7 +637,7 @@ const buildDemoState=()=>{
     const sch=buildPaymentSchedule(yr,inc.salaryDays,inc.advanceDays,parseInt(inc.advancePct),inc.gross,inc);
     const now=new Date();
     const past=sch.filter(p=>p.date<=now).slice(-1);
-    past.forEach(p=>{payments[p.displayLabel]={isDone:true};});
+    past.forEach(p=>{payments[p.key||p.displayLabel]={isDone:true};});
   });
   // Стартовая дата — неделю назад, чтобы прошлая неделя попала в учёт
   const start=new Date(); start.setDate(start.getDate()-8);
@@ -634,4 +652,4 @@ const DEMO_MEMBERS=[{id:'m1',name:'Мария',avatar:'👩',color:'oklch(0.9 0.
 const DEMO_PLANNED=[{id:'p1',catId:'mortgage',name:'Ипотека',amount:55000,memberId:'m1',repeat:'monthly',days:[20]},{id:'p2',catId:'food',name:'Еда',amount:10000,memberId:'m1',repeat:'weekly',days:[]},{id:'p3',catId:'food',name:'Еда',amount:10000,memberId:'m2',repeat:'weekly',days:[]},{id:'p4',catId:'beauty',name:'Красота',amount:15000,memberId:'m1',repeat:'biweekly',days:[]},{id:'p5',catId:'edu',name:'Образование',amount:20000,memberId:'m2',repeat:'monthly',days:[1]},{id:'p6',catId:'piggy',name:'Копилка',amount:10000,memberId:'m1',repeat:'weekly',days:[]}];
 
 
-export {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,paymentTypeLabel,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,buildPaymentScheduleSpan,regenWeeksKeepDone,computeBalances,computeBudgetMetrics,computeWeeksSummary,scheduledIncomeForWeek,projectCashFlow,annuityPayment,simulateScenario,maxSustainablePayment,verdictFor,compactWeekItemsForSave,isLegacyWeekKeyFormat,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,FUND_LABELS,getCatFund,PIE_COLORS,FACE_EMOJIS,MEMBER_TINTS,nextMemberTint,PRIVACY_URL,TERMS_URL,TELEGRAM_URL,APP_VERSION,APP_BUILD,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED};
+export {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,paymentTypeLabel,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,buildPaymentScheduleSpan,paymentKey,applyPaymentEdit,regenWeeksKeepDone,computeBalances,computeBudgetMetrics,computeWeeksSummary,scheduledIncomeForWeek,projectCashFlow,annuityPayment,simulateScenario,maxSustainablePayment,verdictFor,compactWeekItemsForSave,isLegacyWeekKeyFormat,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,FUND_LABELS,getCatFund,PIE_COLORS,FACE_EMOJIS,MEMBER_TINTS,nextMemberTint,PRIVACY_URL,TERMS_URL,TELEGRAM_URL,APP_VERSION,APP_BUILD,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED};

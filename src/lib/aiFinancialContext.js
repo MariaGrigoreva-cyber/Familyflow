@@ -9,7 +9,7 @@
 // поле за полем вручную, а не копированием кусков state.
 import {
   computeBalances, computeWeeksSummary, projectCashFlow, computeBudgetMetrics, verdictFor,
-  buildPaymentScheduleSpan, todayKey, todayMonthKey, weekKeyToDate, monthKey,
+  buildPaymentScheduleSpan, applyPaymentEdit, todayKey, todayMonthKey, weekKeyToDate, monthKey,
   DEFAULT_CATS, getCat,
 } from './core';
 
@@ -141,7 +141,7 @@ export function buildAiFinancialContext(state) {
       .flatMap(inc => buildPaymentScheduleSpan(
         now.getFullYear(), inc.salaryDays || [], inc.advanceDays || [],
         parseInt(inc.advancePct) || 40, inc.gross || 0, inc,
-      ).map(p => ({ ...p, ...(payments[p.displayLabel] || {}) })))
+      ).map(p => applyPaymentEdit(p, payments)))
       .filter(p => p.date >= now && p.date <= horizon)
       .map(p => ({
         // У выплат дохода дата точная: buildPaymentSchedule уже учёл перенос

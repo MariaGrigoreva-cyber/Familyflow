@@ -6,6 +6,7 @@ import {
   getActualPayDate,
   buildPaymentSchedule,
   buildPaymentScheduleSpan,
+  applyPaymentEdit,
   computeBalances,
   computeBudgetMetrics,
   calcAvgMonthlyNet,
@@ -855,5 +856,49 @@ describe('scheduledIncomeForWeek: кеш не меняет результат', 
     const cached = scheduledIncomeForWeek(inc, wS, wE, payments, '2025-W01', new Map());
     expect(plain).toBe(12345);
     expect(cached).toBe(plain);
+  });
+});
+
+// Правки выплат (галочка «получено», фактическая сумма, заметка) лежат в
+// state.payments. Ключом была подпись вида «Зарплата·10 ноя (вт)» — без года и
+// без источника дохода. У двух окладов с одинаковым днём выплаты подпись
+// совпадала, и одна запись обслуживала обоих: отметка или урезание зарплаты
+// (планировщик отпуска) у одного человека молча применялись и ко второму.
+describe('правки выплат привязаны к источнику дохода, а не к подписи', () => {
+  const year = new Date().getFullYear();
+  const mkInc = (id) => ({ id, memberId: `m${id}`, gross: 200000, salaryDays: [10], advanceDays: [25], advancePct: '40' });
+  const schedFor = (inc) => buildPaymentScheduleSpan(year, inc.salaryDays, inc.advanceDays, inc.advancePct, inc.gross, inc);
+  const salaryOf = (id) => schedFor(mkInc(id)).find((p) => p.type === 'salary');
+
+  test('одинаковый день выплаты у двух окладов: подпись одна, ключ разный', () => {
+    expect(salaryOf('A').displayLabel).toBe(salaryOf('B').displayLabel);
+    expect(salaryOf('A').key).not.toBe(salaryOf('B').key);
+  });
+
+  test('правка применяется только к своей выплате, второй оклад не задет', () => {
+    const a = salaryOf('A'), b = salaryOf('B');
+    const payments = { [a.key]: { actualAmount: 1, isDone: true } };
+    expect(applyPaymentEdit(a, payments).actualAmount).toBe(1);
+    expect(applyPaymentEdit(a, payments).isDone).toBe(true);
+    expect(applyPaymentEdit(b, payments).actualAmount).toBe(b.amount); // не тронут
+    expect(applyPaymentEdit(b, payments).isDone).toBe(false);
+  });
+
+  test('правки, сохранённые до этой версии (по подписи), продолжают работать', () => {
+    const a = salaryOf('A');
+    expect(applyPaymentEdit(a, { [a.displayLabel]: { isDone: true, actualAmount: 7 } }))
+      .toMatchObject({ isDone: true, actualAmount: 7 });
+  });
+
+  test('если правка есть и по старой подписи, и по новому ключу — побеждает ключ', () => {
+    const a = salaryOf('A');
+    const merged = applyPaymentEdit(a, { [a.displayLabel]: { actualAmount: 7 }, [a.key]: { actualAmount: 9 } });
+    expect(merged.actualAmount).toBe(9);
+  });
+
+  test('перенос выплаты по празднику не меняет ключ — он от ПЛАНОВОЙ даты', () => {
+    const salaries = schedFor(mkInc('A')).filter((p) => p.type === 'salary');
+    expect(salaries.some((p) => p.shifted)).toBe(true); // иначе тест ничего не проверяет
+    expect(salaries.every((p) => /-10·A$/.test(p.key))).toBe(true);
   });
 });

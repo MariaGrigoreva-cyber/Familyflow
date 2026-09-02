@@ -630,7 +630,10 @@ useEffect(() => {
       if(isExtraPay){
         return{...prev,extraPayments:prev.extraPayments.map(ep=>ep.id===payment.id?{...ep,actualAmount:payment.actualAmount,isDone:payment.isDone,note2:payment.note2}:ep)};
       }
-      return{...prev,payments:{...prev.payments,[payment.displayLabel]:{actualAmount:payment.actualAmount,isDone:payment.isDone,note2:payment.note2}}};
+      // Ключ — payment.key (вид выплаты + плановая дата + источник дохода, см.
+      // paymentKey в core.js). displayLabel остаётся запасным вариантом для старых
+      // записей, у которых ключа ещё нет.
+      return{...prev,payments:{...prev.payments,[payment.key||payment.displayLabel]:{actualAmount:payment.actualAmount,isDone:payment.isDone,note2:payment.note2}}};
     });
   });
   const handleSalaryCheckConfirm=actualAmount=>{

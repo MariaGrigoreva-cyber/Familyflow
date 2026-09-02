@@ -54,6 +54,9 @@ const SHEETS = {
     arrayFields: ['days'],
   },
   weekMarks: { name: 'Отметки', fields: ['week', 'id', 'plannedId', 'catId', 'name', 'amount', 'memberId', 'isDone', 'edited'] },
+  // Первая колонка — ключ записи в state.payments (см. paymentKey в core.js).
+  // Исторически это была подпись выплаты, отсюда и имя поля; менять его нельзя,
+  // иначе перестанут читаться уже выгруженные у пользователей файлы.
   payments: { name: 'Платежи', fields: ['displayLabel', 'actualAmount', 'isDone', 'note2'] },
   extraPayments: {
     name: 'Допвыплаты',

@@ -1,6 +1,6 @@
 // FamilyFlow — экран Бюджет
 import React, { useState, useEffect, useMemo } from 'react';
-import {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentScheduleSpan,regenWeeksKeepDone,computeBalances,computeBudgetMetrics,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,paymentTypeLabel,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
+import {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentScheduleSpan,applyPaymentEdit,regenWeeksKeepDone,computeBalances,computeBudgetMetrics,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,paymentTypeLabel,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,PiggyLogo,CatIcon} from '../lib/ui';
 
 export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onAddExtra,onWithdrawPiggy,onSetGoal,onAddGoalToPlan}){
@@ -15,6 +15,7 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
   const[vacDays,setVacDays]=useState(14);
   const[vacDaysText,setVacDaysText]=useState('14'); // текст поля ввода — отдельно от vacDays, иначе backspace до пустой строки тут же откатывался бы обратно на минимум
   const[vacActual12,setVacActual12]=useState('');
+  const[vacIncomeId,setVacIncomeId]=useState(null); // чей отпуск считаем, если окладов несколько
   const[vacAdded,setVacAdded]=useState(false);
   const[showAllUpcoming,setShowAllUpcoming]=useState(false);
   const{incomes,planned,members,customCats=[],payments={},extraPayments=[],transactions=[]}=state;
@@ -28,9 +29,32 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
   const extraYearlyIncome=(extraPayments||[]).filter(p=>{const d=new Date(p.date);return d>=budgetStart&&d<=budgetEnd;}).reduce((s,p)=>s+(p.actualAmount||p.amount),0);
   const plannedYearlyIncome=totalNet*12;
   const totalYearlyIncome=plannedYearlyIncome+txExtraIncome+extraYearlyIncome;
-  // База для расчёта отпускных
+  // База для расчёта отпускных. Считать её (и урезание зарплаты за месяц отпуска)
+  // можно только по окладному доходу: отпускные по ст. 139 ТК РФ существуют лишь
+  // там, где есть зарплата и аванс. Раньше здесь стоял incomes[0] — если первым
+  // в списке оказывался нерегулярный доход (самозанятость, «на руки») или просто
+  // не тот источник, планировщик молча считал по нему: годовая база выходила 0,
+  // а урезание зарплаты уходило в выплаты, которых нет в «Выплатах года», —
+  // отпускные добавлялись, но зарплата за месяц отпуска не менялась.
   const knownMonthsCount=Math.min(12,Math.max(1,Math.round((new Date()-new Date(state.budgetStartDate||new Date()))/86400000/30)));
-  const monthlyGross=incomes[0]?.gross||0;
+  // Годится только источник, по которому реально есть зарплата и аванс: наёмный,
+  // с ненулевым окладом и заданными днями выплат. Незаполненная заготовка
+  // источника (остаётся, например, если при онбординге доход завели вторым
+  // источником, а первый так и не заполнили) выглядит как наёмный доход —
+  // incomeType у неё не задан, а значит по умолчанию «наёмный», — но выплат по
+  // ней нет вообще: считать по такой отпуск нельзя, и молча брать её первой,
+  // как раньше, тем более.
+  const employedIncomes=incomes.filter(inc=>(inc.incomeType||'employed')==='employed'
+    &&(parseInt(inc.gross)||0)>0
+    &&((inc.salaryDays||[]).length>0||(inc.advanceDays||[]).length>0));
+  const vacIncome=employedIncomes.find(inc=>inc.id===vacIncomeId)||employedIncomes[0]||null;
+  const vacIncomeLabel=inc=>{
+    const m=members.find(x=>x.id===inc.memberId);
+    const sameMember=employedIncomes.filter(i=>i.memberId===inc.memberId);
+    const idx=sameMember.indexOf(inc);
+    return `${m?.avatar||''} ${m?.name||'Оклад'}${sameMember.length>1?` · ${idx+1}`:''}`.trim();
+  };
+  const monthlyGross=vacIncome?.gross||0;
   const vacBasis12=monthlyGross*12; // оклад × 12 (пока нет реальных данных за год)
 
   const catTotals=allCats.map(cat=>{const items=planned.filter(p=>p.catId===cat.id);
@@ -79,12 +103,18 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
   // вперёд от budgetStart, включая выплаты, перенесённые праздниками через границу года.
   // Нерегулярный доход (самозанятый/на руки) сюда не попадает — у него нет
   // отдельного события выплаты для галочки, только ручные записи в «Потоке».
-  const allPayments=useMemo(()=>incomes.filter(inc=>(inc.incomeType||'employed')==='employed').flatMap(inc=>{const m=members.find(x=>x.id===inc.memberId);return buildPaymentScheduleSpan(budgetStart.getFullYear(),inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc).filter(p=>p.date>=budgetStart&&p.date<=budgetEnd).map(p=>({...p,memberName:m?.name||'',memberAvatar:m?.avatar||'',...(payments[p.displayLabel]||{})}));}).sort((a,b)=>a.date-b.date),
+  const allPayments=useMemo(()=>incomes.filter(inc=>(inc.incomeType||'employed')==='employed').flatMap(inc=>{const m=members.find(x=>x.id===inc.memberId);return buildPaymentScheduleSpan(budgetStart.getFullYear(),inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc).filter(p=>p.date>=budgetStart&&p.date<=budgetEnd).map(p=>({...applyPaymentEdit(p,payments),memberName:m?.name||'',memberAvatar:m?.avatar||''}));}).sort((a,b)=>a.date-b.date),
     [incomes,members,payments,budgetStart.getFullYear()]);
-  const upcomingAll=allPayments.filter(p=>p.date>=budgetStart);
+  // Разовые выплаты (отпускные, премия, 13-я) идут в тот же список, что и зарплаты,
+  // и сортируются вместе с ними по дате. Раньше они рисовались отдельным блоком
+  // ВЫШЕ всех зарплат и без даты — отпускные за октябрь оказывались первой строкой
+  // списка, прямо над августовской зарплатой, и выглядели как выплата в августе.
+  const extraUpcoming=(extraPayments||[])
+    .filter(p=>{const d=new Date(p.date);return d>=budgetStart&&d<=budgetEnd;})
+    .map(p=>({...p,date:new Date(p.date),isExtra:true}));
+  const upcomingAll=[...allPayments.filter(p=>p.date>=budgetStart),...extraUpcoming].sort((a,b)=>a.date-b.date);
   const upcoming=showAllUpcoming?upcomingAll:upcomingAll.slice(0,6);
   const shiftedCnt=allPayments.filter(p=>p.date>=budgetStart&&p.shifted).length;
-  const extraUpcoming=(extraPayments||[]).filter(p=>new Date(p.date)>=now);
   // Нижний отступ с запасом под плавающую кнопку «?» (см. App.jsx, стоит на
   // 78-126px от низа на всех вкладках кроме Сегодня) — иначе последние
   // строки экрана прячутся у неё под низом.
@@ -142,26 +172,19 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
         <SecTitle>ВЫПЛАТЫ ГОДА</SecTitle>
         {shiftedCnt>0&&<span style={{fontFamily:MONO,fontSize:10,fontWeight:600,color:C.yellow,background:C.yellowL,borderRadius:6,padding:'3px 7px'}}>⚠ {shiftedCnt} переносов</span>}
       </div>
-      {extraUpcoming.map((p,i)=>(
-        <button key={i} onClick={()=>onEditPayment(p)} style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'8px 0',border:'none',background:'none',borderBottom:`1px dashed ${C.border}`,cursor:'pointer',fontFamily:'inherit',textAlign:'left'}}>
-          <span style={{fontFamily:MONO,fontSize:10.5,fontWeight:600,color:C.greenD,background:C.greenL,borderRadius:6,padding:'3px 7px',flexShrink:0}}>{p.isDone?'✓':'🏆'}</span>
-          <div style={{flex:1}}><div style={{fontSize:13.5,fontWeight:500,color:C.text}}>{p.label}</div><div style={{fontFamily:MONO,fontSize:10,color:C.muted}}>{p.displayLabel}</div></div>
-          <span style={{fontFamily:MONO,fontSize:13,fontWeight:600,color:C.greenD}}>{fmtN(p.actualAmount||p.amount)}</span>
-        </button>
-      ))}
       {upcoming.map((p,idx)=>{
-        const chipBg=p.isDone?C.track:p.shifted?C.yellowL:C.orangeL;
-        const chipColor=p.isDone?'var(--c-muted2)':p.shifted?C.yellow:C.orangeD;
+        const chipBg=p.isDone?C.track:p.isExtra?C.greenL:p.shifted?C.yellowL:C.orangeL;
+        const chipColor=p.isDone?'var(--c-muted2)':p.isExtra?C.greenD:p.shifted?C.yellow:C.orangeD;
         return(
           <button key={idx} onClick={()=>onEditPayment(p)} style={{width:'100%',display:'flex',alignItems:'center',gap:12,padding:'8px 0',border:'none',background:'none',borderBottom:idx<upcoming.length-1?`1px dashed ${C.border}`:'none',cursor:'pointer',fontFamily:'inherit',textAlign:'left'}}>
             <span style={{fontFamily:MONO,fontSize:10.5,fontWeight:600,color:chipColor,background:chipBg,borderRadius:6,padding:'3px 7px',flexShrink:0}}>{bday(p.date)}</span>
             <div style={{flex:1}}>
-              <div style={{fontSize:13.5,fontWeight:500,color:C.text}}>{paymentTypeLabel(p)}{showMember?` · ${p.memberAvatar} ${p.memberName}`:''}</div>
+              <div style={{fontSize:13.5,fontWeight:500,color:C.text}}>{p.isExtra?p.label:paymentTypeLabel(p)}{showMember&&!p.isExtra?` · ${p.memberAvatar} ${p.memberName}`:''}</div>
               {p.shifted&&<div style={{fontFamily:MONO,fontSize:10,color:C.yellow,marginTop:1}}>{p.note}</div>}
               {p.note2&&<div style={{fontSize:10,color:C.muted,marginTop:1}}>{p.note2}</div>}
             </div>
             <div style={{textAlign:'right'}}>
-              <div style={{fontFamily:MONO,fontSize:13,fontWeight:600,color:C.text}}>{fmtN(p.actualAmount||p.amount)}</div>
+              <div style={{fontFamily:MONO,fontSize:13,fontWeight:600,color:p.isExtra?C.greenD:C.text}}>{p.isExtra?'+':''}{fmtN(p.actualAmount||p.amount)}</div>
               {p.actualAmount&&p.actualAmount!==p.amount&&<div style={{fontFamily:MONO,fontSize:9,color:p.actualAmount>p.amount?C.green:C.red}}>{p.actualAmount>p.amount?'▲':'▼'}{fmtN(Math.abs(p.actualAmount-p.amount))}</div>}
             </div>
           </button>
@@ -245,13 +268,45 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
             <div style={{fontSize:15,fontWeight:600,color:C.text}}>✈️ Планировщик отпуска</div>
             <button onClick={()=>setShowVacPlanner(false)} aria-label="Закрыть" style={{position:'relative',background:'none',border:'none',cursor:'pointer',fontSize:18,color:C.muted}}><span style={{position:'absolute',inset:-13}}/>×</button>
           </div>
+          {!vacIncome&&(
+            <div style={{fontSize:12,color:C.yellow,lineHeight:1.5,background:C.yellowL,border:`1px solid ${C.yellowB}`,borderRadius:12,padding:'10px 12px'}}>
+              Отпускные считаются от оклада (ст. 139 ТК РФ), а среди источников дохода нет ни одного
+              с зарплатой и авансом. Добавьте оклад в «Настройках» → «Доходы» — и планировщик заработает.
+            </div>
+          )}
+          {/* Чей отпуск: окладов может быть несколько (второй источник или второй
+              член семьи), и от выбора зависит и база расчёта, и то, чью зарплату
+              за месяц отпуска приложение уменьшит. */}
+          {vacIncome&&employedIncomes.length>1&&(
+            <div style={{display:'flex',alignItems:'center',gap:6,flexWrap:'wrap',marginBottom:12}}>
+              <span style={{fontSize:12,color:C.muted,marginRight:2}}>Чей отпуск</span>
+              {employedIncomes.map(inc=>{
+                const active=inc.id===vacIncome.id;
+                return(
+                  <button key={inc.id} onClick={()=>{setVacIncomeId(inc.id);setVacAdded(false);}}
+                    style={{padding:'5px 10px',borderRadius:8,border:`1px solid ${active?C.orangeB:C.border}`,background:active?C.orangeL:'var(--c-surface)',color:active?C.orangeD:C.text,fontSize:12,fontWeight:active?600:400,cursor:'pointer',fontFamily:'inherit'}}>
+                    {vacIncomeLabel(inc)}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {vacIncome&&<>
           {/* Источник данных */}
           <div style={{background:vacActual12?C.greenL:C.yellowL,border:`1px solid ${vacActual12?C.greenB:C.yellowB}`,borderRadius:12,padding:'10px 12px',marginBottom:12}}>
             <div style={{fontSize:12,fontWeight:500,color:vacActual12?C.green:C.yellow,marginBottom:4}}>
               {vacActual12?'✓ Точный расчёт по введённым данным':`Данных за ${knownMonthsCount} из 12 мес. · расчёт приблизительный`}
             </div>
+            {/* Расчётную базу показываем строкой, а не только серым плейсхолдером
+                внутри поля: подсказку в поле легко не заметить на телефоне, и
+                выглядело так, будто приложение вообще не посчитало сумму за год. */}
+            {!vacActual12&&(
+              <div style={{fontSize:12,color:C.text2,marginBottom:6}}>
+                Расчётная база: <b>{fmt(Math.round(vacBasis12))}</b> за 12 мес. (оклад × 12)
+              </div>
+            )}
             <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap'}}>
-              <span style={{fontSize:12,color:vacActual12?C.green:C.yellow}}>Фактический заработок за 12 мес.:</span>
+              <span style={{fontSize:12,color:vacActual12?C.green:C.yellow}}>{vacActual12?'Фактический заработок за 12 мес.:':'Знаете точную сумму — уточните:'}</span>
               <input type="text" inputMode="numeric" value={vacActual12||''} onChange={e=>setVacActual12(e.target.value)}
                 placeholder={`~${fmt(Math.round(vacBasis12))} (годовая сумма)`}
                 style={{width:110,border:`1px solid ${vacActual12?C.greenB:C.yellowB}`,borderRadius:8,padding:'4px 8px',fontSize:13,outline:'none',fontFamily:'inherit',background:'var(--c-surface)'}}/>
@@ -344,11 +399,11 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
             // целиком (ст. 136 ТК РФ), поэтому её ищем по workMonth/workYear (месяцу,
             // за который платят), а не по дате самой выплаты — иначе отпуск в августе
             // задел бы «зарплату за июль», которая просто выплачивается 10 августа.
-            const inc0=incomes[0];
+            const inc0=vacIncome;
             const schedule=inc0?buildPaymentScheduleSpan(vacY,inc0.salaryDays||[],inc0.advanceDays||[],parseInt(inc0.advancePct)||40,inc0.gross||0,inc0):[];
             const salaryEntry=schedule.find(p=>p.type==='salary'&&p.workMonth===vacM+1&&p.workYear===vacY);
             const advanceEntry=schedule.find(p=>p.type==='advance'&&p.date.getMonth()===vacM&&p.date.getFullYear()===vacY);
-            const net=incomes[0]?calcNetFor(incomes[0]):0; // усреднённый ориентир — только для строки «vs обычный» ниже
+            const net=inc0?calcNetFor(inc0):0; // усреднённый ориентир — только для строки «vs обычный» ниже
             // Дневную ставку считаем от ФАКТИЧЕСКОЙ суммы аванс+зарплата именно этого
             // месяца (не от усреднённого net) — из-за прогрессивной шкалы НДФЛ сумма
             // по месяцам отличается, а calcNetFor даёт лишь усреднённую оценку за год.
@@ -394,19 +449,28 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
                   // Добавляем отпускные как доп. выплату
                   const vacN=vacNetAmt;
                   const payD2=payD;
-                  const label=`Отпускные (${vacDays} дн. с ${startD.getDate()}.${String(startD.getMonth()+1).padStart(2,'0')})`;
+                  // Год в подписи — только если отпуск не в текущем году: иначе
+                  // «Отпускные (7 дн. с 12.10)» выглядят одинаково для этого года
+                  // и для следующего, и промах в поле даты замечаешь не сразу.
+                  const vacYearSuffix=vacY!==new Date().getFullYear()?`.${vacY}`:'';
+                  const label=`Отпускные (${vacDays} дн. с ${startD.getDate()}.${String(startD.getMonth()+1).padStart(2,'0')}${vacYearSuffix})`;
                   // Отпуск снижает и зарплату/аванс за этот месяц — иначе выходит, что
                   // за отпускные дни платят дважды (полный оклад + отпускные сверху).
                   // Какие именно выплаты меняются — см. комментарий выше про touchesFirstHalf.
                   const paymentOverrides={};
-                  if(salaryEntry) paymentOverrides[salaryEntry.displayLabel]={actualAmount:newSalaryAmt};
-                  if(newAdvanceAmt!=null) paymentOverrides[advanceEntry.displayLabel]={actualAmount:newAdvanceAmt};
+                  // Ключ выплаты — с источником дохода и датой (см. paymentKey в core.js):
+                  // по старой подписи «Зарплата·10 ноя (вт)» урезание попадало бы и на
+                  // второй оклад с тем же днём выплаты.
+                  if(salaryEntry) paymentOverrides[salaryEntry.key||salaryEntry.displayLabel]={actualAmount:newSalaryAmt};
+                  if(newAdvanceAmt!=null) paymentOverrides[advanceEntry.key||advanceEntry.displayLabel]={actualAmount:newAdvanceAmt};
                   onAddExtra({
                     id:uid(),
                     label,
                     amount:vacN,
                     date:payD2.toISOString(),
                     type:'vacation',
+                    memberId:inc0?.memberId,
+                    incomeId:inc0?.id,
                     note:`Расчёт по ТК РФ ст.139. СДЗ=${Math.round(sdz)}/день × ${vacDays} дней`,
                     paymentOverrides,
                   });
@@ -418,6 +482,7 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
               </div>
             );
           })()}
+          </>}
         </div>
       )}
       <SecTitle right="+ Добавить" onRight={onAddPlanned}>КАТЕГОРИИ</SecTitle>

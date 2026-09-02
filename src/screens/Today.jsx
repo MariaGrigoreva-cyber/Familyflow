@@ -1,6 +1,6 @@
 // FamilyFlow — экран Сегодня
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,paymentTypeLabel,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,buildPaymentScheduleSpan,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
+import {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,paymentTypeLabel,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,buildPaymentScheduleSpan,applyPaymentEdit,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,PiggyLogo,CatIcon} from '../lib/ui';
 
 export function TodayScreen({state,onToggle,onEditPayment,onEditTx,onQuickMark,onWithdrawPiggy,onOpenWhatIf,tourStep,freeSpendableNow=0,weeklyBalances=[]}){
@@ -29,7 +29,7 @@ export function TodayScreen({state,onToggle,onEditPayment,onEditTx,onQuickMark,o
   const scheduledUpcoming=incomes.filter(inc=>(inc.incomeType||'employed')==='employed').flatMap(inc=>{
     const m=members.find(x=>x.id===inc.memberId);
     return buildPaymentScheduleSpan(year,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc)
-      .map(p=>({...p,memberName:m?.name||'',...(payments[p.displayLabel]||{})}));
+      .map(p=>({...applyPaymentEdit(p,payments),memberName:m?.name||''}));
   }).filter(p=>p.date>=now);
   const extraUpcomingToday=(extraPayments||[]).filter(p=>new Date(p.date)>=now).map(p=>{
     const m=members.find(x=>x.id===p.memberId);
@@ -195,7 +195,7 @@ export function TodayScreen({state,onToggle,onEditPayment,onEditTx,onQuickMark,o
               <div style={{fontSize:13,fontWeight:600,color:C.text}}>{p.isExtra?p.label:paymentTypeLabel(p)} {p.date.getDate()} {MONTH_SHORT[p.date.getMonth()]} не отмечена</div>
               <div style={{fontFamily:MONO,fontSize:11,color:C.text2,marginTop:1}}>{fmt(p.actualAmount||p.amount)} · получили её?</div>
             </div>
-            <button onClick={()=>onQuickMark&&onQuickMark(p.displayLabel)}
+            <button onClick={()=>onQuickMark&&onQuickMark(p.key||p.displayLabel)}
               style={{background:C.orange,color:'#fff',border:'none',borderRadius:20,padding:'7px 14px',fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',flexShrink:0}}>
               Да, получена
             </button>
