@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BudgetScreen } from './Budget';
-import { buildDemoState, buildPaymentScheduleSpan } from '../lib/core';
+import { buildDemoState, buildPaymentScheduleSpan, calcNetFor } from '../lib/core';
 
 const state = buildDemoState();
 const noop = () => {};
@@ -291,4 +291,53 @@ test('пустая заготовка источника дохода не пе�
   expect(keys.length).toBeGreaterThan(0);            // зарплата/аванс реально урезаны
   expect(keys.every(k => k.endsWith('·iReal'))).toBe(true);
   expect(arg.incomeId).toBe('iReal');
+});
+
+// «vs без отпуска» сравнивал итог месяца с усреднённым по году доходом
+// (calcNetFor), а не с фактическими аванс+зарплатой этого месяца. Из-за
+// прогрессивного НДФЛ это разные числа (при окладе 700 000 — на ±25 000), и
+// разница усреднения показывалась как эффект отпуска: строка могла показать
+// плюс там, где отпуск в минус, и наоборот.
+test('«vs без отпуска» считается от фактических выплат месяца, а не от среднего за год', async () => {
+  const user = userEvent.setup();
+  const demo = buildDemoState();
+  // оклад высокий — тогда месяц месяцу рознь из-за прогрессивной шкалы НДФЛ
+  const inc = { ...demo.incomes[0], id: 'iHi', gross: 700000, salaryDays: [10], advanceDays: [25], advancePct: '50' };
+  const st = { ...demo, members: [demo.members[0]], incomes: [inc] };
+  render(<BudgetScreen state={st} onEditPlanned={noop} onAddPlanned={noop} onEditPayment={noop} onAddExtra={noop} onWithdrawPiggy={noop} onSetGoal={noop} onAddGoalToPlan={noop} />);
+  await user.click(screen.getByText('✈️ Отпуск'));
+  await user.type(document.querySelector('input[type="date"]'), '2027-06-01');
+
+  const statValue = (label) => Number(screen.getByText(label).nextSibling.textContent.replace(/\D/g, ''));
+  const total = statValue('итого в месяц');
+  const diffText = screen.getByText('vs без отпуска').nextSibling.textContent;
+  const diff = Number(diffText.replace(/\D/g, '')) * (diffText.startsWith('−') ? -1 : 1);
+
+  // «Обычный» месяц — это аванс за июнь + зарплата ЗА июнь (выплачивается в июле)
+  const schedule = buildPaymentScheduleSpan(2027, inc.salaryDays, inc.advanceDays, inc.advancePct, inc.gross, inc);
+  const advance = schedule.find(p => p.type === 'advance' && p.date.getMonth() === 5 && p.date.getFullYear() === 2027);
+  const salary = schedule.find(p => p.type === 'salary' && p.workMonth === 6 && p.workYear === 2027);
+  const normalMonth = advance.amount + salary.amount;
+
+  expect(total - diff).toBe(normalMonth);
+  // и это НЕ усреднённый по году доход — иначе тест ничего не ловит
+  expect(normalMonth).not.toBe(calcNetFor(inc));
+});
+
+// Рабочие дни месяца планировщик считал как «все будни», игнорируя
+// производственный календарь. В январе выходило 21 рабочий день вместо 15,
+// дневная ставка занижалась, и отпуск в праздничном месяце выглядел почти
+// таким же выгодным, как в обычном.
+test('рабочие дни месяца считаются по производственному календарю, а не по будням', async () => {
+  const user = userEvent.setup();
+  const demo = buildDemoState();
+  const st = { ...demo, members: [demo.members[0]], incomes: [demo.incomes[0]] };
+  render(<BudgetScreen state={st} onEditPlanned={noop} onAddPlanned={noop} onEditPayment={noop} onAddExtra={noop} onWithdrawPiggy={noop} onSetGoal={noop} onAddGoalToPlan={noop} />);
+  await user.click(screen.getByText('✈️ Отпуск'));
+  await user.type(document.querySelector('input[type="date"]'), '2027-01-11');
+  // январь 2027: 21 будний день, но 1 и 4-8 января — праздники, остаётся 15
+  expect(await screen.findByText(/Зарплата за янв — уменьшится \(5\/15 дней\)/)).toBeInTheDocument();
+  // отпуск в праздничном месяце должен выйти в минус
+  const diffText = screen.getByText('vs без отпуска').nextSibling.textContent;
+  expect(diffText.startsWith('−')).toBe(true);
 });

@@ -1,6 +1,6 @@
 // FamilyFlow — экран Бюджет
 import React, { useState, useEffect, useMemo } from 'react';
-import {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentScheduleSpan,applyPaymentEdit,regenWeeksKeepDone,computeBalances,computeBudgetMetrics,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,paymentTypeLabel,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
+import {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,isWorkday,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentScheduleSpan,applyPaymentEdit,regenWeeksKeepDone,computeBalances,computeBudgetMetrics,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,paymentTypeLabel,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,PiggyLogo,CatIcon} from '../lib/ui';
 
 export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onAddExtra,onWithdrawPiggy,onSetGoal,onAddGoalToPlan}){
@@ -384,10 +384,13 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
             // Аванс (обычно 25-е число) отдельно считаем по факту отработанных дней
             // именно в первой половине (1-15) — не трогаем его, если отпуск эти дни не задевает.
             let firstHalfTotalWD=0, firstHalfVacWD=0, secondHalfTotalWD=0, secondHalfVacWD=0;
+            // Рабочие дни считаем по производственному календарю РФ (isWorkday),
+            // а не просто «будни»: раньше январские и майские праздники шли за
+            // рабочие дни, из-за чего дневная ставка месяца занижалась, а урезание
+            // зарплаты за отпуск в таком месяце выходило заметно меньше реального.
             for(let day=1; day<=daysInMonth; day++){
               const d=new Date(vacY,vacM,day);
-              const dw=d.getDay();
-              if(dw===0||dw===6) continue;
+              if(!isWorkday(d)) continue;
               const isVac=d>=startD&&d<=endD;
               if(day<=15){ firstHalfTotalWD++; if(isVac) firstHalfVacWD++; }
               else { secondHalfTotalWD++; if(isVac) secondHalfVacWD++; }
@@ -403,7 +406,7 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
             const schedule=inc0?buildPaymentScheduleSpan(vacY,inc0.salaryDays||[],inc0.advanceDays||[],parseInt(inc0.advancePct)||40,inc0.gross||0,inc0):[];
             const salaryEntry=schedule.find(p=>p.type==='salary'&&p.workMonth===vacM+1&&p.workYear===vacY);
             const advanceEntry=schedule.find(p=>p.type==='advance'&&p.date.getMonth()===vacM&&p.date.getFullYear()===vacY);
-            const net=inc0?calcNetFor(inc0):0; // усреднённый ориентир — только для строки «vs обычный» ниже
+            const net=inc0?calcNetFor(inc0):0; // усреднённый по году ориентир — запасной вариант, если расписание выплат не нашлось
             // Дневную ставку считаем от ФАКТИЧЕСКОЙ суммы аванс+зарплата именно этого
             // месяца (не от усреднённого net) — из-за прогрессивной шкалы НДФЛ сумма
             // по месяцам отличается, а calcNetFor даёт лишь усреднённую оценку за год.
@@ -415,6 +418,15 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
             const advancePaidForCalc=newAdvanceAmt??advanceEntry?.amount??0;
             const newSalaryAmt=salaryEntry?Math.max(0,Math.round(salMonthTotal-advancePaidForCalc)):null;
             const totalMonth=vacNetAmt+(newSalaryAmt??0)+(newAdvanceAmt??advanceEntry?.amount??0);
+            // Сравниваем с тем, что человек получил бы за ЭТОТ месяц без отпуска —
+            // с фактическими аванс+зарплата месяца. Раньше сравнение шло с
+            // усреднённым по году calcNetFor: из-за прогрессивного НДФЛ факт
+            // конкретного месяца отличается от среднего (при окладе 700 000 —
+            // на ±25 000), и эта разница усреднения показывалась как эффект
+            // отпуска. Отсюда и «плюс» там, где отпуск на самом деле в минус.
+            const normalMonth=monthlyNetActual||net;
+            const vacDiff=totalMonth-normalMonth;
+            const vacWorkD=totalWD-workedD; // рабочих дней, выпавших на отпуск
             const MONTHS_SHORT=['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
             return(
               <div style={{display:'flex',flexDirection:'column',gap:8}}>
@@ -442,9 +454,19 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
                 </div>
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:10}}>
                   <Stat label="средний дневной" value={fmtN(sdz)} color={C.borderS}/>
-                  <Stat label="итого в месяц" value={fmtN(totalMonth)} color={totalMonth>=net?C.green:C.yellow} valueColor={totalMonth>=net?C.green:C.yellow}/>
-                  <Stat label="vs обычный" value={`${totalMonth>=net?'+':''}${fmtN(totalMonth-net)}`} color={C.borderS} valueColor={totalMonth>=net?C.green:C.yellow}/>
+                  <Stat label="итого в месяц" value={fmtN(totalMonth)} color={vacDiff>=0?C.green:C.yellow} valueColor={vacDiff>=0?C.green:C.yellow}/>
+                  <Stat label="vs без отпуска" value={`${vacDiff>=0?'+':'−'}${fmtN(Math.abs(vacDiff))}`} color={C.borderS} valueColor={vacDiff>=0?C.green:C.yellow}/>
                 </div>
+                {/* Плюс или минус получается не из-за ошибки в расчёте: отпускные
+                    платят за календарные дни, а теряется зарплата за рабочие.
+                    Поэтому в месяце с большим числом рабочих дней отпуск слегка
+                    выгоден, а в январе или мае — наоборот. */}
+                {vacWorkD>0&&(
+                  <div style={{fontSize:11,color:C.muted,lineHeight:1.45}}>
+                    Отпускные — за {vacDays} календарных дн., а зарплата теряется за {vacWorkD} рабочих из {totalWD} в месяце.
+                    Поэтому там, где рабочих дней много, выходит небольшой плюс, а в месяце с праздниками — минус.
+                  </div>
+                )}
               <button onClick={()=>{
                   // Добавляем отпускные как доп. выплату
                   const vacN=vacNetAmt;
