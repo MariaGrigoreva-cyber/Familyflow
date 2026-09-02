@@ -276,3 +276,44 @@ describe('GET /state вызывается ровно один раз', () => {
     await waitFor(() => expect(api.loadCloudState).toHaveBeenCalledTimes(1));
   });
 });
+
+// ── Стартовый путь: первый экран не должен зависеть от сети ─────────────────
+// «Сегодня» рисуется из локального ff_state, а /auth/me, /billing/status,
+// /family/me и /ai/status отложены за первый кадр — ни один из них не нужен,
+// чтобы показать первый экран. Тесты фиксируют обе половины: экран появляется
+// даже когда весь API лежит, и при этом отложенные запросы не теряются.
+describe('первый экран и стартовые запросы', () => {
+  const localOnboardedState = () => {
+    api.isLoggedIn.mockReturnValue(true);
+    api.billingStatus.mockResolvedValue({ plan: 'trial', prices: { monthly: 199, yearly: 999 } });
+    localStorage.setItem('ff_state', JSON.stringify({
+      consented: true, onboarded: true, appState: { ...buildDemoState(), demoMode: false },
+    }));
+  };
+
+  test('«Сегодня» появляется, даже когда все стартовые запросы падают', async () => {
+    localOnboardedState();
+    const boom = () => Promise.reject(Object.assign(new Error('network'), { status: 0 }));
+    api.loadCloudState.mockImplementation(boom);
+    api.authMe.mockImplementation(boom);
+    api.billingStatus.mockImplementation(boom);
+    api.familyMe.mockImplementation(boom);
+    api.aiStatus.mockImplementation(boom);
+
+    render(<App />);
+    expect(await screen.findByText('ОСТАТОК НА РУКАХ', {}, { timeout: 2000 })).toBeInTheDocument();
+  });
+
+  test('отложенные некритичные запросы всё равно выполняются — по одному разу', async () => {
+    localOnboardedState();
+    render(<App />);
+    await screen.findByText('ОСТАТОК НА РУКАХ', {}, { timeout: 2000 });
+
+    await waitFor(() => {
+      expect(api.authMe).toHaveBeenCalledTimes(1);
+      expect(api.billingStatus).toHaveBeenCalledTimes(1);
+      expect(api.familyMe).toHaveBeenCalledTimes(1);
+      expect(api.aiStatus).toHaveBeenCalledTimes(1);
+    }, { timeout: 3000 });
+  });
+});

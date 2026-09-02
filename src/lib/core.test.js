@@ -26,6 +26,7 @@ import {
   compactWeekItemsForSave,
   isLegacyWeekKeyFormat,
   computeWeeksSummary,
+  scheduledIncomeForWeek,
   projectCashFlow,
   todayKey,
   FUND_LABELS,
@@ -805,5 +806,54 @@ describe('«Что если?»: verdictFor', () => {
 
   test('пустой ряд не падает', () => {
     expect(() => verdictFor([])).not.toThrow();
+  });
+});
+
+// ── Кеш графиков выплат в computeWeeksSummary ───────────────────────────────
+// scheduledIncomeForWeek получила необязательный параметр cache: без него она
+// пересобирала график выплат за три года на КАЖДУЮ неделю обхода. Оптимизация
+// обязана быть чисто вычислительной — если кеш когда-нибудь начнёт отдавать не
+// тот график (например, перепутает год или доход), расхождение будет тихим и
+// проявится неверными суммами дохода в «Потоке».
+describe('scheduledIncomeForWeek: кеш не меняет результат', () => {
+  const incomes = [
+    { id: 'i1', memberId: 'm1', gross: 100000, salaryDays: [25], advanceDays: [10], advancePct: '40' },
+    { id: 'i2', memberId: 'm2', gross: 137000, salaryDays: [5, 20], advanceDays: [], advancePct: '40' },
+  ];
+
+  test('те же суммы с кешем и без — по всем неделям двух лет и обоих доходов', () => {
+    const payments = { };
+    const cache = new Map();
+    let checked = 0;
+    for (const year of [2025, 2026]) {
+      for (let w = 1; w <= 52; w++) {
+        const wk = `${year}-W${String(w).padStart(2, '0')}`;
+        const wS = weekKeyToDate(wk);
+        const wE = new Date(wS.getTime() + 6 * 86400000);
+        for (const inc of incomes) {
+          const plain = scheduledIncomeForWeek(inc, wS, wE, payments, '2025-W01');
+          const cached = scheduledIncomeForWeek(inc, wS, wE, payments, '2025-W01', cache);
+          expect(cached).toBe(plain);
+          checked++;
+        }
+      }
+    }
+    expect(checked).toBe(208);
+  });
+
+  test('правки пользователя в payments видны и через кеш', () => {
+    const inc = incomes[0];
+    const wk = '2025-W17';
+    const wS = weekKeyToDate(wk);
+    const wE = new Date(wS.getTime() + 6 * 86400000);
+    // Берём настоящий ярлык выплаты этой недели из самого графика
+    const pay = buildPaymentScheduleSpan(2025, inc.salaryDays, inc.advanceDays, 40, inc.gross, inc)
+      .find(p => p.date >= wS && p.date <= wE);
+    expect(pay).toBeTruthy();
+    const payments = { [pay.displayLabel]: { actualAmount: 12345, isDone: true } };
+    const plain = scheduledIncomeForWeek(inc, wS, wE, payments, '2025-W01');
+    const cached = scheduledIncomeForWeek(inc, wS, wE, payments, '2025-W01', new Map());
+    expect(plain).toBe(12345);
+    expect(cached).toBe(plain);
   });
 });

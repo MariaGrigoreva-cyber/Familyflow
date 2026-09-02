@@ -275,11 +275,28 @@ const computeBudgetMetrics=state=>{
 // прогноза; как только неделя стала текущей или прошла, план для него больше не
 // считаем — только то, что реально внесено вручную (иначе задвоение с ручными
 // записями, а недополученное "по плану" никогда бы не сгорало).
-const scheduledIncomeForWeek=(inc,wS,wE,payments,curWk)=>{
+// График выплат зависит только от пары (доход, год), но вызывают эту функцию
+// на КАЖДУЮ неделю — и каждый вызов пересобирал buildPaymentScheduleSpan, то
+// есть график сразу за три года целиком, чтобы вычитать из него одну неделю.
+// На бюджете за год это 200+ пересборок одного и того же графика и главная
+// статья расходов computeWeeksSummary. Необязательный cache (Map доход → Map
+// год → график) переиспользует уже построенное в пределах одного обхода.
+// Без cache функция ведёт себя ровно как раньше — вызов из CashFlow.jsx не
+// трогаем. payments в пределах одного обхода константны, поэтому кешировать
+// можно уже смёрженный с ними график.
+const scheduledIncomeForWeek=(inc,wS,wE,payments,curWk,cache)=>{
   if((inc.incomeType||'employed')!=='employed'&&weekKey(wS)<=curWk)return 0;
   const yr=wS.getFullYear();
-  const sch=buildPaymentScheduleSpan(yr,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc)
-    .map(p=>({...p,...(payments[p.displayLabel]||{})}));
+  let sch=cache?.get(inc)?.get(yr);
+  if(!sch){
+    sch=buildPaymentScheduleSpan(yr,inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc)
+      .map(p=>({...p,...(payments[p.displayLabel]||{})}));
+    if(cache){
+      const byYear=cache.get(inc)||new Map();
+      byYear.set(yr,sch);
+      cache.set(inc,byYear);
+    }
+  }
   return sch.filter(p=>p.date>=wS&&p.date<=wE).reduce((s,p)=>s+(p.actualAmount||p.amount),0);
 };
 
@@ -290,10 +307,19 @@ const computeWeeksSummary=state=>{
   const extraIncomeInRange=(start,end)=>(extraPayments||[]).filter(p=>{const d=new Date(p.date);return d>=start&&d<=end;}).reduce((s,p)=>s+(p.actualAmount||p.amount),0);
   const allWeekKeys=Object.keys(weekItems).sort();
   const curWk=todayKey();
+  // Ручные записи раскладываем по неделям ОДИН раз. Раньше каждая из четырёх
+  // сумм ниже фильтровала весь массив transactions заново, и делала это для
+  // каждой недели: на годовом бюджете это сотни полных проходов по списку.
+  // Группировка результат не меняет — те же записи, тот же порядок.
+  const txByWeek={};
+  (transactions||[]).forEach(t=>{(txByWeek[t.week]||(txByWeek[t.week]=[])).push(t);});
+  // Общий на весь обход кеш графиков выплат (см. scheduledIncomeForWeek).
+  const schedCache=new Map();
   return allWeekKeys.map(wk=>{
     const items=weekItems[wk]||[];
+    const wkTx=txByWeek[wk]||[];
     // Копилка входит в план и факт: это распределённые деньги бюджета
-    const txExp=(transactions||[]).filter(t=>t.week===wk&&(t.type==='expense'||t.catId==='piggy')).reduce((s,t)=>s+t.amount,0);
+    const txExp=wkTx.filter(t=>t.type==='expense'||t.catId==='piggy').reduce((s,t)=>s+t.amount,0);
     const wSp=items.filter(x=>x.isDone).reduce((s,x)=>s+x.amount,0)+txExp;
     const wTot=items.reduce((s,x)=>s+x.amount,0);
     // Сколько неделя реально снимает с баланса — единственная величина, по
@@ -311,10 +337,10 @@ const computeWeeksSummary=state=>{
     // и прошлая неделя показывала отложенным то, что так и не было отмечено.
     const wPiggyPastFact=wk<curWk;
     const wPiggy=items.filter(x=>x.catId==='piggy'&&(!wPiggyPastFact||x.isDone)).reduce((s,x)=>s+x.amount,0)
-      +(transactions||[]).filter(t=>t.week===wk&&t.catId==='piggy').reduce((s,t)=>s+t.amount,0);
+      +wkTx.filter(t=>t.catId==='piggy').reduce((s,t)=>s+t.amount,0);
     const wS=weekKeyToDate(wk),wE=new Date(wS.getTime()+6*86400000);
-    const wInc=incomes.reduce((s,inc)=>s+scheduledIncomeForWeek(inc,wS,wE,payments,curWk),0);
-    const txInc=(transactions||[]).filter(t=>t.week===wk&&t.type==='income').reduce((s,t)=>s+t.amount,0);
+    const wInc=incomes.reduce((s,inc)=>s+scheduledIncomeForWeek(inc,wS,wE,payments,curWk,schedCache),0);
+    const txInc=wkTx.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
     const exInc=extraIncomeInRange(wS,wE);
     return{wk,wSp,wTot,wDeduct,wInc:wInc+txInc+exInc,bal:(wInc+txInc+exInc)-wTot,wPiggy};
   });

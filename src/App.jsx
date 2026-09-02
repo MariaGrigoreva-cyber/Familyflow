@@ -74,7 +74,11 @@ export default function App({initialYandexError}={}){
       return null;
     }
   };
-  const savedState = loadFromStorage();
+  // useState-инициализатор вместо прямого вызова: результат нужен только на
+  // первом рендере (дальше useState его игнорируют), а вызов стоял в теле
+  // компонента и на каждом рендере заново читал и парсил весь ff_state —
+  // а рендеров за один старт около десятка.
+  const [savedState] = useState(loadFromStorage);
 
   const[consented,setConsentedRaw]=useState(()=>savedState?.consented||false);
   const[onboarded,setOnboardedRaw]=useState(()=>savedState?.onboarded||false);
@@ -93,10 +97,6 @@ export default function App({initialYandexError}={}){
   // ── Тариф: для залогиненных — реальный статус с сервера, для локального
   // режима без аккаунта — локальный 30-дневный триал (см. lib/plan.js).
   const[billingPlan,setBillingPlan]=useState(null);
-  useEffect(()=>{
-    if(!isLoggedIn())return;
-    billingStatus().then(setBillingPlan).catch(()=>{});
-  },[]);
   // До ответа сервера считаем trial — чтобы не мигало платным экраном, пока грузится.
   const effectivePlan=isLoggedIn()?(billingPlan?.plan||'trial'):getLocalPlan();
   const isPro=isProPlan(effectivePlan);
@@ -172,7 +172,18 @@ const lastPullAtRef = useRef(0);
   // это чистая добавленная задержка при каждом запуске (данные из localStorage уже
   // готовы синхронно к первому рендеру). Оставляем короткую паузу только чтобы не
   // мелькал белый кадр между заставкой и контентом.
-  useEffect(()=>{const t=setTimeout(()=>setShowSplash(false),400);return()=>clearTimeout(t);},[]);
+  useEffect(()=>{
+    // Заставка нужна ровно затем, чтобы не мелькнул белый кадр между монтированием
+    // и первым содержательным рендером. Данные для «Сегодня» готовы синхронно (они
+    // из localStorage), поэтому ждать фиксированные 400 мс не за чем — снимаем
+    // заставку на следующем кадре, когда контент уже точно есть что нарисовать.
+    // setTimeout остаётся страховкой: в фоновой вкладке rAF не тикает вообще.
+    let raf1,raf2;
+    const done=()=>setShowSplash(false);
+    const t=setTimeout(done,400);
+    if(typeof requestAnimationFrame==='function') raf1=requestAnimationFrame(()=>{raf2=requestAnimationFrame(done);});
+    return()=>{clearTimeout(t);if(typeof cancelAnimationFrame==='function'){cancelAnimationFrame(raf1);cancelAnimationFrame(raf2);}};
+  },[]);
   // Уже согласился на cookies раньше (напр. на прошлом визите) — грузим Метрику
   // сразу, не дожидаясь повторного показа баннера (см. CookieBanner.jsx).
   useEffect(()=>{if(isMetrikaConsented())loadMetrika();},[]);
@@ -291,25 +302,52 @@ useEffect(() => {
       setShowSalaryCheck(true);
     }
   }, [cloudReady, onboarded]);
-  // Подтверждён ли email — для баннера-напоминания (мягкое требование, не блокирует вход)
+  // ── Некритичные стартовые запросы ───────────────────────────────────────
+  // Ни один из этих четырёх ответов не нужен, чтобы показать «Сегодня»: экран
+  // рисуется из локального ff_state, а всё это — баннер о подтверждении email,
+  // тариф (нужен на «Потоке»/«Здоровье»/«Ещё»), доступность помощника и попап
+  // обратной связи. Раньше они уходили четырьмя эффектами прямо при монтировании
+  // и на телефоне отбирали и радио, и главный поток ровно в тот момент, когда
+  // приложение пытается отрисовать первый экран. Теперь — после первого кадра и
+  // в простое. Значения по умолчанию до ответа те же, что и раньше (пока тариф
+  // не пришёл, effectivePlan считает 'trial'), так что видимого regression нет.
   useEffect(() => {
     if (!isLoggedIn()) return;
-    authMe().then(r => { setEmailVerified(r.emailVerified); setUserEmail(r.email); }).catch(() => {});
-  }, []);
-  // Доступность помощника спрашиваем у сервера один раз при входе.
-  useEffect(() => {
-    if (!isLoggedIn()) return;
-    aiStatus().then(r => setAiAvailable(!!r.available)).catch(() => setAiAvailable(false));
-  }, []);
-  // Попап обратной связи — сервер сам решает (14+ дней с регистрации, ещё не
-  // ответил), см. showFeedbackPrompt в api.js/routes/family.js.
-  useEffect(() => {
-    if (!isLoggedIn()) return;
-    familyMe().then(r => setShowFeedbackPrompt(!!r.showFeedbackPrompt)).catch(() => {});
+    let cancelled = false;
+    let idleId, timerId, rafId;
+    const run = () => {
+      if (cancelled) return;
+      authMe().then(r => { setEmailVerified(r.emailVerified); setUserEmail(r.email); }).catch(() => {});
+      billingStatus().then(setBillingPlan).catch(() => {});
+      aiStatus().then(r => setAiAvailable(!!r.available)).catch(() => setAiAvailable(false));
+      familyMe().then(r => setShowFeedbackPrompt(!!r.showFeedbackPrompt)).catch(() => {});
+    };
+    const schedule = () => {
+      const ric = window.requestIdleCallback;
+      // timeout обязателен: без него в занятом приложении простоя может не
+      // наступить долго, и баннеры не появятся вовсе.
+      if (ric) idleId = ric(run, { timeout: 2000 });
+      else timerId = setTimeout(run, 0);
+    };
+    if (typeof requestAnimationFrame === 'function') rafId = requestAnimationFrame(schedule);
+    else timerId = setTimeout(run, 0);
+    return () => {
+      cancelled = true;
+      if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(rafId);
+      if (idleId && window.cancelIdleCallback) window.cancelIdleCallback(idleId);
+      clearTimeout(timerId);
+    };
   }, []);
   // Автосохранение appState при каждом изменении
   useEffect(()=>{
     if(!onboarded) return;
+    // Первый прогон эффекта случается сразу после монтирования — и записывал бы
+    // в ff_state ровно то, что мы миллисекунду назад оттуда же и прочитали.
+    // Полный JSON.stringify снапшота плюс синхронная запись в localStorage на
+    // старте — заметная работа на телефоне и совершенно бесполезная. Как только
+    // состояние реально меняется (в т.ч. регенерацией недель ниже), появляется
+    // новый объект, и запись идёт как обычно.
+    if (appState === savedState?.appState) return;
     try {
       // Сохраняем только те недели, где есть отметки или правки — иначе переполняем localStorage
       const weekItemsCompact = compactWeekItemsForSave(appState.weekItems);
@@ -905,7 +943,7 @@ useEffect(() => {
       <SalaryCheckModal visible={showSalaryCheck} payment={salaryCheckPayment} onConfirm={handleSalaryCheckConfirm} onNotYet={handleSalaryCheckNotYet}/>
       <AddExtraModal visible={showAddExtra} onClose={()=>setShowAddExtra(false)} onSave={handleAddExtra} members={appState.members} incomes={appState.incomes}/>
       {startLogin&&<StartLoginForm onClose={closeStartLogin} initialError={yandexError?errText({message:yandexError}):""} initialMode={startLoginMode}/>}
-      <WithdrawPiggyModal visible={showWithdrawPiggy} onClose={()=>setShowWithdrawPiggy(false)} onSave={handleWithdrawPiggy} members={appState.members} customCats={appState.customCats} available={computeBalances(appState).totalSaved}/>
+      <WithdrawPiggyModal visible={showWithdrawPiggy} onClose={()=>setShowWithdrawPiggy(false)} onSave={handleWithdrawPiggy} members={appState.members} customCats={appState.customCats} available={showWithdrawPiggy?computeBalances(appState).totalSaved:0}/>
       <EditTxModal visible={showEditTx} item={editTxItem} members={appState.members} customCats={appState.customCats}
         onClose={()=>{setShowEditTx(false);setEditTxItem(null);}}
         onSave={handleSaveTx} onDelete={id=>{handleDeleteTx(id);setShowEditTx(false);setEditTxItem(null);}}/>
