@@ -9,64 +9,85 @@ import { C, MONO } from '../lib/core';
 import { s as ui } from '../lib/ui';
 import { confirmAsync } from '../lib/confirm';
 import { useAiAssistant } from '../lib/useAiAssistant';
+import { ymGoal } from '../lib/metrika';
 
 // Подсказки под экран, с которого открыли помощника. Все вопросы — только про
 // то, что в приложении реально есть (сверено с базой знаний бэкенда).
+// Подсказки под экран, с которого открыли помощника.
+//
+// Формулировки — вопросы человека о СВОИХ деньгах, а не о функциях приложения.
+// Раньше половина подсказок звучала как справка («Как добавить расход?»,
+// «Что показывает прогноз баланса?») — это поддержка по интерфейсу, и она
+// никак не показывает главное: помощник знает финансовый план пользователя.
+// Первым в каждом списке идёт вопрос, ответ на который невозможно получить
+// нигде, кроме как по своим данным.
 const SUGGESTIONS_BY_SCREEN = {
   today: [
-    'Почему такой свободный остаток?',
+    'Можно ли потратить 15 000 ₽ прямо сейчас?',
+    'Хватит ли денег до зарплаты?',
+    'Почему свободный остаток именно такой?',
     'Какие платежи впереди?',
-    'Хватит ли денег до конца месяца?',
-    'Как добавить расход?',
   ],
   plan: [
-    'Что показывает прогноз баланса?',
+    'В какую неделю мне может не хватить денег?',
+    'Почему через три недели остаётся так мало денег?',
     'Хватит ли денег до конца месяца?',
-    'Есть ли риск уйти в минус?',
-    'Чем план отличается от факта?',
+    'Что можно изменить, чтобы не уйти в минус?',
   ],
   budget: [
+    'Где я вышел за план в этом месяце?',
+    'Сколько я реально могу тратить в неделю?',
+    'Что будет с бюджетом, если я куплю это сегодня?',
     'Что означает 20/50/30?',
-    'Где я вышел за план?',
-    'Как добавить плановый расход?',
-    'Какие платежи впереди?',
   ],
   health: [
-    'Что означают эти показатели?',
-    'Есть ли риск уйти в минус?',
-    'Как улучшить бюджет?',
-    'Что такое свободный остаток?',
+    'Что можно изменить, чтобы не уйти в минус?',
+    'В какую неделю мне может не хватить денег?',
+    'Хватит ли моей копилки на непредвиденное?',
+    'Почему свободный остаток именно такой?',
   ],
   settings: [
+    'Сколько я реально могу тратить в неделю?',
     'Как изменить доход?',
     'Как добавить категорию?',
-    'Как пригласить участника?',
     'Как работает Семейный поток?',
   ],
   whatif: [
-    'Как работает «А что если?»?',
-    'Потяну ли я такой платёж?',
-    'Есть ли риск уйти в минус?',
-    'Что такое свободный остаток?',
+    'Могу ли я позволить себе такой платёж?',
+    'Что будет с бюджетом, если я куплю это сегодня?',
+    'В какую неделю мне может не хватить денег?',
+    'Почему свободный остаток именно такой?',
   ],
   onboarding: [
     'Как работает Семейный поток?',
     'Что означает 20/50/30?',
-    'Как добавить расход?',
     'Что такое свободный остаток?',
+    'Как добавить расход?',
   ],
 };
-const DEFAULT_SUGGESTIONS = [
+// Бесплатный тариф: помощник отвечает только про работу приложения, поэтому и
+// подсказки должны быть про это — иначе каждое нажатие вело бы в paywall.
+const FREE_SUGGESTIONS = [
   'Как работает Семейный поток?',
+  'Что означает 20/50/30?',
   'Что такое свободный остаток?',
   'Как добавить расход?',
+];
+const DEFAULT_SUGGESTIONS = [
+  'Хватит ли денег до зарплаты?',
+  'Можно ли потратить 15 000 ₽ прямо сейчас?',
+  'Что такое свободный остаток?',
   'Какие платежи впереди?',
 ];
-const suggestionsFor = screen => SUGGESTIONS_BY_SCREEN[screen] || DEFAULT_SUGGESTIONS;
+const suggestionsFor = (screen, canAskAboutBudget) =>
+  (canAskAboutBudget ? (SUGGESTIONS_BY_SCREEN[screen] || DEFAULT_SUGGESTIONS) : FREE_SUGGESTIONS);
 
-export function AssistantScreen({ screen = 'unknown', getFinancialContext = null, onClose }) {
-  const { history, busy, error, ask, clear, rate, setError } = useAiAssistant({ screen, getFinancialContext });
-  const [draft, setDraft] = useState('');
+export function AssistantScreen({ screen = 'unknown', initialDraft = '', getFinancialContext = null, canAskAboutBudget = true, onUpgrade = null, onClose }) {
+  const { history, busy, error, upsell, ask, clear, rate, setError } =
+    useAiAssistant({ screen, getFinancialContext, canAskAboutBudget });
+  // initialDraft — заготовка вопроса при входе через «Можно ли мне это
+  // купить?»: человеку остаётся дописать сумму.
+  const [draft, setDraft] = useState(initialDraft);
   // Открытое поле «что было не так» — по одному requestId за раз.
   const [commentFor, setCommentFor] = useState(null);
   const [comment, setComment] = useState('');
@@ -92,7 +113,9 @@ export function AssistantScreen({ screen = 'unknown', getFinancialContext = null
   }, [history, busy]);
 
   const send = async text => {
-    const ok = await ask(text);
+    const question = String(text || '').trim();
+    if (question) ymGoal('ai_question_sent', { screen, plan: canAskAboutBudget ? 'pro' : 'free' });
+    const ok = await ask(question);
     if (ok) setDraft('');
   };
 
@@ -146,7 +169,7 @@ export function AssistantScreen({ screen = 'unknown', getFinancialContext = null
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>←</button>
         <span style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: 7 }}>
-          <span style={{ fontSize: 16, fontWeight: 600, color: C.text }}>Помощник</span>
+          <span style={{ fontSize: 16, fontWeight: 600, color: C.text }}>Спросите про свои деньги</span>
           <span style={{
             fontFamily: MONO, fontSize: 9, letterSpacing: .5, textTransform: 'uppercase',
             color: C.orangeD, background: C.orangeL, borderRadius: 6, padding: '2px 5px',
@@ -165,11 +188,19 @@ export function AssistantScreen({ screen = 'unknown', getFinancialContext = null
         <div style={{ padding: '16px 16px 8px', display: 'flex', flexDirection: 'column', gap: 8 }}>
           {history.length === 0 ? (
             <div>
+              {/* Ценность здесь не «есть AI», а «он уже знает ваш финансовый
+                  план». Generic-формулировок вроде «Задайте вопрос AI» быть
+                  не должно — они ничем не отличают этот помощник от любого
+                  другого чата. */}
               <div style={{ fontSize: 15, fontWeight: 600, color: C.text, marginBottom: 6 }}>
-                Привет! Я помогу разобраться в вашем бюджете
+                {canAskAboutBudget
+                  ? 'FamilyFlow уже знает ваш финансовый план'
+                  : 'Помогу разобраться в «Семейном потоке»'}
               </div>
               <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.55, marginBottom: 4 }}>
-                Спросите про цифры вашего бюджета или про то, как пользоваться «Семейным потоком».
+                {canAskAboutBudget
+                  ? 'Спросите про покупку, про будущую неделю или про то, почему остаётся именно столько — ответ считается по вашим доходам, расходам и прогнозу.'
+                  : 'Отвечу на вопросы о том, как всё устроено. Ответы по вашим доходам, расходам и прогнозу — в Pro.'}
               </div>
               <div style={{ fontSize: 11.5, color: C.muted, marginBottom: 16 }}>
                 Помощник пока работает в бета-режиме.
@@ -179,7 +210,7 @@ export function AssistantScreen({ screen = 'unknown', getFinancialContext = null
                 textTransform: 'uppercase', marginBottom: 8,
               }}>С чего начать</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-                {suggestionsFor(screen).map(q => (
+                {suggestionsFor(screen, canAskAboutBudget).map(q => (
                   <button key={q} onClick={() => send(q)} disabled={busy} style={{
                     width: '100%', textAlign: 'left', border: `1px solid ${C.border}`,
                     background: 'var(--c-surface)', borderRadius: 12, padding: '11px 13px',
@@ -239,6 +270,28 @@ export function AssistantScreen({ screen = 'unknown', getFinancialContext = null
               Помощник думает…
             </div>
           )}
+          {/* Тариф — не ошибка. Красная плашка здесь обвиняла бы человека в
+              том, чего он не делал; вместо неё — что именно даёт Pro. */}
+          {upsell && (
+            <div style={{
+              background: C.orangeL, border: `1px solid ${C.orangeB}`, borderRadius: 14,
+              padding: '13px 14px', lineHeight: 1.5,
+            }}>
+              <div style={{ fontSize: 13.5, fontWeight: 600, color: C.orangeD, marginBottom: 5 }}>
+                Чтобы ответить, нужен ваш финансовый план
+              </div>
+              <div style={{ fontSize: 12.5, color: C.orangeD, opacity: .9, marginBottom: 11 }}>
+                На Pro помощник считает ответ по вашим доходам, обязательным платежам и прогнозу:
+                можно ли позволить покупку, хватит ли денег до зарплаты, где в плане возникнет
+                нехватка и что с этим сделать.
+              </div>
+              <button onClick={() => onUpgrade && onUpgrade('aiAssistant')} style={{
+                border: 'none', background: C.orange, color: '#fff', borderRadius: 11,
+                padding: '10px 16px', fontSize: 13, fontWeight: 600,
+                cursor: 'pointer', fontFamily: 'inherit',
+              }}>Что это даёт →</button>
+            </div>
+          )}
           {error && (
             <div style={{
               background: C.redL, border: `1px solid ${C.redB}`, borderRadius: 12,
@@ -257,7 +310,7 @@ export function AssistantScreen({ screen = 'unknown', getFinancialContext = null
       }}>
         <textarea
           ref={inputRef}
-          rows={1} value={draft} placeholder="Спросите о бюджете"
+          rows={1} value={draft} placeholder={canAskAboutBudget ? 'Можно ли потратить 15 000 ₽?' : 'Спросите про приложение'}
           onChange={e => { setDraft(e.target.value); if (error) setError(''); }}
           onKeyDown={onKeyDown}
           style={{

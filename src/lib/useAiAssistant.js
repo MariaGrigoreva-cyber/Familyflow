@@ -8,7 +8,8 @@
 // устаревшему бюджету.
 import { useState, useEffect, useCallback } from 'react';
 import { aiSupportAsk, aiFeedback, errText } from '../api';
-import { buildDecisionContext } from './aiSpendingCheck';
+import { ymGoal } from './metrika';
+import { buildDecisionContext, looksLikeMoneyQuestion } from './aiSpendingCheck';
 
 export const AI_HISTORY_KEY = 'ff_ai_chat_history';
 // Тот же лимит, что и на бэкенде (AI_HISTORY_LIMIT в lib/schemas.js): 20
@@ -51,11 +52,20 @@ function saveAiHistory(messages) {
  *   а не 'assistant': именно он уходит на бэкенд как контекст вопроса.
  * @param getFinancialContext — функция вызывающего экрана; у него есть живой
  *   appState. Хук финансовых формул не содержит и appState не видит.
+ * @param canAskAboutBudget — входит ли в тариф ответ по личному финансовому
+ *   плану (возможность aiAssistant). Значение приходит с сервера
+ *   (GET /billing/status → capabilities, продублировано в GET /ai/status).
+ *   Здесь оно НЕ решает доступ — сервер всё равно ответит 402 на запрос со
+ *   снимком бюджета. Оно решает другое: не отправлять личный вопрос впустую и
+ *   сразу показать, что именно даёт Pro.
  */
-export function useAiAssistant({ screen = 'unknown', getFinancialContext = null } = {}) {
+export function useAiAssistant({ screen = 'unknown', getFinancialContext = null, canAskAboutBudget = true } = {}) {
   const [history, setHistory] = useState(loadAiHistory);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  // Не ошибка, а предложение: вопрос был про личные деньги, а тариф этого не
+  // включает. Красным это показывать нельзя — человек ничего не сломал.
+  const [upsell, setUpsell] = useState(false);
 
   useEffect(() => { saveAiHistory(history); }, [history]);
 
@@ -64,12 +74,22 @@ export function useAiAssistant({ screen = 'unknown', getFinancialContext = null 
   const ask = useCallback(async text => {
     const question = String(text || '').trim();
     if (!question || busy) return;
-    setBusy(true); setError('');
+    // Личный финансовый вопрос на бесплатном тарифе: отвечать общими словами
+    // («оцените бюджет и подушку») хуже, чем честно объяснить, что помощник
+    // умеет считать по вашим деньгам и это входит в Pro.
+    if (!canAskAboutBudget && looksLikeMoneyQuestion(question)) {
+      setUpsell(true); setError('');
+      return false;
+    }
+    setBusy(true); setError(''); setUpsell(false);
     try {
       // Снимок собираем ровно здесь, в момент отправки: между двумя вопросами
       // пользователь мог поменять бюджет, и второй ответ должен это учитывать.
+      // Снимок бюджета отправляем только если ответ по нему входит в тариф:
+      // иначе сервер всё равно отклонит запрос (402), а данные пользователя
+      // уйдут по сети без всякой пользы.
       let financialContext = null;
-      if (getFinancialContext) {
+      if (canAskAboutBudget && getFinancialContext) {
         try { financialContext = getFinancialContext(); }
         catch (e) { console.error('financial context build failed:', e); }
       }
@@ -83,6 +103,11 @@ export function useAiAssistant({ screen = 'unknown', getFinancialContext = null 
       const r = await aiSupportAsk(question, {
         screen, history: toApiHistory(history), financialContext, decisionContext,
       });
+      // Проверка покупки дошла до результата — это тот самый момент, ради
+      // которого человек покупает Pro. Размечаем отдельно от обычного вопроса.
+      if (decisionContext && decisionContext.type === 'spending_check') {
+        ymGoal('spending_check_completed', { fits: decisionContext.fitsFreeSpendable ? 'yes' : 'no' });
+      }
       setHistory(prev => [
         ...prev,
         { role: 'user', content: question },
@@ -94,10 +119,12 @@ export function useAiAssistant({ screen = 'unknown', getFinancialContext = null 
     } catch (e) {
       // Ошибка не должна оставлять в истории вопрос без ответа — не добавляем
       // ничего, пользователь может повторить тот же вопрос без дублирования.
-      setError(errText(e));
+      // 402 от сервера — не сбой, а тариф: показываем предложение, а не ошибку.
+      if (e?.status === 402 || e?.message === 'subscription_required') setUpsell(true);
+      else setError(errText(e));
       return false;
     } finally { setBusy(false); }
-  }, [busy, getFinancialContext, history, screen]);
+  }, [busy, canAskAboutBudget, getFinancialContext, history, screen]);
 
   // Оценка ответа. Помечаем сообщение локально, чтобы UI показал выбор даже
   // до ответа сервера, и не блокируем чат, если отправка не удалась.
@@ -121,9 +148,9 @@ export function useAiAssistant({ screen = 'unknown', getFinancialContext = null 
   // Чистим только ключ истории помощника — бюджет, настройки и всё остальное
   // в localStorage не трогаем.
   const clear = useCallback(() => {
-    setHistory([]); setError('');
+    setHistory([]); setError(''); setUpsell(false);
     try { localStorage.removeItem(AI_HISTORY_KEY); } catch {}
   }, []);
 
-  return { history, busy, error, ask, clear, rate, setError };
+  return { history, busy, error, upsell, ask, clear, rate, setError, setUpsell };
 }
