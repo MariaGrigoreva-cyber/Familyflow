@@ -465,6 +465,33 @@ const projectCashFlow=(state,weeksSummary)=>{
     currentBalance:Math.round(cb.balance),projectedFree,limitedBy,bindingWeek};
 };
 
+// ── Качественный вывод по будущим неделям (БЕЗ чисел) ──────────────────────
+// Нужен ровно для одного: показать бесплатному пользователю, что приложение
+// УЖЕ что-то поняло про его будущий бюджет, не раскрывая при этом платных
+// данных — ни суммы разрыва, ни номера недели, ни ряда балансов.
+//
+// Считается по weeklyBalances из projectCashFlow, то есть по тем же данным,
+// что уже лежат на устройстве, — второго расчёта прогноза здесь нет.
+//
+//   'calm'      — на горизонте всё спокойно;
+//   'attention' — есть неделя, где остатка не хватает на план следующей;
+//   'risk'      — накопительный баланс уходит в минус;
+//   'unknown'   — данных о будущем пока нет (бюджет только заводят).
+const FORECAST_HORIZON_WEEKS=8;
+const forecastOutlook=(weeklyBalances,horizonWeeks=FORECAST_HORIZON_WEEKS)=>{
+  const cur=todayKey();
+  const upcoming=(weeklyBalances||[]).filter(w=>w.wk>=cur).slice(0,horizonWeeks);
+  if(upcoming.length<2)return{tone:'unknown',weeks:upcoming.length};
+  if(upcoming.some(w=>w.bal<0))return{tone:'risk',weeks:upcoming.length};
+  // «Требует внимания» — та же логика запаса прочности, что и в
+  // projectCashFlow: остатка после недели должно хватать на план следующей.
+  const tight=upcoming.some((w,i)=>{
+    const next=upcoming[i+1];
+    return next&&(next.wTot||0)>0&&w.bal<(next.wTot||0);
+  });
+  return{tone:tight?'attention':'calm',weeks:upcoming.length};
+};
+
 // ── «Что если?»: симулятор крупных решений (ипотека/кредит/декрет/трата) ────
 // annuityPayment — аннуитетный ежемесячный платёж по кредиту.
 const annuityPayment=(amount,ratePct,years)=>{
@@ -692,4 +719,4 @@ const DEMO_MEMBERS=[{id:'m1',name:'Мария',avatar:'👩',color:'oklch(0.9 0.
 const DEMO_PLANNED=[{id:'p1',catId:'mortgage',name:'Ипотека',amount:55000,memberId:'m1',repeat:'monthly',days:[20]},{id:'p2',catId:'food',name:'Еда',amount:10000,memberId:'m1',repeat:'weekly',days:[]},{id:'p3',catId:'food',name:'Еда',amount:10000,memberId:'m2',repeat:'weekly',days:[]},{id:'p4',catId:'beauty',name:'Красота',amount:15000,memberId:'m1',repeat:'biweekly',days:[]},{id:'p5',catId:'edu',name:'Образование',amount:20000,memberId:'m2',repeat:'monthly',days:[1]},{id:'p6',catId:'piggy',name:'Копилка',amount:10000,memberId:'m1',repeat:'weekly',days:[]}];
 
 
-export {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,isWorkday,getActualPayDate,fmtPayDate,paymentTypeLabel,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,buildPaymentScheduleSpan,paymentKey,applyPaymentEdit,applyExtraPaymentEdits,undoExtraPaymentEdits,regenWeeksKeepDone,computeBalances,computeBudgetMetrics,computeWeeksSummary,scheduledIncomeForWeek,projectCashFlow,annuityPayment,simulateScenario,maxSustainablePayment,verdictFor,compactWeekItemsForSave,isLegacyWeekKeyFormat,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,FUND_LABELS,getCatFund,PIE_COLORS,FACE_EMOJIS,MEMBER_TINTS,nextMemberTint,PRIVACY_URL,TERMS_URL,TELEGRAM_URL,APP_VERSION,APP_BUILD,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED};
+export {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,isWorkday,getActualPayDate,fmtPayDate,paymentTypeLabel,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,buildPaymentScheduleSpan,paymentKey,applyPaymentEdit,applyExtraPaymentEdits,undoExtraPaymentEdits,regenWeeksKeepDone,computeBalances,computeBudgetMetrics,computeWeeksSummary,scheduledIncomeForWeek,projectCashFlow,forecastOutlook,FORECAST_HORIZON_WEEKS,annuityPayment,simulateScenario,maxSustainablePayment,verdictFor,compactWeekItemsForSave,isLegacyWeekKeyFormat,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,FUND_LABELS,getCatFund,PIE_COLORS,FACE_EMOJIS,MEMBER_TINTS,nextMemberTint,PRIVACY_URL,TERMS_URL,TELEGRAM_URL,APP_VERSION,APP_BUILD,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED};
