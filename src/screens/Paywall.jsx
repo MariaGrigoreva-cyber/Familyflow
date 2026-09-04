@@ -34,7 +34,7 @@ export const PRO_VALUES = [
   {
     icon: '💬',
     title: 'Поймите, сколько можно потратить',
-    desc: 'Спросите FamilyFlow о покупке — ответ будет рассчитан по вашему реальному бюджету.',
+    desc: 'Спросите про покупку — ответ будет рассчитан по вашему реальному бюджету.',
   },
   {
     icon: '🔮',
@@ -143,8 +143,8 @@ export function Paywall({ capability = null, source = 'unknown', plan = null, on
         margin: '0 0 8px', lineHeight: 1.25,
       }}>{capability ? CONTEXT_HEADLINE[capability] || 'Знайте заранее, хватит ли денег' : 'Знайте заранее, хватит ли денег'}</h2>
       <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.55, marginBottom: 20 }}>
-        FamilyFlow Pro смотрит на ваш будущий бюджет, предупреждает о рисках и помогает
-        принимать решения о деньгах до того, как они станут проблемой.
+        «Семейный поток» с подпиской Pro смотрит на ваш будущий бюджет, предупреждает
+        о рисках и помогает принимать решения о деньгах до того, как они станут проблемой.
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 20 }}>
@@ -233,7 +233,7 @@ export function Paywall({ capability = null, source = 'unknown', plan = null, on
           fontSize: 17, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>←</button>
-        <span style={{ flex: 1, fontSize: 16, fontWeight: 600, color: C.text }}>FamilyFlow Pro</span>
+        <span style={{ flex: 1, fontSize: 16, fontWeight: 600, color: C.text }}>Подписка Pro</span>
       </div>
       <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, WebkitOverflowScrolling: 'touch' }}>
         <div style={{ paddingTop: 16 }}>{body}</div>

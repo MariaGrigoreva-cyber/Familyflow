@@ -195,7 +195,7 @@ export function AssistantScreen({ screen = 'unknown', initialDraft = '', getFina
                   другого чата. */}
               <div style={{ fontSize: 15, fontWeight: 600, color: C.text, marginBottom: 6 }}>
                 {canAskAboutBudget
-                  ? 'FamilyFlow уже знает ваш финансовый план'
+                  ? '«Семейный поток» уже знает ваш финансовый план'
                   : 'Помогу разобраться в «Семейном потоке»'}
               </div>
               <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.55, marginBottom: 4 }}>

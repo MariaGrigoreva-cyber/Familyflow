@@ -1024,7 +1024,7 @@ useEffect(() => {
                 <span style={{fontSize:19,flexShrink:0}}>✨</span>
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{fontSize:14,fontWeight:600,color:C.orangeD}}>{canAiAssistant?'Спросить про свои деньги':'Спросить про приложение'}</div>
-                  <div style={{fontSize:11.5,color:C.orangeD,opacity:.8,marginTop:1}}>{canAiAssistant?'FamilyFlow уже знает ваш финансовый план':'Ответы по вашему бюджету — в Pro'}</div>
+                  <div style={{fontSize:11.5,color:C.orangeD,opacity:.8,marginTop:1}}>{canAiAssistant?'«Семейный поток» уже знает ваш финансовый план':'Ответы по вашему бюджету — в Pro'}</div>
                 </div>
               </button>
             )}

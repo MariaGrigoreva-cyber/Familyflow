@@ -745,7 +745,7 @@ function BillingSection({onOpenPaywall=null}){
             Знайте заранее, хватит ли денег
           </div>
           <div style={{fontSize:12,color:C.text2,lineHeight:1.5,marginBottom:12}}>
-            FamilyFlow Pro смотрит на ваш будущий бюджет, предупреждает о рисках и помогает
+            «Семейный поток» с подпиской Pro смотрит на ваш будущий бюджет, предупреждает о рисках и помогает
             принимать решения о деньгах до того, как они станут проблемой.
           </div>
           <PlanComparison monthly={`${fmtN(status.prices.monthly)} ₽`} style={{marginBottom:14}}/>

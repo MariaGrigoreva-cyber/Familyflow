@@ -153,7 +153,7 @@ export function TodayScreen({state,onToggle,onEditPayment,onEditTx,onQuickMark,o
             :'В плане есть неделя, которая требует внимания'}
           desc={outlook.tone==='calm'
             ?'Сколько можно потратить прямо сейчас и сколько останется на каждой из недель — в Pro.'
-            :'FamilyFlow нашёл риск в будущем бюджете. Точная неделя, размер нехватки и что сделать — в Pro.'}
+            :'«Семейный поток» нашёл риск в будущем бюджете. Точная неделя, размер нехватки и что сделать — в Pro.'}
           cta="Посмотреть прогноз →"
           goal={outlook.tone==='calm'?'safe_spendable_locked_view':'cashflow_warning_view'}
           // Paywall открывается под ТОТ вопрос, который задал заголовок тизера:

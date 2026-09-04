@@ -83,7 +83,7 @@ export function PricingIntro({onDone}){
             с одной мыслью — приложение скажет заранее, хватит ли денег. */}
         <h2 style={{fontSize:22,fontWeight:600,letterSpacing:-.3,color:C.text,margin:'0 0 8px',textAlign:'center',lineHeight:1.25}}>Знайте заранее, хватит ли денег</h2>
         <div style={{fontSize:12.5,color:C.text2,lineHeight:1.55,textAlign:'center',marginBottom:22}}>
-          FamilyFlow Pro смотрит на ваш будущий бюджет, предупреждает о рисках и помогает
+          «Семейный поток» с подпиской Pro смотрит на ваш будущий бюджет, предупреждает о рисках и помогает
           принимать решения о деньгах до того, как они станут проблемой. {trialLabel.charAt(0).toUpperCase()+trialLabel.slice(1)} — бесплатно.
         </div>
 
