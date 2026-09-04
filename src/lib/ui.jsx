@@ -1,6 +1,7 @@
 // FamilyFlow — общие UI-компоненты
 import React from 'react';
 import {C,MONO,FACE_EMOJIS} from './core';
+import {ymGoal} from './metrika';
 const s={
   card:{background:'var(--c-surface)',borderRadius:14,border:`1px solid ${C.border}`,padding:14,marginBottom:8},
   row:{display:'flex',flexDirection:'row',alignItems:'center',gap:8,padding:'9px 11px',borderBottom:`1px dashed ${C.border}`},
@@ -118,26 +119,86 @@ const EmojiPicker=({visible,onClose,onPick,selected})=>(
   </Modal>
 );
 
-// ProLock — блокировка целого экрана для бесплатного тарифа (напр. «Здоровье бюджета»)
-const ProLock=({icon='⭐',title,desc,onUpgrade})=>(
+// ── Закрытые Pro-возможности ────────────────────────────────────────────────
+// Правило для всех заглушек ниже: НИКОГДА не показывать пустой экран с замком.
+// Раньше здесь стоял ProLock — «⭐ Здоровье бюджета — в Pro» и кнопка. Человек
+// видел название функции, но не видел ни одной причины её захотеть, а его
+// собственные данные при этом уже лежали в приложении.
+//
+// Теперь заглушка сначала показывает ЧАСТЬ пользы — качественный вывод по его
+// же бюджету («в плане есть неделя, которая требует внимания»), — и только
+// потом говорит, что точные цифры и рекомендации в Pro. Сами платные данные
+// (сумма разрыва, номер недели, прогноз по неделям) при этом не раскрываются:
+// вывод считается по данным, которые и так лежат на устройстве, а показывается
+// без чисел.
+//
+// pending=true — тариф ещё не известен (сервер не ответил). Это НЕ отказ:
+// рисовать в такой момент paywall с кнопкой «Оформить Pro» значит обвинять
+// человека в неоплате из-за собственной сетевой ошибки. Показываем нейтральное
+// состояние.
+const ProPending=({compact=false})=>compact?(
+  <div style={{width:'100%',padding:'10px 12px',borderRadius:10,border:`1.5px dashed ${C.borderS}`,fontSize:12.5,color:C.muted}}>Проверяем подписку…</div>
+):(
   <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'32px 24px',textAlign:'center'}}>
-    <div style={{width:64,height:64,borderRadius:20,background:C.orangeL,display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,marginBottom:18}}>{icon}</div>
-    <div style={{fontSize:17,fontWeight:600,color:C.text,marginBottom:8}}>{title}</div>
-    <div style={{fontSize:13,color:C.muted,lineHeight:1.55,maxWidth:280,marginBottom:20}}>{desc}</div>
-    <button onClick={onUpgrade} style={{padding:'13px 24px',borderRadius:14,border:'none',background:C.orange,color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Оформить Pro</button>
+    <div style={{fontSize:13,color:C.muted,lineHeight:1.55,maxWidth:280}}>Проверяем подписку…</div>
+    <div style={{fontSize:12,color:C.muted,lineHeight:1.55,maxWidth:280,marginTop:8}}>Если не появится — проверьте соединение и потяните экран вниз.</div>
   </div>
 );
 
+// ProTeaser — заглушка целого экрана, которая сначала даёт пользу, потом просит
+// денег.
+//   headline — что приложение УЖЕ поняло про бюджет этого человека
+//              («В плане есть неделя, которая требует внимания»);
+//   locked   — что именно останется недоступным без Pro;
+//   cta      — текст кнопки; по умолчанию про результат, а не про тариф.
+// Тон намеренно спокойный: задача — снизить финансовую тревожность, а не
+// продать через страх. Никаких «Ваши финансы в опасности!» и «Срочно!».
+// goal — цель Метрики, которую нужно засчитать при ПОКАЗЕ заглушки. Без неё
+// в воронке видно только клики, и нельзя отличить «точку продажи не показали»
+// от «показали, но она не сработала».
+const ProTeaser=({icon='🔭',headline,locked,cta='Посмотреть с Pro',onUpgrade,pending=false,note=null,goal=null})=>{
+  React.useEffect(()=>{if(goal&&!pending)ymGoal(goal);},[goal,pending]);
+  return pending?<ProPending/>:(
+  <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'32px 24px',textAlign:'center'}}>
+    <div style={{width:64,height:64,borderRadius:20,background:C.orangeL,display:'flex',alignItems:'center',justifyContent:'center',fontSize:28,marginBottom:18}}>{icon}</div>
+    <div style={{fontSize:16.5,fontWeight:600,color:C.text,marginBottom:10,lineHeight:1.35,maxWidth:300}}>{headline}</div>
+    <div style={{display:'flex',gap:8,alignItems:'flex-start',textAlign:'left',background:'var(--c-surface)',border:`1px solid ${C.border}`,borderRadius:12,padding:'11px 13px',maxWidth:300,marginBottom:18}}>
+      <span style={{fontSize:13,flexShrink:0}}>🔒</span>
+      <span style={{fontSize:12.5,color:C.text2,lineHeight:1.5}}>{locked}</span>
+    </div>
+    <button onClick={onUpgrade} style={{padding:'14px 26px',borderRadius:14,border:'none',background:C.orange,color:'#fff',fontSize:14,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>{cta}</button>
+    {note&&<div style={{fontSize:11.5,color:C.muted,marginTop:12,maxWidth:300,lineHeight:1.5}}>{note}</div>}
+  </div>
+);};
+
+// ProHint — компактная контекстная точка продажи ВНУТРИ рабочего экрана (не
+// вместо него). Показывается там, где человек уже смотрит на свои деньги и
+// потому готов услышать, что бывает дальше.
+const ProHint=({icon='🔭',title,desc,cta='Посмотреть прогноз →',onUpgrade,pending=false,goal=null})=>{
+  React.useEffect(()=>{if(goal&&!pending)ymGoal(goal);},[goal,pending]);
+  return pending?<ProPending compact/>:(
+  <button onClick={onUpgrade} style={{width:'100%',display:'flex',gap:11,alignItems:'flex-start',textAlign:'left',background:'var(--c-surface)',border:`1px solid ${C.orangeB}`,borderRadius:14,padding:14,cursor:'pointer',fontFamily:'inherit',boxSizing:'border-box',marginBottom:8}}>
+    <span style={{fontSize:18,flexShrink:0,lineHeight:1.2}}>{icon}</span>
+    <div style={{flex:1,minWidth:0}}>
+      <div style={{fontSize:13.5,fontWeight:600,color:C.text,lineHeight:1.35}}>{title}</div>
+      {desc&&<div style={{fontSize:12,color:C.text2,lineHeight:1.5,marginTop:3}}>{desc}</div>}
+      <div style={{fontSize:12,fontWeight:600,color:C.orangeD,marginTop:7}}>{cta}</div>
+    </div>
+  </button>
+);};
+
 // ProInline — маленькая точечная заглушка вместо кнопки/блока, недоступного на Free
-const ProInline=({label='Доступно в Pro',onUpgrade})=>(
+const ProInline=({label='Доступно в Pro',onUpgrade,pending=false,goal=null})=>{
+  React.useEffect(()=>{if(goal&&!pending)ymGoal(goal);},[goal,pending]);
+  return pending?<ProPending compact/>:(
   <button onClick={onUpgrade} style={{width:'100%',display:'flex',alignItems:'center',gap:8,padding:'10px 12px',borderRadius:10,border:`1.5px dashed ${C.borderS}`,background:'none',cursor:'pointer',fontFamily:'inherit',textAlign:'left'}}>
     <span style={{fontSize:14}}>⭐</span>
     <span style={{fontSize:12.5,color:C.muted,flex:1}}>{label}</span>
     <span style={{fontSize:11,fontWeight:600,color:C.orangeD}}>Pro ›</span>
   </button>
-);
+);};
 
 // ════════════════════════════════════════════════════════════════════════
 // CONSENT
 
-export {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,DaySelect,Numpad,EmojiPicker,ProLock,ProInline,PiggyLogo,CatIcon};
+export {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,DaySelect,Numpad,EmojiPicker,ProTeaser,ProHint,ProInline,PiggyLogo,CatIcon};

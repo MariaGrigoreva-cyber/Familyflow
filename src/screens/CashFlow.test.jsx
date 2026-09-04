@@ -27,14 +27,40 @@ test('отметка пункта плана вызывает onToggle с нед
   expect(onToggle).toHaveBeenCalledWith(todayKey(), expect.any(String));
 });
 
-test('вкладка «Недели» без Pro показывает ProLock', async () => {
+test('вкладка «Недели» без Pro показывает вывод по бюджету, а не пустой замок', async () => {
   const user = userEvent.setup();
   const onUpgrade = jest.fn();
-  render(<PlanScreen state={state} onToggle={() => {}} onAdd={() => {}} onEditTx={() => {}} weeksSummary={weeksSummary} negativeWeek={negativeWeek} isPro={false} onUpgrade={onUpgrade} />);
+  render(<PlanScreen state={state} onToggle={() => {}} onAdd={() => {}} onEditTx={() => {}} weeksSummary={weeksSummary} negativeWeek={negativeWeek} outlook={{ tone: 'attention', weeks: 8 }} isPro={false} onUpgrade={onUpgrade} />);
   await user.click(screen.getByText('Недели'));
-  expect(screen.getByText('Прогноз, когда уйдёте в минус — в Pro')).toBeInTheDocument();
-  await user.click(screen.getByText('Оформить Pro'));
+  expect(screen.getByText('В плане есть неделя, которая требует внимания')).toBeInTheDocument();
+  await user.click(screen.getByText('Посмотреть прогноз с Pro'));
   expect(onUpgrade).toHaveBeenCalled();
+});
+
+// Платные данные закрытая вкладка раскрывать не должна: качественный вывод —
+// можно, конкретные суммы и номера недель — нет.
+test('заглушка прогноза не раскрывает сумм и накопительного баланса', async () => {
+  const user = userEvent.setup();
+  render(<PlanScreen state={state} onToggle={() => {}} onAdd={() => {}} onEditTx={() => {}} weeksSummary={weeksSummary} negativeWeek={negativeWeek} outlook={{ tone: 'risk', weeks: 8 }} isPro={false} onUpgrade={() => {}} />);
+  await user.click(screen.getByText('Недели'));
+  expect(screen.queryByText('СВОДКА ПО НЕДЕЛЯМ')).not.toBeInTheDocument();
+  expect(screen.queryByText(/Накопительный баланс/)).not.toBeInTheDocument();
+});
+
+// Контекстная точка продажи должна стоять там, где человек уже смотрит на свои
+// деньги, а не только в Настройках.
+test('на вкладке «Неделя» без Pro есть контекстный переход к прогнозу', async () => {
+  const user = userEvent.setup();
+  const onUpgrade = jest.fn();
+  render(<PlanScreen state={state} onToggle={() => {}} onAdd={() => {}} onEditTx={() => {}} weeksSummary={weeksSummary} negativeWeek={negativeWeek} outlook={{ tone: 'attention', weeks: 8 }} isPro={false} onUpgrade={onUpgrade} />);
+  expect(screen.getByText('В вашем плане есть неделя с низким остатком')).toBeInTheDocument();
+  await user.click(screen.getByText('Посмотреть прогноз →'));
+  expect(onUpgrade).toHaveBeenCalled();
+});
+
+test('на Pro контекстной заглушки нет — человек уже платит', () => {
+  render(<PlanScreen state={state} onToggle={() => {}} onAdd={() => {}} onEditTx={() => {}} weeksSummary={weeksSummary} negativeWeek={negativeWeek} outlook={{ tone: 'attention', weeks: 8 }} isPro onUpgrade={() => {}} />);
+  expect(screen.queryByText('Посмотреть прогноз →')).not.toBeInTheDocument();
 });
 
 test('вкладка «Недели» с Pro показывает сводку и переключает на выбранную неделю', async () => {
