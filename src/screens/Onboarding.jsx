@@ -4,6 +4,9 @@ import {C,MONO,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,DaySelect,Numpad,EmojiPicker,CatIcon} from '../lib/ui';
 import {alertAsync} from '../lib/confirm';
 import {billingStatus,aiOnboardingDraft,errText} from '../api';
+// Список ценностей и сравнение тарифов — из одного места с paywall'ом: два
+// разных обещания про один продукт человек замечает сразу.
+import {PRO_VALUES,PlanComparison} from './Paywall';
 
 export function EntryScreen({onDemo,onLoginClick,onLoginExisting}){
   return(
@@ -48,11 +51,6 @@ export function EntryScreen({onDemo,onLoginClick,onLoginExisting}){
 // оплате, так что сейчас это единственное место, где новый пользователь
 // вообще видит, что триал платный дальше и сколько это стоит.
 // ════════════════════════════════════════════════════════════════════════
-const PLAN_CARD_FEATS={
-  free:['План на месяц и календарь выплат','Учёт расходов по категориям','Копилка, отдельная от денег на руках'],
-  monthly:['Общий бюджет на всю семью','Прогноз кассового разрыва на недели вперёд','«Здоровье бюджета» и несколько источников дохода'],
-  yearly:['Всё из месячного Pro','Одна оплата вместо двенадцати','Автопродление можно отключить в любой момент'],
-};
 export function PricingIntro({onDone}){
   const[status,setStatus]=useState(null);
   const[failed,setFailed]=useState(false);
@@ -73,42 +71,45 @@ export function PricingIntro({onDone}){
   useEffect(()=>{if(failed)onDone();},[failed,onDone]);
   if(!status)return null;
   const trialLabel=(()=>{
-    if(!status.trialEndsAt)return 'в течение 30 дней';
+    if(!status.trialEndsAt)return 'ближайшие 30 дней';
     const d=new Date(status.trialEndsAt);
-    return `До ${d.getDate()} ${MONTH_SHORT[d.getMonth()]} ${d.getFullYear()}`;
+    return `до ${d.getDate()} ${MONTH_SHORT[d.getMonth()]} ${d.getFullYear()}`;
   })();
-  const Feats=({items})=>(
-    <ul style={{listStyle:'none',margin:'8px 0 0',padding:0,display:'flex',flexDirection:'column',gap:6}}>
-      {items.map(f=>(
-        <li key={f} style={{display:'flex',gap:6,alignItems:'flex-start',fontSize:11,color:C.text2,lineHeight:1.4}}>
-          <span style={{color:C.orange,fontWeight:600,flexShrink:0}}>✓</span>{f}
-        </li>
-      ))}
-    </ul>
-  );
-  const PlanRow=({badge,badgeColor,name,price,per,sub,feats})=>(
-    <div style={{width:'100%',border:`1px solid ${C.border}`,background:'var(--c-surface)',borderRadius:14,padding:'14px 16px',marginBottom:10,textAlign:'left'}}>
-      {badge&&<span style={{display:'inline-block',fontFamily:MONO,fontSize:9,fontWeight:700,letterSpacing:.4,textTransform:'uppercase',padding:'3px 8px',borderRadius:20,background:badgeColor==='green'?C.greenL:C.orangeL,color:badgeColor==='green'?C.greenD:C.orangeD,marginBottom:6}}>{badge}</span>}
-      <div style={{display:'flex',alignItems:'baseline',justifyContent:'space-between',marginBottom:1}}>
-        <span style={{fontSize:12.5,fontWeight:600,color:C.text}}>{name}</span>
-        <span style={{fontFamily:MONO,fontSize:16,fontWeight:700,color:C.text}}>{price}{per&&<span style={{fontFamily:'inherit',fontSize:10.5,fontWeight:400,color:C.muted}}>{per}</span>}</span>
-      </div>
-      {sub&&<div style={{fontSize:10.5,color:C.muted,marginBottom:feats?0:0}}>{sub}</div>}
-      {feats&&<Feats items={feats}/>}
-    </div>
-  );
   return(
     <div style={{height:'100%',background:C.bg,display:'flex',flexDirection:'column'}}>
       <div style={{overflowY:'auto',flex:1,minHeight:0}}><div style={{padding:'28px 24px 40px'}}>
-        <div style={{width:52,height:52,borderRadius:16,background:C.orangeL,display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,margin:'0 auto 16px'}}>⭐</div>
-        <h2 style={{fontSize:22,fontWeight:600,letterSpacing:-.3,color:C.text,margin:'0 0 8px',textAlign:'center'}}>Первые 30 дней — бесплатно</h2>
-        <div style={{fontSize:12.5,color:C.text2,lineHeight:1.5,textAlign:'center',marginBottom:22}}>Полный доступ ко всем функциям Pro. Вот что будет дальше.</div>
+        <div style={{width:52,height:52,borderRadius:16,background:C.orangeL,display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,margin:'0 auto 16px'}}>🔭</div>
+        {/* Обещание, а не перечень функций: человек должен уйти с этого экрана
+            с одной мыслью — приложение скажет заранее, хватит ли денег. */}
+        <h2 style={{fontSize:22,fontWeight:600,letterSpacing:-.3,color:C.text,margin:'0 0 8px',textAlign:'center',lineHeight:1.25}}>Знайте заранее, хватит ли денег</h2>
+        <div style={{fontSize:12.5,color:C.text2,lineHeight:1.55,textAlign:'center',marginBottom:22}}>
+          FamilyFlow Pro смотрит на ваш будущий бюджет, предупреждает о рисках и помогает
+          принимать решения о деньгах до того, как они станут проблемой. {trialLabel.charAt(0).toUpperCase()+trialLabel.slice(1)} — бесплатно.
+        </div>
 
-        <PlanRow name="Бесплатно" price="0 ₽" sub="навсегда" feats={PLAN_CARD_FEATS.free}/>
-        <PlanRow badge="30 дней бесплатно" badgeColor="orange" name="Pro · месяц" price={`${fmtN(status.prices.monthly)} ₽`} per="/мес" feats={PLAN_CARD_FEATS.monthly}/>
-        <PlanRow badge={`выгоднее на ${Math.round((1-status.prices.yearly/(status.prices.monthly*12))*100)}%`} badgeColor="green" name="Pro · год" price={`${fmtN(status.prices.yearly)} ₽`} per="/год" sub={`≈ ${fmtN(Math.round(status.prices.yearly/12))} ₽ в месяц при оплате за год`}/>
+        <div style={{display:'flex',flexDirection:'column',gap:9,marginBottom:20}}>
+          {PRO_VALUES.map(v=>(
+            <div key={v.title} style={{display:'flex',gap:12,alignItems:'flex-start',background:'var(--c-surface)',border:`1px solid ${C.border}`,borderRadius:14,padding:'13px 14px'}}>
+              <span style={{fontSize:18,flexShrink:0,lineHeight:1.2}}>{v.icon}</span>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:13.5,fontWeight:600,color:C.text,lineHeight:1.35}}>{v.title}</div>
+                <div style={{fontSize:12,color:C.text2,lineHeight:1.5,marginTop:3}}>{v.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
 
-        <div style={{fontSize:11,color:C.muted,textAlign:'center',lineHeight:1.5,margin:'6px 0 16px'}}>Карту привязывать не нужно. Не оформите Pro — аккаунт сам перейдёт на бесплатный тариф. {trialLabel} доступны все возможности Pro, выбрать план можно в Настройках → Подписка.</div>
+        <PlanComparison monthly={`${fmtN(status.prices.monthly)} ₽`} style={{marginBottom:18}}/>
+
+        {/* Что произойдёт после пробного периода — прямым текстом. Про Free
+            говорим честно: бюджет остаётся рабочим, а не превращается в
+            «только чтение». Никакой искусственной срочности. */}
+        <div style={{fontSize:11.5,color:C.muted,textAlign:'center',lineHeight:1.55,margin:'0 0 16px'}}>
+          Карту привязывать не нужно. После пробного периода аккаунт сам перейдёт на Free:
+          бюджет, доходы, расходы и текущий план остаются с вами — платить за них не нужно.
+          Прогноз, проверка покупок и помощник по вашему плану — {fmtN(status.prices.monthly)} ₽ в месяц,
+          оформить можно в Настройках → Тариф.
+        </div>
         <Btn label="Продолжить" onClick={onDone}/>
       </div></div>
     </div>
