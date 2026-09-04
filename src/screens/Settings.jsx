@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import {C,MONO,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,PRIVACY_URL,TERMS_URL,TELEGRAM_URL,APP_VERSION,APP_BUILD,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED,monthlyOf} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,EmojiPicker,ProInline,CatIcon} from '../lib/ui';
+import {PlanComparison} from './Paywall';
 import {isLoggedIn,logout,register,login,familyMe,familyInvite,familyJoin,errText,changePassword,deleteAccount,resetRequest,resetConfirm,resetCloudState,restoreCloudStateBackup,billingStatus,billingCheckout,billingCancelAutoRenew,billingRefund} from '../api';
 import {getPushState,enablePush,disablePush} from '../push';
 import {confirmAsync,alertAsync} from '../lib/confirm';
@@ -22,7 +23,12 @@ const plural=(n,one,few,many)=>{
   return many;
 };
 
-export function SettingsScreen({state,onEditCat,onAddCat,onDeleteCustomCat,onEditIncome,onAddIncome,onUpdateMember,onAddMember,onRemoveMember,theme,onSetTheme,isPro=true,resetBackup=null,showAi=false,onOpenAssistant=null}){
+export function SettingsScreen({state,onEditCat,onAddCat,onDeleteCustomCat,onEditIncome,onAddIncome,onUpdateMember,onAddMember,onRemoveMember,theme,onSetTheme,isPro=true,canFamilySharing=null,canMultipleIncomes=null,accessPending=false,resetBackup=null,showAi=false,onOpenAssistant=null,onOpenPaywall=null}){
+  // Состав тарифа приходит готовым из App.jsx (карта возможностей сервера).
+  // isPro остаётся запасным значением на случай, если экран отрисован без этих
+  // пропов (в тестах и в старом коде) — своей таблицы Free/Pro здесь нет.
+  const sharingAllowed=canFamilySharing===null?isPro:canFamilySharing;
+  const multipleIncomesAllowed=canMultipleIncomes===null?isPro:canMultipleIncomes;
   const scrollToTop=()=>{try{document.querySelector('[data-settings-scroll]')?.scrollTo({top:0,behavior:'smooth'});}catch{}};
   const{members,incomes,planned,familyName,customCats=[]}=state;
   const allCats=[...DEFAULT_CATS,...customCats];
@@ -113,9 +119,9 @@ export function SettingsScreen({state,onEditCat,onAddCat,onDeleteCustomCat,onEdi
               <button onClick={()=>onRemoveMember(m.id)} aria-label={`Удалить участника: ${m.name||'участник'}`} style={{position:'relative',width:28,height:28,borderRadius:'50%',border:`1px solid ${C.border}`,background:'var(--c-surface)',color:C.muted,fontSize:13,cursor:'pointer',flexShrink:0,display:'flex',alignItems:'center',justifyContent:'center'}}><span style={{position:'absolute',inset:-8}}/>×</button>
             </div>
           ))}
-          {isPro
+          {sharingAllowed
             ?<button onClick={onAddMember} style={{textAlign:'center',border:`1.5px dashed ${C.borderS}`,borderRadius:12,padding:11,fontSize:12.5,fontWeight:600,color:C.orangeD,background:'none',cursor:'pointer',fontFamily:'inherit'}}>+ Добавить участника</button>
-            :<ProInline label="Семейный бюджет на несколько участников" onUpgrade={scrollToTop}/>}
+            :<ProInline label="Общий бюджет на всю семью" onUpgrade={()=>onOpenPaywall?onOpenPaywall('familySharing'):scrollToTop()} pending={accessPending}/>}
         </div>
       </div>}
       <EmojiPicker visible={!!emojiPickerFor} onClose={()=>setEmojiPickerFor(null)} selected={members.find(m=>m.id===emojiPickerFor)?.avatar}
@@ -137,7 +143,7 @@ export function SettingsScreen({state,onEditCat,onAddCat,onDeleteCustomCat,onEdi
         );
       })}
       {onAddIncome&&members.length>0&&(
-        isPro
+        multipleIncomesAllowed
           ?<div style={{display:'flex',flexDirection:'column',gap:6,marginTop:8}}>
             {members.map(m=>(
               <button key={m.id} onClick={()=>onAddIncome(m.id)} style={{background:'none',border:'none',padding:0,textAlign:'left',cursor:'pointer',fontFamily:'inherit',fontSize:12,fontWeight:600,color:C.orangeD}}>
@@ -145,7 +151,7 @@ export function SettingsScreen({state,onEditCat,onAddCat,onDeleteCustomCat,onEdi
               </button>
             ))}
           </div>
-          :<div style={{marginTop:8}}><ProInline label="Несколько источников дохода на человека" onUpgrade={scrollToTop}/></div>
+          :<div style={{marginTop:8}}><ProInline label="Несколько источников дохода на человека" onUpgrade={()=>onOpenPaywall?onOpenPaywall('multipleIncomes'):scrollToTop()} pending={accessPending}/></div>
       )}
       <SecTitle>КАТЕГОРИИ РАСХОДОВ</SecTitle>
       <div style={{fontSize:12,color:C.muted,marginBottom:14,lineHeight:1.5}}>
@@ -263,11 +269,11 @@ export function SettingsScreen({state,onEditCat,onAddCat,onDeleteCustomCat,onEdi
       </>}
       {/* ═══ Аккаунт и синхронизация ═══ */}
       <SecTitle>АККАУНТ И СИНХРОНИЗАЦИЯ</SecTitle>
-      <AccountSection isPro={isPro}/>
+      <AccountSection isPro={sharingAllowed}/>
       {/* ═══ Подписка ═══ */}
       {isLoggedIn()&&<>
-        <SecTitle>ПОДПИСКА</SecTitle>
-        <BillingSection/>
+        <SecTitle>ТАРИФ</SecTitle>
+        <BillingSection onOpenPaywall={onOpenPaywall}/>
       </>}
       {/* ═══ Push-уведомления ═══ */}
       {isLoggedIn()&&<>
@@ -443,6 +449,8 @@ export function SettingsScreen({state,onEditCat,onAddCat,onDeleteCustomCat,onEdi
 
 
 // ── Аккаунт: вход/регистрация, статус синхронизации, приглашения ──────────
+// isPro здесь — уже конкретная возможность familySharing (её передаёт
+// SettingsScreen), а не «тариф вообще».
 function AccountSection({isPro=true}){
   const[logged,setLogged]=useState(isLoggedIn());
   // logged читается только при монтировании — без этого автовыход по 401 (см. api.js)
@@ -610,7 +618,7 @@ function SkeletonCard({lines=2}){
 }
 
 // ── Подписка: статус тарифа, оформление Pro ────────────────────────────────
-function BillingSection(){
+function BillingSection({onOpenPaywall=null}){
   const[status,setStatus]=useState(null);
   const[loadFailed,setLoadFailed]=useState(false);
   const[busy,setBusy]=useState(null); // 'monthly' | 'yearly' | 'cancel' | 'refund' | null
@@ -669,7 +677,11 @@ function BillingSection(){
   );
   if(!status)return <SkeletonCard/>;
   const fmtDate=d=>d?new Date(d).toLocaleDateString('ru-RU'):'';
+  // Остаток дней теперь считает сервер (trialDaysLeft в GET /billing/status) —
+  // клиентский расчёт зависел от часов устройства и врал при переводе времени.
+  // Локальный расчёт оставлен запасным путём на случай ответа старого бэкенда.
   const daysLeft=d=>d?Math.max(0,Math.ceil((new Date(d)-new Date())/86400000)):0;
+  const trialDaysLeft=typeof status.trialDaysLeft==='number'?status.trialDaysLeft:daysLeft(status.trialEndsAt);
   const refundEligible=status.lastPaymentAt&&(Date.now()-new Date(status.lastPaymentAt).getTime())<=7*86400000;
 
   return(
@@ -680,6 +692,7 @@ function BillingSection(){
             <span style={{fontSize:18}}>⭐</span>
             <div style={{flex:1}}>
               <div style={{fontSize:13,fontWeight:600,color:C.green}}>Pro активен до {fmtDate(status.proUntil)}</div>
+              <div style={{fontSize:11,color:C.muted,marginTop:1}}>Прогноз, предупреждения о нехватке денег, проверка покупок и помощник по вашему плану</div>
               <div style={{fontSize:11,color:C.muted,marginTop:1}}>
                 {status.autoRenew
                   ?`Автопродление включено · ${status.billingPeriod==='yearly'?'год':'месяц'} за ${fmtN(status.prices[status.billingPeriod]||0)}`
@@ -712,32 +725,52 @@ function BillingSection(){
         </>
       ):(
         <>
-          <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
-            <span style={{fontSize:18}}>{status.plan==='trial'?'⏳':'🔓'}</span>
+          {/* Главное сообщение — не «снимите ограничения», а что человек
+              получит: заранее знать, хватит ли денег. Про Free при этом
+              говорим честно: он продолжает работать, а не «ограничен». */}
+          <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:10}}>
+            <span style={{fontSize:18}}>{status.plan==='trial'?'⏳':'📋'}</span>
             <div style={{flex:1}}>
               <div style={{fontSize:13,fontWeight:600,color:C.text}}>
-                {status.plan==='trial'?`Пробный период: ещё ${daysLeft(status.trialEndsAt)} дн.`:'Бесплатный тариф'}
+                {status.plan==='trial'?`Pro открыт: ещё ${trialDaysLeft} дн. пробного периода`:'Тариф Free'}
               </div>
               <div style={{fontSize:11,color:C.muted,marginTop:1}}>
-                {status.plan==='trial'?`До ${fmtDate(status.trialEndsAt)} доступны все возможности Pro`:'Оформите Pro, чтобы снять ограничения'}
+                {status.plan==='trial'
+                  ?`До ${fmtDate(status.trialEndsAt)} доступны прогноз, проверка покупок и помощник`
+                  :'Бюджет, доходы и расходы остаются с вами — платить за это не нужно'}
               </div>
             </div>
           </div>
+          <div style={{fontSize:14.5,fontWeight:600,color:C.text,lineHeight:1.35,marginBottom:5}}>
+            Знайте заранее, хватит ли денег
+          </div>
+          <div style={{fontSize:12,color:C.text2,lineHeight:1.5,marginBottom:12}}>
+            FamilyFlow Pro смотрит на ваш будущий бюджет, предупреждает о рисках и помогает
+            принимать решения о деньгах до того, как они станут проблемой.
+          </div>
+          <PlanComparison monthly={`${fmtN(status.prices.monthly)} ₽`} style={{marginBottom:14}}/>
+          {onOpenPaywall&&<button onClick={()=>onOpenPaywall(null)} style={{width:'100%',padding:11,borderRadius:12,border:`1px solid ${C.border}`,background:'var(--c-surface)',color:C.orangeD,fontSize:12.5,fontWeight:600,cursor:'pointer',fontFamily:'inherit',marginBottom:12}}>
+            Подробнее про Pro ›
+          </button>}
           <label style={{display:'flex',gap:8,alignItems:'flex-start',fontSize:11,lineHeight:1.5,color:C.muted,marginBottom:10,cursor:'pointer'}}>
             <input type="checkbox" checked={autoChargeConsent} onChange={e=>setAutoChargeConsent(e.target.checked)}
               style={{marginTop:2,flexShrink:0}}/>
             <span>Согласен(-на) с автоматическим списанием за продление подписки до отмены — карта сохраняется, отменить можно в любой момент.</span>
           </label>
-          <div style={{display:'flex',gap:8}}>
-            <button onClick={()=>checkout('monthly')} disabled={!!busy||!autoChargeConsent}
-              style={{flex:1,padding:12,borderRadius:12,border:'none',background:busy||!autoChargeConsent?C.borderS:C.orange,color:'#fff',fontSize:12.5,fontWeight:600,cursor:busy||!autoChargeConsent?'default':'pointer',fontFamily:'inherit'}}>
-              {busy==='monthly'?'Секунду…':`Месяц · ${fmtN(status.prices.monthly)}`}
-            </button>
-            <button onClick={()=>checkout('yearly')} disabled={!!busy||!autoChargeConsent}
-              style={{flex:1,padding:12,borderRadius:12,border:`1.5px solid ${C.orange}`,background:'transparent',color:C.orangeD,fontSize:12.5,fontWeight:600,cursor:busy||!autoChargeConsent?'default':'pointer',fontFamily:'inherit',opacity:busy||!autoChargeConsent?.5:1}}>
-              {busy==='yearly'?'Секунду…':`Год · ${fmtN(status.prices.yearly)}`}
-            </button>
+          {/* Цена берётся из ответа сервера (status.prices) — в интерфейсе она
+              нигде не зашита, поэтому разойтись с реальной суммой не может. */}
+          <div style={{display:'flex',alignItems:'baseline',justifyContent:'center',gap:6,marginBottom:10}}>
+            <span style={{fontFamily:MONO,fontSize:22,fontWeight:700,color:C.text}}>{fmtN(status.prices.monthly)} ₽</span>
+            <span style={{fontSize:12,color:C.muted}}>/ месяц</span>
           </div>
+          <button onClick={()=>checkout('monthly')} disabled={!!busy||!autoChargeConsent}
+            style={{width:'100%',padding:14,borderRadius:13,border:'none',background:busy||!autoChargeConsent?C.borderS:C.orange,color:'#fff',fontSize:14,fontWeight:600,cursor:busy||!autoChargeConsent?'default':'pointer',fontFamily:'inherit'}}>
+            {busy==='monthly'?'Секунду…':status.plan==='trial'?'Продолжить с Pro':'Попробовать Pro'}
+          </button>
+          <button onClick={()=>checkout('yearly')} disabled={!!busy||!autoChargeConsent}
+            style={{width:'100%',marginTop:7,padding:11,borderRadius:12,border:`1px solid ${C.border}`,background:'transparent',color:C.muted,fontSize:12,fontWeight:600,cursor:busy||!autoChargeConsent?'default':'pointer',fontFamily:'inherit',opacity:busy||!autoChargeConsent?.5:1}}>
+            {busy==='yearly'?'Секунду…':`Оплатить за год · ${fmtN(status.prices.yearly)} ₽`}
+          </button>
         </>
       )}
       {err&&<div style={{fontSize:12,color:C.red,marginTop:8}}>{err}</div>}
