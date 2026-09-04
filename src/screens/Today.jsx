@@ -184,10 +184,13 @@ export function TodayScreen({state,onToggle,onEditPayment,onEditTx,onQuickMark,o
           cta="Посмотреть прогноз →"
           goal={outlook.tone==='calm'?'safe_spendable_locked_view':'cashflow_warning_view'}
           // Paywall открывается под ТОТ вопрос, который задал заголовок тизера:
-          // спокойный прогноз — это «сколько можно потратить», а неделя,
-          // требующая внимания, — «где не хватит денег». Общий forecast здесь
-          // отвечал бы не на то, что человек только что прочитал.
-          onUpgrade={()=>onUpgrade&&onUpgrade(outlook.tone==='calm'?'safeSpendable':'cashflowWarnings')}
+          // спокойный прогноз — это «что будет в следующие недели», а неделя,
+          // требующая внимания, — «где не хватит денег».
+          // Раньше спокойный вариант вёл в safeSpendable: тогда этот тизер
+          // отвечал сразу за оба вопроса. Теперь у «сколько можно потратить»
+          // есть свой тизер с кнопкой «Рассчитать», и подменять им прогноз
+          // значило бы отвечать не на то, что человек нажал.
+          onUpgrade={()=>onUpgrade&&onUpgrade(outlook.tone==='calm'?'forecast':'cashflowWarnings')}
           pending={accessPending}/>
       )}
       {/* Карточка отвечает на ДВА разных вопроса, и каждый закрывается своей

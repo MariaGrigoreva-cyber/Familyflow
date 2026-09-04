@@ -104,13 +104,23 @@ describe('Сегодня — состав тарифа', () => {
     expect(onUpgrade).toHaveBeenCalledWith('cashflowWarnings');
   });
 
-  test('спокойный прогноз ведёт в paywall «сколько можно потратить»', async () => {
+  test('спокойный прогноз ведёт в paywall прогноза, а не подменяет его другим', async () => {
     const user = userEvent.setup();
     const onUpgrade = jest.fn();
     render(<TodayScreen {...proProps} canForecast={false} canSafeSpendable={false}
       canScenarios={false} canSpendingCheck={false}
       outlook={{ tone: 'calm', weeks: 8 }} onUpgrade={onUpgrade}/>);
     await user.click(screen.getByText('Посмотреть прогноз →'));
+    expect(onUpgrade).toHaveBeenCalledWith('forecast');
+  });
+
+  test('у «сколько можно потратить» свой CTA и свой раздел paywall', async () => {
+    const user = userEvent.setup();
+    const onUpgrade = jest.fn();
+    render(<TodayScreen {...proProps} canForecast={false} canSafeSpendable={false}
+      canScenarios={false} canSpendingCheck={false}
+      outlook={{ tone: 'calm', weeks: 8 }} onUpgrade={onUpgrade}/>);
+    await user.click(screen.getByText('Рассчитать'));
     expect(onUpgrade).toHaveBeenCalledWith('safeSpendable');
   });
 
