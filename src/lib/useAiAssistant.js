@@ -82,6 +82,9 @@ export function useAiAssistant({ screen = 'unknown', getFinancialContext = null,
       return false;
     }
     setBusy(true); setError(''); setUpsell(false);
+    // Считаем вопрос отправленным здесь, а не на экране: выше стоит отсечка
+    // личных вопросов на бесплатном тарифе, и они до бэкенда не доходят.
+    ymGoal('ai_question_sent', { plan: canAskAboutBudget ? 'pro' : 'free', screen });
     try {
       // Снимок собираем ровно здесь, в момент отправки: между двумя вопросами
       // пользователь мог поменять бюджет, и второй ответ должен это учитывать.

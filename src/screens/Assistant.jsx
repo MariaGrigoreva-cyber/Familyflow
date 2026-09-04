@@ -9,7 +9,6 @@ import { C, MONO } from '../lib/core';
 import { s as ui } from '../lib/ui';
 import { confirmAsync } from '../lib/confirm';
 import { useAiAssistant } from '../lib/useAiAssistant';
-import { ymGoal } from '../lib/metrika';
 
 // Подсказки под экран, с которого открыли помощника. Все вопросы — только про
 // то, что в приложении реально есть (сверено с базой знаний бэкенда).
@@ -113,9 +112,11 @@ export function AssistantScreen({ screen = 'unknown', initialDraft = '', getFina
   }, [history, busy]);
 
   const send = async text => {
-    const question = String(text || '').trim();
-    if (question) ymGoal('ai_question_sent', { screen, plan: canAskAboutBudget ? 'pro' : 'free' });
-    const ok = await ask(question);
+    // Цель ai_question_sent ставит сам хук — ровно в тот момент, когда запрос
+    // действительно уходит на бэкенд. Раньше она стояла здесь, до вызова ask(),
+    // и считала «отправленным» в том числе личный вопрос на бесплатном тарифе,
+    // который никуда не уходит, а превращается в предложение Pro.
+    const ok = await ask(text);
     if (ok) setDraft('');
   };
 

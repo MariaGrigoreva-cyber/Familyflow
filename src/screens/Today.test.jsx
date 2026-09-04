@@ -97,7 +97,19 @@ describe('Сегодня — состав тарифа', () => {
       outlook={{ tone: 'attention', weeks: 8 }} onUpgrade={onUpgrade}/>);
     expect(screen.getByText('В плане есть неделя, которая требует внимания')).toBeInTheDocument();
     await user.click(screen.getByText('Посмотреть прогноз →'));
-    expect(onUpgrade).toHaveBeenCalled();
+    // Заголовок тизера говорил про проблемную неделю — paywall открывается под
+    // тот же вопрос, а не под общий «прогноз».
+    expect(onUpgrade).toHaveBeenCalledWith('cashflowWarnings');
+  });
+
+  test('спокойный прогноз ведёт в paywall «сколько можно потратить»', async () => {
+    const user = userEvent.setup();
+    const onUpgrade = jest.fn();
+    render(<TodayScreen {...proProps} canForecast={false} canSafeSpendable={false}
+      canScenarios={false} canSpendingCheck={false}
+      outlook={{ tone: 'calm', weeks: 8 }} onUpgrade={onUpgrade}/>);
+    await user.click(screen.getByText('Посмотреть прогноз →'));
+    expect(onUpgrade).toHaveBeenCalledWith('safeSpendable');
   });
 
   test('спокойный прогноз на Free сообщает об этом, а не пугает', () => {

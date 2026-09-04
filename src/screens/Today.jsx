@@ -155,8 +155,13 @@ export function TodayScreen({state,onToggle,onEditPayment,onEditTx,onQuickMark,o
             ?'Сколько можно потратить прямо сейчас и сколько останется на каждой из недель — в Pro.'
             :'FamilyFlow нашёл риск в будущем бюджете. Точная неделя, размер нехватки и что сделать — в Pro.'}
           cta="Посмотреть прогноз →"
-          goal={outlook.tone==='calm'?'forecast_locked_view':'cashflow_warning_view'}
-          onUpgrade={onUpgrade} pending={accessPending}/>
+          goal={outlook.tone==='calm'?'safe_spendable_locked_view':'cashflow_warning_view'}
+          // Paywall открывается под ТОТ вопрос, который задал заголовок тизера:
+          // спокойный прогноз — это «сколько можно потратить», а неделя,
+          // требующая внимания, — «где не хватит денег». Общий forecast здесь
+          // отвечал бы не на то, что человек только что прочитал.
+          onUpgrade={()=>onUpgrade&&onUpgrade(outlook.tone==='calm'?'safeSpendable':'cashflowWarnings')}
+          pending={accessPending}/>
       )}
       {/* Карточка отвечает на ДВА разных вопроса, и каждый закрывается своей
           возможностью:
