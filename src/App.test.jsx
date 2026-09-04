@@ -317,3 +317,63 @@ describe('первый экран и стартовые запросы', () => {
     }, { timeout: 3000 });
   });
 });
+
+// ── Слияние на сервере ──────────────────────────────────────────────────────
+// PUT /state больше не «побеждает одна версия»: сервер соединяет ветки и
+// возвращает результат (merged:true). Клиент ОБЯЗАН его принять — иначе его
+// следующее сохранение придёт с базой «слитая версия» и данными без чужих
+// правок, и сервер прочитает это как их удаление, откатив спасённое слиянием.
+describe('слияние состояния на сервере', () => {
+  const loggedInOnboarded = () => {
+    api.isLoggedIn.mockReturnValue(true);
+    api.billingStatus.mockResolvedValue({ plan: 'trial', prices: { monthly: 199, yearly: 999 } });
+    localStorage.setItem('ff_state', JSON.stringify({
+      consented: true, onboarded: true, appState: { ...buildDemoState(), demoMode: false },
+    }));
+  };
+
+  // Автосохранение стартует только от реальной правки. Отмечаем пункт плана на
+  // «Потоке» — тот же путь, что у пользователя (handleToggle → setAppState).
+  const markPlanItem = async user => {
+    await user.click(screen.getByText('ПОТОК'));
+    expect(await screen.findByText('план')).toBeInTheDocument();
+    const checkboxes = screen.getAllByRole('button').filter(b => b.style.borderRadius === '5px');
+    await user.click(checkboxes[0]);
+  };
+
+  test('результат слияния принимается и попадает в локальное состояние', async () => {
+    const user = userEvent.setup();
+    loggedInOnboarded();
+    const mergedApp = { ...buildDemoState(), demoMode: false, streak: 777 };
+    api.saveCloudState.mockResolvedValue({
+      ok: true,
+      updatedAt: '2026-09-04T10:00:00.000Z',
+      merged: true,
+      data: { consented: true, onboarded: true, appState: mergedApp },
+    });
+
+    render(<App />);
+    expect(await screen.findByText('ОСТАТОК НА РУКАХ', {}, { timeout: 2000 })).toBeInTheDocument();
+    await markPlanItem(user);
+
+    await waitFor(() => expect(api.saveCloudState).toHaveBeenCalled(), { timeout: 4000 });
+    await waitFor(() => {
+      expect(JSON.parse(localStorage.getItem("ff_state")).appState.streak).toBe(777);
+    }, { timeout: 4000 });
+    expect(localStorage.getItem('ff_cloud_updated_at')).toBe('2026-09-04T10:00:00.000Z');
+  });
+
+  test('обычное сохранение без слияния локальное состояние не подменяет', async () => {
+    const user = userEvent.setup();
+    loggedInOnboarded();
+    api.saveCloudState.mockResolvedValue({ ok: true, updatedAt: '2026-09-04T10:00:00.000Z' });
+
+    render(<App />);
+    expect(await screen.findByText('ОСТАТОК НА РУКАХ', {}, { timeout: 2000 })).toBeInTheDocument();
+    await markPlanItem(user);
+
+    await waitFor(() => expect(api.saveCloudState).toHaveBeenCalled(), { timeout: 4000 });
+    expect(JSON.parse(localStorage.getItem('ff_state')).appState.streak)
+      .toBe(buildDemoState().streak);
+  });
+});

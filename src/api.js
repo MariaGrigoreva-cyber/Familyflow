@@ -121,8 +121,13 @@ export const loadCloudState = () => {
   p.then(clear, clear);
   return p;
 };
+// acceptsMerge говорит серверу, что этот клиент умеет принять результат
+// трёхстороннего слияния прямо из ответа (см. routes/state.js в API и
+// обработчик merged в App.jsx). Без флага сервер считает клиента старым и
+// отдаёт тот же слитый результат кодом 409 — там у опубликованного клиента
+// RuStore есть готовая ветка «принять серверное состояние».
 export const saveCloudState = (data, baseUpdatedAt) =>
-  req('/state', { method: 'PUT', body: { data, baseUpdatedAt: baseUpdatedAt || undefined } });
+  req('/state', { method: 'PUT', body: { data, baseUpdatedAt: baseUpdatedAt || undefined, acceptsMerge: true } });
 // Отложенное удаление (90 дней): сервер сам бэкапит текущие данные перед обнулением
 // (см. routes/state.js POST /state/reset) — окно на восстановление даёт restoreCloudStateBackup.
 export const resetCloudState = () => req('/state/reset', { method: 'POST' });
