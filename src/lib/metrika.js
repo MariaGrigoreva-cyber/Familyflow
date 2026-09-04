@@ -100,9 +100,36 @@ export function loadMetrika() {
   } catch {}
 }
 
-// Цели воронки «лендинг → приложение → регистрация» — вызывать только в момент
-// самого события, не заранее: если согласия ещё не было, window.ym не
-// существует, и вызов молча ничего не делает (не откладывается на потом).
+// ── Воронка Pro ─────────────────────────────────────────────────────────────
+// Справочник целей: новый сервис аналитики ради этого не подключался — цели
+// живут в том же счётчике Метрики, что и воронка «лендинг → регистрация».
+// Список здесь нужен, чтобы имена не расползались по коду с опечатками и чтобы
+// было видно, какая часть воронки уже размечена, а какая нет.
+//
+//   pro_paywall_view        — открыт экран Pro (params: source, capability)
+//   pro_cta_click           — нажата кнопка оплаты на экране Pro
+//   forecast_locked_view    — показана заглушка прогноза на Free
+//   safe_spendable_locked_view — показана заглушка «сколько можно потратить»
+//   spending_check_open     — открыта проверка покупки
+//   spending_check_completed— проверка покупки дала результат
+//   ai_question_sent        — отправлен вопрос помощнику (params: plan)
+//   cashflow_warning_view   — показано предупреждение о будущей нехватке денег
+//   trial_pro_feature_used  — Pro-функция использована во время триала
+//   subscription_checkout_started — начата оплата (переход в ЮKassa)
+//
+// subscription_started НЕ ставится на клиенте: подписка становится активной по
+// вебхуку ЮKassa, а не по возвращению пользователя на страницу — цель на
+// клиенте считала бы её и при отменённой оплате. Это событие видно на бэкенде
+// (таблица payments), и туда же стоит смотреть за реальными продажами.
+export const PRO_GOALS = [
+  'pro_paywall_view', 'pro_cta_click', 'forecast_locked_view', 'safe_spendable_locked_view',
+  'spending_check_open', 'spending_check_completed', 'ai_question_sent',
+  'cashflow_warning_view', 'trial_pro_feature_used', 'subscription_checkout_started',
+];
+
+// Цели воронки — вызывать только в момент самого события, не заранее: если
+// согласия ещё не было, window.ym не существует, и вызов молча ничего не
+// делает (не откладывается на потом).
 export function ymGoal(name, params) {
   try { if (typeof window.ym === 'function') window.ym(COUNTER_ID, 'reachGoal', name, params); } catch {}
 }
