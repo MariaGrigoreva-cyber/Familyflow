@@ -176,3 +176,17 @@ describe('Сегодня — состав тарифа', () => {
     expect(screen.queryByText('Свободно сверх плана')).not.toBeInTheDocument();
   });
 });
+
+// Баннер об окончании триала — не про конкретную закрытую функцию, а про Pro
+// целиком, поэтому он открывает общий экран Pro, без контекста. Экраны с
+// конкретным вопросом («Рассчитать», «Посмотреть прогноз», проверка покупки,
+// сценарии) свой контекст передают сами — это проверено выше.
+test('CTA баннера об окончании триала не подставляет чужой контекст', async () => {
+  const user = userEvent.setup();
+  const onUpgrade = jest.fn();
+  render(<TodayScreen state={state} onToggle={noop} onEditPayment={noop}
+    freeSpendableNow={freeSpendableNow} weeklyBalances={weeklyBalances}
+    trialStage="warning_4" trialEndsAt="2026-10-04T10:00:00.000Z" onUpgrade={onUpgrade}/>);
+  await user.click(screen.getByText('Посмотреть Pro'));
+  expect(onUpgrade).toHaveBeenCalledWith(null);
+});
