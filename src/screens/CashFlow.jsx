@@ -1,7 +1,7 @@
 // FamilyFlow — экран Денежный поток
 import React, { useState, useEffect, useMemo } from 'react';
 import {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,buildPaymentScheduleSpan,scheduledIncomeForWeek,regenWeeksKeepDone,computeBalances,computeBudgetMetrics,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
-import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,ProLock,PiggyLogo,CatIcon} from '../lib/ui';
+import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,ProTeaser,ProHint,PiggyLogo,CatIcon} from '../lib/ui';
 
 const Chip=({active,onClick,children})=>(
   <button onClick={onClick} style={{flexShrink:0,fontFamily:MONO,fontSize:10.5,fontWeight:600,textTransform:'uppercase',padding:'6px 12px',borderRadius:20,border:`1px solid ${active?C.orange:C.border}`,background:active?C.orange:'var(--c-surface)',color:active?'#fff':'var(--c-muted2)',cursor:'pointer'}}>{children}</button>
@@ -17,7 +17,7 @@ const PastToggle=({open,count,label,onClick})=>(
   </button>
 );
 
-export function PlanScreen({state,onToggle,onAdd,onEditTx,weeksSummary,negativeWeek,isPro=true,onUpgrade}){
+export function PlanScreen({state,onToggle,onAdd,onEditTx,weeksSummary,negativeWeek,outlook=null,isPro=true,accessPending=false,onUpgrade}){
   const{members,planned,weekItems,incomes,customCats=[],transactions=[],payments={},extraPayments=[]}=state;
   const showMember=members.length>1; // при одном члене семьи не дублируем его имя в каждой строке
   // Доп. разовые выплаты (премии, ручной доход), попавшие в диапазон дат — планово учитываются наравне с зарплатой/авансом
@@ -114,10 +114,37 @@ export function PlanScreen({state,onToggle,onAdd,onEditTx,weeksSummary,negativeW
         <button onClick={()=>onAdd(week)} style={{width:'100%',padding:13,borderRadius:12,border:'none',background:C.orange,color:'#fff',fontSize:13.5,fontWeight:600,cursor:'pointer',fontFamily:'inherit',marginTop:14}}>+ Добавить трату на нед. {weekLabel(week)}</button>
       </>}
 
+      {/* Контекстная точка продажи ВНУТРИ рабочей вкладки «Неделя»: человек уже
+          смотрит на свои платежи, и именно здесь уместно сказать, что бывает
+          дальше. Вывод берётся из forecastOutlook — по данным, которые и так
+          лежат на устройстве, но без цифр прогноза. */}
+      {viewMode==='detail'&&!isPro&&outlook&&outlook.tone!=='unknown'&&(
+        <ProHint icon={outlook.tone==='calm'?'🔭':'🔎'}
+          title={outlook.tone==='calm'
+            ?`Следующие ${outlook.weeks} недель выглядят спокойно`
+            :'В вашем плане есть неделя с низким остатком'}
+          desc={outlook.tone==='calm'
+            ?'Прогноз по неделям вперёд, будущие остатки и предупреждения — в Pro.'
+            :'Точная неделя, размер нехватки и что с этим сделать — в Pro.'}
+          cta="Посмотреть прогноз →"
+          goal={outlook.tone==='calm'?'forecast_locked_view':'cashflow_warning_view'}
+          onUpgrade={onUpgrade} pending={accessPending}/>
+      )}
+
+      {/* Заглушка вкладок прогноза. Сначала польза, потом цена — пустого экрана
+          с замком здесь быть не должно. */}
       {viewMode!=='detail'&&!isPro&&(
-        <ProLock icon="📈" title="Прогноз, когда уйдёте в минус — в Pro"
-          desc="Сводка по неделям, месяцам и годам с прогнозом накопительного баланса на недели вперёд — доступно в подписке Pro."
-          onUpgrade={onUpgrade}/>
+        <ProTeaser
+          icon={outlook&&outlook.tone!=='calm'&&outlook.tone!=='unknown'?'🔎':'🔭'}
+          headline={outlook&&outlook.tone==='calm'
+            ?`Следующие ${outlook.weeks} недель выглядят спокойно`
+            :outlook&&outlook.tone!=='unknown'
+            ?'В плане есть неделя, которая требует внимания'
+            :'Хватит ли денег в следующие недели?'}
+          locked="Точный прогноз по неделям, месяцам и годам, размер будущей нехватки и рекомендации — в Pro."
+          cta="Посмотреть прогноз с Pro"
+          goal="forecast_locked_view"
+          onUpgrade={onUpgrade} pending={accessPending}/>
       )}
       {viewMode==='weeks'&&isPro&&<>
         <SecTitle>СВОДКА ПО НЕДЕЛЯМ</SecTitle>

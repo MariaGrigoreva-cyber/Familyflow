@@ -2,6 +2,7 @@
 // случались в проде: пропажа выплат на границе года, дефицит из-за копилки,
 // ошибки переноса дат через праздники/выходные, рассинхрон дублированных формул.
 import {
+  forecastOutlook,
   RU_HOLIDAYS,
   getActualPayDate,
   buildPaymentSchedule,
@@ -944,5 +945,49 @@ describe('удаление разовой выплаты откатывает п
   test('у выплаты без правок (премия, добавленная вручную) откатывать нечего', () => {
     const payments = { 'Зарплата·2026-11-10·i1': { isDone: true } };
     expect(undoExtraPaymentEdits(payments, { id: 'b1', type: 'bonus' })).toBe(payments);
+  });
+});
+
+// ── forecastOutlook — качественный вывод БЕЗ раскрытия платных цифр ─────────
+// На этом выводе держатся все заглушки Pro: он должен говорить «спокойно» или
+// «требует внимания», но не называть ни сумм, ни номеров недель.
+describe('forecastOutlook', () => {
+  const wk = n => `2099-W${String(n).padStart(2, '0')}`;
+  // Недели заведомо в будущем, чтобы фильтр «от текущей» их не отсёк.
+  const rows = balances => balances.map((bal, i) => ({ wk: wk(i + 1), bal, wTot: 10000 }));
+
+  test('запас есть на всех неделях — спокойно', () => {
+    const o = forecastOutlook(rows([100000, 90000, 80000, 70000]));
+    expect(o.tone).toBe('calm');
+    expect(o.weeks).toBe(4);
+  });
+
+  test('баланс уходит в минус — риск', () => {
+    expect(forecastOutlook(rows([50000, 20000, -3000, 10000])).tone).toBe('risk');
+  });
+
+  test('остатка не хватает на план следующей недели — требует внимания', () => {
+    // 5000 < 10000 (план следующей недели), но в минус ещё не ушли.
+    expect(forecastOutlook(rows([50000, 5000, 40000, 30000])).tone).toBe('attention');
+  });
+
+  test('данных о будущем нет — честное «не знаю», а не выдуманный вывод', () => {
+    expect(forecastOutlook([]).tone).toBe('unknown');
+    expect(forecastOutlook(rows([50000])).tone).toBe('unknown');
+    expect(forecastOutlook(null).tone).toBe('unknown');
+    expect(forecastOutlook(undefined).tone).toBe('unknown');
+  });
+
+  test('горизонт ограничен и настраивается', () => {
+    const many = rows(new Array(20).fill(100000));
+    expect(forecastOutlook(many).weeks).toBe(8);
+    expect(forecastOutlook(many, 4).weeks).toBe(4);
+  });
+
+  test('прошедшие недели в вывод не попадают', () => {
+    const past = [{ wk: '2000-W01', bal: -100000, wTot: 10000 }];
+    const future = rows([100000, 90000, 80000]);
+    // Минус в прошлом не должен объявляться будущим риском.
+    expect(forecastOutlook([...past, ...future]).tone).toBe('calm');
   });
 });

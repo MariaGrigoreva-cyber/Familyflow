@@ -70,7 +70,7 @@ describe('Кнопка «?» → меню помощи', () => {
     await openHelpMenu(user);
 
     expect(await screen.findByText('Чем помочь?')).toBeInTheDocument();
-    expect(screen.getByText('Спросить помощника')).toBeInTheDocument();
+    expect(screen.getByText('Спросить про свои деньги')).toBeInTheDocument();
     expect(screen.getByText('Как работает Семейный поток')).toBeInTheDocument();
     // Оверлей советов сам по себе ещё не открыт
     expect(screen.queryByText('СОВЕТЫ')).not.toBeInTheDocument();
@@ -90,10 +90,10 @@ describe('Кнопка «?» → меню помощи', () => {
     const user = userEvent.setup();
     render(<App />);
     await openHelpMenu(user);
-    await user.click(screen.getByText('Спросить помощника'));
+    await user.click(screen.getByText('Спросить про свои деньги'));
 
-    expect(await screen.findByText('Помощник', {}, { timeout: 3000 })).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/Спросите о бюджете/)).toBeInTheDocument();
+    expect(await screen.findByText('Спросите про свои деньги', {}, { timeout: 3000 })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Можно ли потратить/)).toBeInTheDocument();
   });
 });
 
@@ -105,9 +105,9 @@ describe('assistantOriginScreen', () => {
 
     await user.click(await screen.findByText('БЮДЖЕТ', {}, { timeout: 3000 }));
     await openHelpMenu(user);
-    await user.click(screen.getByText('Спросить помощника'));
+    await user.click(screen.getByText('Спросить про свои деньги'));
 
-    await user.type(await screen.findByPlaceholderText(/Спросите о бюджете/), 'вопрос');
+    await user.type(await screen.findByPlaceholderText(/Можно ли потратить/), 'вопрос');
     await user.click(screen.getByLabelText('Отправить'));
 
     await waitFor(() => expect(api.aiSupportAsk).toHaveBeenCalled());
@@ -122,7 +122,7 @@ describe('assistantOriginScreen', () => {
     await user.click(await screen.findByText('ЕЩЁ', {}, { timeout: 3000 }));
     await user.click(await screen.findByText('Помощник Семейного потока', {}, { timeout: 3000 }));
 
-    await user.type(await screen.findByPlaceholderText(/Спросите о бюджете/), 'вопрос');
+    await user.type(await screen.findByPlaceholderText(/Можно ли потратить/), 'вопрос');
     await user.click(screen.getByLabelText('Отправить'));
 
     await waitFor(() => expect(api.aiSupportAsk).toHaveBeenCalled());
@@ -137,12 +137,12 @@ describe('assistantOriginScreen', () => {
     expect(await screen.findByText('РАСХОДЫ ЗА ГОД · ПЛАН')).toBeInTheDocument();
 
     await openHelpMenu(user);
-    await user.click(screen.getByText('Спросить помощника'));
-    await screen.findByPlaceholderText(/Спросите о бюджете/);
+    await user.click(screen.getByText('Спросить про свои деньги'));
+    await screen.findByPlaceholderText(/Можно ли потратить/);
 
     await user.click(screen.getByLabelText('Назад'));
 
-    await waitFor(() => expect(screen.queryByPlaceholderText(/Спросите о бюджете/)).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByPlaceholderText(/Можно ли потратить/)).not.toBeInTheDocument());
     expect(screen.getByText('РАСХОДЫ ЗА ГОД · ПЛАН')).toBeInTheDocument();
   });
 });
@@ -167,7 +167,7 @@ describe('AI-гейт', () => {
 
     await openHelpMenu(user);
     expect(await screen.findByText('Чем помочь?')).toBeInTheDocument();
-    expect(screen.queryByText('Спросить помощника')).not.toBeInTheDocument();
+    expect(screen.queryByText('Спросить про свои деньги')).not.toBeInTheDocument();
     // Меню не пустое — методология остаётся доступной
     expect(screen.getByText('Как работает Семейный поток')).toBeInTheDocument();
   });

@@ -30,7 +30,7 @@ const seedHistory = msgs => localStorage.setItem(AI_HISTORY_KEY, JSON.stringify(
 describe('AssistantScreen — пустое состояние и подсказки', () => {
   test('без истории показывает приветствие без тревожных формулировок о доступе к финансам', () => {
     render(<AssistantScreen onClose={() => {}} />);
-    expect(screen.getByText(/Привет! Я помогу разобраться/)).toBeInTheDocument();
+    expect(screen.getByText(/уже знает ваш финансовый план/)).toBeInTheDocument();
     expect(screen.queryByText(/вижу ваши финансовые данные/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/доступ к вашим финансам/i)).not.toBeInTheDocument();
   });
@@ -46,8 +46,8 @@ describe('AssistantScreen — пустое состояние и подсказ�
 
   test('показывает ровно 4 подсказки, чтобы не перегружать экран', () => {
     render(<AssistantScreen screen="today" onClose={() => {}} />);
-    ['Почему такой свободный остаток?', 'Какие платежи впереди?',
-      'Хватит ли денег до конца месяца?', 'Как добавить расход?']
+    ['Можно ли потратить 15 000 ₽ прямо сейчас?', 'Хватит ли денег до зарплаты?',
+      'Почему свободный остаток именно такой?', 'Какие платежи впереди?']
       .forEach(q => expect(screen.getByText(q)).toBeInTheDocument());
   });
 });
@@ -73,7 +73,7 @@ describe('AssistantScreen — отправка вопроса', () => {
     const user = userEvent.setup();
     render(<AssistantScreen screen="today" onClose={() => {}} />);
 
-    await user.type(screen.getByPlaceholderText(/Спросите о бюджете/), 'мой вопрос');
+    await user.type(screen.getByPlaceholderText(/Можно ли потратить/), 'мой вопрос');
     await user.click(screen.getByLabelText('Отправить'));
 
     await waitFor(() => expect(screen.getByText('Ответ.')).toBeInTheDocument());
@@ -91,11 +91,11 @@ describe('AssistantScreen — отправка вопроса', () => {
     const user = userEvent.setup();
     render(<AssistantScreen screen="today" getFinancialContext={getCtx} onClose={() => {}} />);
 
-    await user.type(screen.getByPlaceholderText(/Спросите о бюджете/), 'первый');
+    await user.type(screen.getByPlaceholderText(/Можно ли потратить/), 'первый');
     await user.click(screen.getByLabelText('Отправить'));
     await waitFor(() => expect(api.aiSupportAsk).toHaveBeenCalledTimes(1));
 
-    await user.type(screen.getByPlaceholderText(/Спросите о бюджете/), 'второй');
+    await user.type(screen.getByPlaceholderText(/Можно ли потратить/), 'второй');
     await user.click(screen.getByLabelText('Отправить'));
     await waitFor(() => expect(api.aiSupportAsk).toHaveBeenCalledTimes(2));
 
@@ -109,7 +109,7 @@ describe('AssistantScreen — отправка вопроса', () => {
     const user = userEvent.setup();
     render(<AssistantScreen screen="today" getFinancialContext={() => ({ version: 1, secretTag: 'СНИМОК' })} onClose={() => {}} />);
 
-    await user.type(screen.getByPlaceholderText(/Спросите о бюджете/), 'вопрос');
+    await user.type(screen.getByPlaceholderText(/Можно ли потратить/), 'вопрос');
     await user.click(screen.getByLabelText('Отправить'));
     await waitFor(() => expect(api.aiSupportAsk).toHaveBeenCalled());
 
@@ -122,7 +122,7 @@ describe('AssistantScreen — отправка вопроса', () => {
     const user = userEvent.setup();
     render(<AssistantScreen screen="today" getFinancialContext={() => { throw new Error('boom'); }} onClose={() => {}} />);
 
-    await user.type(screen.getByPlaceholderText(/Спросите о бюджете/), 'вопрос');
+    await user.type(screen.getByPlaceholderText(/Можно ли потратить/), 'вопрос');
     await user.click(screen.getByLabelText('Отправить'));
 
     expect(await screen.findByText('Ответ по базе знаний.')).toBeInTheDocument();
@@ -138,7 +138,7 @@ describe('AssistantScreen — состояния', () => {
     const user = userEvent.setup();
     render(<AssistantScreen screen="today" onClose={() => {}} />);
 
-    await user.type(screen.getByPlaceholderText(/Спросите о бюджете/), 'вопрос');
+    await user.type(screen.getByPlaceholderText(/Можно ли потратить/), 'вопрос');
     await user.click(screen.getByLabelText('Отправить'));
 
     expect(await screen.findByText('Помощник думает…')).toBeInTheDocument();
@@ -154,7 +154,7 @@ describe('AssistantScreen — состояния', () => {
     const user = userEvent.setup();
     render(<AssistantScreen screen="today" onClose={() => {}} />);
 
-    await user.type(screen.getByPlaceholderText(/Спросите о бюджете/), 'вопрос');
+    await user.type(screen.getByPlaceholderText(/Можно ли потратить/), 'вопрос');
     await user.click(screen.getByLabelText('Отправить'));
 
     expect(await screen.findByText('Не получилось получить ответ. Попробуйте ещё раз.')).toBeInTheDocument();
@@ -168,7 +168,7 @@ describe('AssistantScreen — состояния', () => {
     const user = userEvent.setup();
     render(<AssistantScreen screen="today" onClose={() => {}} />);
 
-    await user.type(screen.getByPlaceholderText(/Спросите о бюджете/), 'вопрос');
+    await user.type(screen.getByPlaceholderText(/Можно ли потратить/), 'вопрос');
     await user.click(screen.getByLabelText('Отправить'));
 
     const bubble = await screen.findByText(long);
@@ -186,7 +186,7 @@ describe('AssistantScreen — история и навигация', () => {
     render(<AssistantScreen onClose={() => {}} />);
     expect(screen.getByText('старый вопрос')).toBeInTheDocument();
     expect(screen.getByText('старый ответ')).toBeInTheDocument();
-    expect(screen.queryByText(/Привет! Я помогу/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/уже знает ваш финансовый план/)).not.toBeInTheDocument();
   });
 
   test('история уходит на бэкенд вместе со следующим вопросом', async () => {
@@ -198,7 +198,7 @@ describe('AssistantScreen — история и навигация', () => {
     const user = userEvent.setup();
     render(<AssistantScreen screen="today" onClose={() => {}} />);
 
-    await user.type(screen.getByPlaceholderText(/Спросите о бюджете/), 'второй');
+    await user.type(screen.getByPlaceholderText(/Можно ли потратить/), 'второй');
     await user.click(screen.getByLabelText('Отправить'));
 
     await waitFor(() => expect(api.aiSupportAsk.mock.calls[0][1].history).toEqual([
@@ -216,7 +216,7 @@ describe('AssistantScreen — история и навигация', () => {
 
     await user.click(screen.getByText('Очистить'));
 
-    await waitFor(() => expect(screen.getByText(/Привет! Я помогу/)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/уже знает ваш финансовый план/)).toBeInTheDocument());
     expect(localStorage.getItem(AI_HISTORY_KEY)).toBeNull();
     expect(localStorage.getItem('ff_state')).toBe('{"budget":"важное"}');
     expect(localStorage.getItem('ff_theme')).toBe('dark');
@@ -243,7 +243,7 @@ describe('AssistantScreen — история и навигация', () => {
     const user = userEvent.setup();
     render(<AssistantScreen screen="today" onClose={() => {}} />);
 
-    await user.type(screen.getByPlaceholderText(/Спросите о бюджете/), 'новый вопрос');
+    await user.type(screen.getByPlaceholderText(/Можно ли потратить/), 'новый вопрос');
     await user.click(screen.getByLabelText('Отправить'));
 
     await waitFor(() => expect(api.aiSupportAsk).toHaveBeenCalled());
@@ -260,7 +260,7 @@ describe('AssistantScreen — оценка ответа (этап 6)', () => {
   const askOnce = async (user, answer = 'Ответ.', requestId = 'req-1') => {
     api.aiSupportAsk.mockResolvedValue({ answer, requestId });
     api.aiFeedback.mockResolvedValue({ ok: true });
-    await user.type(screen.getByPlaceholderText(/Спросите о бюджете/), 'вопрос');
+    await user.type(screen.getByPlaceholderText(/Можно ли потратить/), 'вопрос');
     await user.click(screen.getByLabelText('Отправить'));
     await screen.findByText(answer);
   };
@@ -332,7 +332,7 @@ describe('AssistantScreen — оценка ответа (этап 6)', () => {
     await user.click(screen.getByLabelText('Полезный ответ'));
     // Ответ на месте, ввод доступен
     expect(screen.getByText('Ответ.')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/Спросите о бюджете/)).toBeEnabled();
+    expect(screen.getByPlaceholderText(/Можно ли потратить/)).toBeEnabled();
     console.error.mockRestore();
   });
 
@@ -347,7 +347,7 @@ describe('AssistantScreen — оценка ответа (этап 6)', () => {
 
     // В следующем запросе история уходит без requestId
     api.aiSupportAsk.mockResolvedValue({ answer: 'Второй.', requestId: 'req-2' });
-    await user.type(screen.getByPlaceholderText(/Спросите о бюджете/), 'второй вопрос');
+    await user.type(screen.getByPlaceholderText(/Можно ли потратить/), 'второй вопрос');
     await user.click(screen.getByLabelText('Отправить'));
     await screen.findByText('Второй.');
 
@@ -369,5 +369,72 @@ describe('AssistantScreen — оценка ответа (этап 6)', () => {
     render(<AssistantScreen onClose={() => {}} />);
     expect(screen.getByText('бета')).toBeInTheDocument();
     expect(screen.getByText(/работает в бета-режиме/)).toBeInTheDocument();
+  });
+});
+
+// ── Тариф: помощник знает финансовый план только на Pro ─────────────────────
+// Право доступа решает сервер (routes/ai.js отвечает 402 на запрос с финансовым
+// контекстом на бесплатном тарифе). Здесь проверяется поведение интерфейса
+// вокруг этого решения: он не должен ни отправлять личные данные впустую, ни
+// показывать отказ как поломку.
+describe('AssistantScreen — доступ к ответам по своему бюджету', () => {
+  const ctx = () => ({ version: 1, current: { freeSpendableNow: 15000 } });
+
+  test('на Pro снимок бюджета уходит на сервер', async () => {
+    api.aiSupportAsk.mockResolvedValue({ answer: 'ответ', requestId: 'r1' });
+    const user = userEvent.setup();
+    render(<AssistantScreen screen="today" getFinancialContext={ctx} canAskAboutBudget onClose={() => {}}/>);
+    await user.type(screen.getByPlaceholderText(/Можно ли потратить/), 'Хватит ли денег до зарплаты?');
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(api.aiSupportAsk).toHaveBeenCalled());
+    expect(api.aiSupportAsk.mock.calls[0][1].financialContext).not.toBeNull();
+  });
+
+  test('на Free личный вопрос не отправляется, а показывает, что даёт Pro', async () => {
+    const user = userEvent.setup();
+    const onUpgrade = jest.fn();
+    render(<AssistantScreen screen="today" getFinancialContext={ctx}
+      canAskAboutBudget={false} onUpgrade={onUpgrade} onClose={() => {}}/>);
+    await user.type(screen.getByPlaceholderText(/Спросите про приложение/), 'Могу ли я потратить 18 000?');
+    await user.keyboard('{Enter}');
+    // Данные пользователя не ушли по сети впустую.
+    expect(api.aiSupportAsk).not.toHaveBeenCalled();
+    expect(await screen.findByText('Чтобы ответить, нужен ваш финансовый план')).toBeInTheDocument();
+    await user.click(screen.getByText('Что это даёт →'));
+    expect(onUpgrade).toHaveBeenCalledWith('aiAssistant');
+  });
+
+  test('на Free вопрос о работе приложения по-прежнему отвечает — поддержку не отбираем', async () => {
+    api.aiSupportAsk.mockResolvedValue({ answer: 'копилка — это резерв', requestId: 'r2' });
+    const user = userEvent.setup();
+    render(<AssistantScreen screen="today" getFinancialContext={ctx}
+      canAskAboutBudget={false} onClose={() => {}}/>);
+    await user.type(screen.getByPlaceholderText(/Спросите про приложение/), 'Как работает копилка?');
+    await user.keyboard('{Enter}');
+    await waitFor(() => expect(api.aiSupportAsk).toHaveBeenCalled());
+    // Снимок бюджета при этом не отправляется — он всё равно был бы отклонён.
+    expect(api.aiSupportAsk.mock.calls[0][1].financialContext).toBeNull();
+    expect(await screen.findByText('копилка — это резерв')).toBeInTheDocument();
+  });
+
+  test('402 от сервера показывается как предложение, а не как ошибка', async () => {
+    api.aiSupportAsk.mockRejectedValue(Object.assign(new Error('subscription_required'), { status: 402 }));
+    const user = userEvent.setup();
+    render(<AssistantScreen screen="today" getFinancialContext={ctx} canAskAboutBudget onClose={() => {}}/>);
+    await user.type(screen.getByPlaceholderText(/Можно ли потратить/), 'вопрос');
+    await user.keyboard('{Enter}');
+    expect(await screen.findByText('Чтобы ответить, нужен ваш финансовый план')).toBeInTheDocument();
+    expect(screen.queryByText(/Не получилось получить ответ/)).not.toBeInTheDocument();
+  });
+
+  test('на Free подсказки не ведут в paywall — они про приложение', () => {
+    render(<AssistantScreen screen="today" canAskAboutBudget={false} onClose={() => {}}/>);
+    expect(screen.getByText('Как работает Семейный поток?')).toBeInTheDocument();
+    expect(screen.queryByText('Можно ли потратить 15 000 ₽ прямо сейчас?')).not.toBeInTheDocument();
+  });
+
+  test('заготовка вопроса из «Можно ли мне это купить?» подставляется в поле', () => {
+    render(<AssistantScreen screen="today" initialDraft="Могу ли я сейчас потратить " canAskAboutBudget onClose={() => {}}/>);
+    expect(screen.getByPlaceholderText(/Можно ли потратить/)).toHaveValue('Могу ли я сейчас потратить ');
   });
 });

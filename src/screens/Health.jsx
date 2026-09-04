@@ -1,9 +1,9 @@
 // FamilyFlow — экран Здоровье бюджета
 import React, { useState, useEffect, useMemo } from 'react';
 import {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBudgetMetrics,computeWeeksSummary,projectCashFlow,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
-import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,ProLock,PiggyLogo} from '../lib/ui';
+import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,ProTeaser,PiggyLogo} from '../lib/ui';
 
-export function HealthScreen({state,isPro=true,onUpgrade}){
+export function HealthScreen({state,isPro=true,accessPending=false,outlook=null,onUpgrade}){
   const[showScoreInfo,setShowScoreInfo]=useState(false);
   const{planned,weekItems={},customCats=[],startBalance=0}=state;
   const allCats=[...DEFAULT_CATS,...customCats];
@@ -79,10 +79,20 @@ export function HealthScreen({state,isPro=true,onUpgrade}){
   // 78-126px от низа на всех вкладках кроме Сегодня) — иначе последние
   // строки экрана прячутся у неё под низом.
   const pad={paddingTop:16,paddingLeft:20,paddingRight:20,paddingBottom:'calc(142px + env(safe-area-inset-bottom))'};
+  // Заглушка показывает вывод, который приложение уже сделало по бюджету
+  // этого человека, — но без цифр разбора (балл, номера рискованных недель,
+  // размер нехватки остаются платными). Пустого экрана с замком здесь нет.
   if(!isPro)return(
-    <ProLock icon="💚" title="Здоровье бюджета — в Pro"
-      desc="Оценка 0–100, прогноз, не уйдёте ли в минус в ближайшие недели, и рекомендации, что улучшить — доступно в подписке Pro."
-      onUpgrade={onUpgrade}/>
+    <ProTeaser icon={outlook&&outlook.tone!=='calm'&&outlook.tone!=='unknown'?'🔎':'💚'}
+      headline={outlook&&outlook.tone==='calm'
+        ?`Следующие ${outlook.weeks} недель выглядят спокойно`
+        :outlook&&outlook.tone!=='unknown'
+        ?'В плане есть неделя, которая требует внимания'
+        :'Как дела у вашего бюджета?'}
+      locked="Разбор бюджета, оценка 0–100, недели с риском уйти в минус и что именно стоит поправить — в Pro."
+      cta="Разобрать бюджет с Pro"
+      goal="forecast_locked_view"
+      onUpgrade={onUpgrade} pending={accessPending}/>
   );
   return(
     <div style={{overflowY:'auto',flex:1,minHeight:0,WebkitOverflowScrolling:'touch'}}><div style={pad}>

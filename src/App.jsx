@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
-import {C,MONO,uid,weekKey,todayKey,getISOWeek,calcAvgMonthlyNet,calcNetFor,generateAllWeeks,regenWeeksKeepDone,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED,DEFAULT_CATS,nextMemberTint,computeBalances,compactWeekItemsForSave,isLegacyWeekKeyFormat,computeWeeksSummary,projectCashFlow,applyExtraPaymentEdits,undoExtraPaymentEdits} from './lib/core';
+import {C,MONO,uid,weekKey,todayKey,getISOWeek,calcAvgMonthlyNet,calcNetFor,generateAllWeeks,regenWeeksKeepDone,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED,DEFAULT_CATS,nextMemberTint,computeBalances,compactWeekItemsForSave,isLegacyWeekKeyFormat,computeWeeksSummary,projectCashFlow,forecastOutlook,applyExtraPaymentEdits,undoExtraPaymentEdits} from './lib/core';
 // ── Пять основных вкладок нижней навигации грузятся вместе с основным бандлом ──
 // Раньше четыре из них (Поток/Бюджет/Здоровье/Ещё) были на React.lazy: первое
 // переключение вкладки упиралось в сетевую загрузку отдельного chunk'а (в проде —
@@ -20,9 +20,12 @@ const PricingIntro=lazy(()=>import('./screens/Onboarding').then(m=>({default:m.P
 const TipsPhilosophyOverlay=lazy(()=>import('./TipsPhilosophy').then(m=>({default:m.TipsPhilosophyOverlay})));
 const WhatIfScreen=lazy(()=>import('./screens/WhatIf').then(m=>({default:m.WhatIfScreen})));
 const AssistantScreen=lazy(()=>import('./screens/Assistant').then(m=>({default:m.AssistantScreen})));
+// Экран Pro — открывается из любой контекстной точки продажи. Тяжёлым его не
+// назвать, но и открывают его не в каждой сессии, поэтому тоже lazy.
+const Paywall=lazy(()=>import('./screens/Paywall').then(m=>({default:m.Paywall})));
 import {EditPaymentModal,AddExtraModal,AddTxModal,EditCatModal,EditTxModal,EditIncomeModal,WithdrawPiggyModal,SalaryCheckModal,TabBar} from './modals';
 import { isLoggedIn, loadCloudState, saveCloudState, authMe, resendVerification, billingStatus, familyMe, aiStatus, errText } from './api';
-import { markLocalTrialStart, getLocalPlan, isProPlan } from './lib/plan';
+import { markLocalTrialStart, resolveAccess, cacheBillingStatus, can } from './lib/plan';
 import { SplashScreen } from './SplashScreen';
 import { StartLoginForm } from './StartLoginForm';
 import { AddToHomeScreenPrompt } from './AddToHomeScreenPrompt';
@@ -82,9 +85,10 @@ export default function App({initialYandexError}={}){
 
   const[consented,setConsentedRaw]=useState(()=>savedState?.consented||false);
   const[onboarded,setOnboardedRaw]=useState(()=>savedState?.onboarded||false);
-  // Экран «30 дней бесплатно» — раз на аккаунт, сразу после регистрации, до
-  // онбординга (в RuStore нет лендинга с ценой, это сейчас единственное место,
-  // где новый пользователь вообще узнаёт про 199/999 и бесплатный период).
+  // Экран Pro — раз на аккаунт, сразу после регистрации, до онбординга (в
+  // RuStore нет лендинга, и это сейчас единственное место, где новый
+  // пользователь узнаёт, что будет после пробного периода и сколько это стоит).
+  // Сумму экран не знает: она приходит с сервера, см. screens/Paywall.jsx.
   const[pricingSeen,setPricingSeenRaw]=useState(()=>savedState?.pricingSeen||false);
   const setPricingSeen=(v)=>{setPricingSeenRaw(v);try{localStorage.setItem('ff_state',JSON.stringify({...loadFromStorage(),pricingSeen:v}));}catch{}};
   // Тема: 'auto' следует системной, 'light'/'dark' — ручной выбор, запоминается отдельно от бюджета
@@ -97,9 +101,49 @@ export default function App({initialYandexError}={}){
   // ── Тариф: для залогиненных — реальный статус с сервера, для локального
   // режима без аккаунта — локальный 30-дневный триал (см. lib/plan.js).
   const[billingPlan,setBillingPlan]=useState(null);
-  // До ответа сервера считаем trial — чтобы не мигало платным экраном, пока грузится.
-  const effectivePlan=isLoggedIn()?(billingPlan?.plan||'trial'):getLocalPlan();
-  const isPro=isProPlan(effectivePlan);
+  const[billingError,setBillingError]=useState(null);
+  // Право доступа целиком решает сервер (см. lib/plan.js). Здесь только разбор
+  // его ответа на состояния: granted / denied / loading / error. Раньше на этом
+  // месте было `billingPlan?.plan||'trial'` — любая ошибка сети молча выдавала
+  // интерфейс полного триала; теперь «не знаем» не превращается в «доступ есть».
+  const access=resolveAccess({loggedIn:isLoggedIn(),status:billingPlan,error:billingError});
+  const effectivePlan=access.plan;
+  const isPro=access.isPro;
+  // Тариф ещё не известен (первый запуск и сеть недоступна) — экранам нужно
+  // показать нейтральное «проверяем», а не обвинять человека в неоплате.
+  const accessPending=access.accessPending;
+  // ── Что доступно этому пользователю ────────────────────────────────────
+  // Ровно один источник: карта возможностей, присланная сервером в
+  // GET /billing/status (см. lib/plan.js can() и lib/capabilities.js в API).
+  // Прямых сравнений вида plan==='pro' по экранам больше нет — состав тарифов
+  // меняется на бэкенде, интерфейс за ним следует сам.
+  const canForecast=can(access,'forecast');
+  const canSafeSpendable=can(access,'safeSpendable');
+  const canScenarios=can(access,'scenarios');
+  const canSpendingCheck=can(access,'spendingCheck');
+  const canAiAssistant=can(access,'aiAssistant');
+  const canBudgetHealth=can(access,'budgetHealth');
+  const canFamilySharing=can(access,'familySharing');
+  const canMultipleIncomes=can(access,'multipleIncomes');
+  // Открытый экран Pro: null — закрыт, иначе имя возможности, из-за которой
+  // его открыли (оно определяет заголовок и попадает в аналитику).
+  const[paywallFor,setPaywallFor]=useState(null);
+  const[paywallSource,setPaywallSource]=useState('unknown');
+  const openPaywall=(capability=null,source='unknown')=>{setPaywallFor(capability||'none');setPaywallSource(source);};
+  const openWhatIf=()=>{
+    if(access.isTrial)ymGoal('trial_pro_feature_used',{feature:'scenarios'});
+    setShowWhatIf(true);
+  };
+  // «Можно ли мне это купить?» — не отдельный экран, а вход в помощника с
+  // заготовленным вопросом: вердикт всё равно считает код (lib/aiSpendingCheck.js),
+  // а помощник его объясняет. Плодить ради этого второй AI-эндпоинт незачем.
+  const openSpendingCheck=()=>{
+    ymGoal('spending_check_open',{screen:tab});
+    // Отдельная цель на использование Pro-функции ВО ВРЕМЯ триала: главный
+    // вопрос к триалу — успел ли человек увидеть ценность до его окончания.
+    if(access.isTrial)ymGoal('trial_pro_feature_used',{feature:'spending_check'});
+    openAssistantFrom(tab,'Могу ли я сейчас потратить ');
+  };
   const[tab,setTab]=useState('today');
   const[tourStep,setTourStep]=useState(-1); // -1 = тур выключен
   const[showSplash,setShowSplash]=useState(true); // загрузочный экран при старте приложения
@@ -120,7 +164,10 @@ export default function App({initialYandexError}={}){
   // screen — не 'assistant', иначе контекст экрана потерял бы смысл. Живёт
   // только в памяти: это транзиентный UI-контекст, не часть истории диалога.
   const[assistantOrigin,setAssistantOrigin]=useState('unknown');
-  const openAssistantFrom=origin=>{setAssistantOrigin(origin||'unknown');setShowHelpMenu(false);setShowAssistant(true);};
+  const openAssistantFrom=(origin,prefill='')=>{setAssistantOrigin(origin||'unknown');setAssistantPrefill(prefill);setShowHelpMenu(false);setShowAssistant(true);};
+  // Заготовка вопроса при входе через «Можно ли мне это купить?» — человеку
+  // остаётся дописать сумму. Живёт в памяти, в историю диалога не попадает.
+  const[assistantPrefill,setAssistantPrefill]=useState('');
   const[showWhatIf,setShowWhatIf]=useState(false); // «А что если?» — карточка на Сегодня
   const[showEdit,setShowEdit]=useState(false);
   const[editItem,setEditItem]=useState(null);
@@ -318,7 +365,12 @@ useEffect(() => {
     const run = () => {
       if (cancelled) return;
       authMe().then(r => { setEmailVerified(r.emailVerified); setUserEmail(r.email); }).catch(() => {});
-      billingStatus().then(setBillingPlan).catch(() => {});
+      billingStatus()
+        .then(r => { setBillingPlan(r); setBillingError(null); cacheBillingStatus(r); })
+        // Ошибку именно запоминаем, а не глотаем: без неё нельзя отличить
+        // «ещё грузится» от «спросили и не смогли». Разлогинивать при этом
+        // нельзя — 401 уже обработан в api.js, здесь любая другая причина.
+        .catch(e => setBillingError(e));
       aiStatus().then(r => setAiAvailable(!!r.available)).catch(() => setAiAvailable(false));
       familyMe().then(r => setShowFeedbackPrompt(!!r.showFeedbackPrompt)).catch(() => {});
     };
@@ -336,6 +388,33 @@ useEffect(() => {
       if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(rafId);
       if (idleId && window.cancelIdleCallback) window.cancelIdleCallback(idleId);
       clearTimeout(timerId);
+    };
+  }, []);
+
+  // ── Перепроверка тарифа при возврате в приложение ─────────────────────────
+  // Статус запрашивался ровно один раз при старте, поэтому сессия, открытая до
+  // окончания триала, жила со «старым» тарифом сколько угодно долго — человек
+  // продолжал видеть платные экраны, хотя сервер уже отказывал в сохранении.
+  // Тот же обработчик подхватывает и обратный случай: оплатили на другом
+  // устройстве — здесь доступ вернётся без перезапуска приложения.
+  useEffect(() => {
+    if (!isLoggedIn()) return;
+    const refresh = () => {
+      billingStatus()
+        .then(r => { setBillingPlan(r); setBillingError(null); cacheBillingStatus(r); })
+        .catch(e => setBillingError(e));
+    };
+    // Видимость проверяем только для visibilitychange — там событие приходит и
+    // на уход в фон, и спрашивать сервер в этот момент незачем. У focus такой
+    // проблемы нет: он и означает, что человек вернулся к приложению. Опираться
+    // на visibilityState в обоих обработчиках нельзя — в части WebView-обёрток
+    // он остаётся 'hidden', и перепроверка не срабатывала бы вообще никогда.
+    const onVisibility = () => { if (document.visibilityState !== 'hidden') refresh(); };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('focus', refresh);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('focus', refresh);
     };
   }, []);
   // Автосохранение appState при каждом изменении
@@ -778,6 +857,10 @@ useEffect(() => {
   // используют один и тот же прогноз накопительного баланса.
   const weeksSummary=useMemo(()=>computeWeeksSummary(appState),[appState.weekItems,appState.incomes,appState.payments,appState.transactions,appState.extraPayments]);
   const cashFlowProjection=useMemo(()=>projectCashFlow(appState,weeksSummary),[weeksSummary,appState]);
+  // Качественный вывод по будущим неделям — то, что можно показать и без Pro,
+  // не раскрывая платных цифр (см. forecastOutlook в lib/core.js). Считается из
+  // уже готового прогноза, второго расчёта нет.
+  const outlook=useMemo(()=>forecastOutlook(cashFlowProjection.weeklyBalances),[cashFlowProjection.weeklyBalances]);
   const TAB_TITLES={today:'Сегодня',plan:'Денежный поток',budget:'Годовой бюджет',health:'Здоровье бюджета',settings:'Настройки'};
   // Свайп между вкладками — тот же порядок, что и в TabBar снизу.
   const TAB_ORDER=['today','plan','budget','health','settings'];
@@ -912,11 +995,11 @@ useEffect(() => {
         )}
       </div>
       <div style={{flex:1,display:'flex',flexDirection:'column',minHeight:0}} onTouchStart={handleTabTouchStart} onTouchEnd={handleTabTouchEnd}>
-        {tab==='today'&&<TodayScreen state={appState} onToggle={handleToggle} onEditPayment={handleEditPayment} onEditTx={handleEditTx} onQuickMark={handleQuickMark} onWithdrawPiggy={()=>setShowWithdrawPiggy(true)} onOpenWhatIf={()=>setShowWhatIf(true)} tourStep={tourStep} freeSpendableNow={cashFlowProjection.freeSpendableNow} weeklyBalances={cashFlowProjection.weeklyBalances}/>}
-        {tab==='plan'&&<PlanScreen state={appState} onToggle={handleToggle} onAdd={(wk)=>{setAddWeek(wk);setShowAdd(true);}} onEditTx={handleEditTx} weeksSummary={weeksSummary} negativeWeek={cashFlowProjection.negativeWeek} isPro={isPro} onUpgrade={()=>setTab('settings')}/>}
+        {tab==='today'&&<TodayScreen state={appState} onToggle={handleToggle} onEditPayment={handleEditPayment} onEditTx={handleEditTx} onQuickMark={handleQuickMark} onWithdrawPiggy={()=>setShowWithdrawPiggy(true)} onOpenWhatIf={openWhatIf} onOpenSpendingCheck={openSpendingCheck} onUpgrade={cap=>openPaywall(cap||'forecast','today')} tourStep={tourStep} freeSpendableNow={cashFlowProjection.freeSpendableNow} weeklyBalances={cashFlowProjection.weeklyBalances} outlook={outlook} canForecast={canForecast} canSafeSpendable={canSafeSpendable} canScenarios={canScenarios} canSpendingCheck={canSpendingCheck} accessPending={accessPending}/>}
+        {tab==='plan'&&<PlanScreen state={appState} onToggle={handleToggle} onAdd={(wk)=>{setAddWeek(wk);setShowAdd(true);}} onEditTx={handleEditTx} weeksSummary={weeksSummary} negativeWeek={cashFlowProjection.negativeWeek} outlook={outlook} isPro={canForecast} accessPending={accessPending} onUpgrade={()=>openPaywall('forecast','plan')}/>}
         {tab==='budget'&&<BudgetScreen state={appState} onEditPlanned={item=>{setEditItem(item);setShowEdit(true);}} onAddPlanned={handleAddPlanned} onEditPayment={handleEditPayment} onAddExtra={(data)=>{if(data&&data.amount){handleAddExtra(data);}else{setShowAddExtra(true);}}} onWithdrawPiggy={()=>setShowWithdrawPiggy(true)} onSetGoal={handleSetGoal} onAddGoalToPlan={handleEditPlanned}/>}
-        {tab==='health'&&<HealthScreen state={appState} isPro={isPro} onUpgrade={()=>setTab('settings')}/>}
-        {tab==='settings'&&<SettingsScreen state={appState} onEditCat={item=>{setEditItem(item||null);setShowEdit(true);}} onAddCat={handleAddPlanned} onDeleteCustomCat={handleDeleteCustomCat} onEditIncome={handleEditIncome} onAddIncome={handleAddIncomeSource} onUpdateMember={handleUpdateMember} onAddMember={handleAddMember} onRemoveMember={handleRemoveMember} theme={theme} onSetTheme={setTheme} isPro={isPro} resetBackup={resetBackup} showAi={aiAvailable} onOpenAssistant={()=>openAssistantFrom('settings')}/>}
+        {tab==='health'&&<HealthScreen state={appState} isPro={canBudgetHealth} accessPending={accessPending} outlook={outlook} onUpgrade={()=>openPaywall('budgetHealth','health')}/>}
+        {tab==='settings'&&<SettingsScreen state={appState} onEditCat={item=>{setEditItem(item||null);setShowEdit(true);}} onAddCat={handleAddPlanned} onDeleteCustomCat={handleDeleteCustomCat} onEditIncome={handleEditIncome} onAddIncome={handleAddIncomeSource} onUpdateMember={handleUpdateMember} onAddMember={handleAddMember} onRemoveMember={handleRemoveMember} theme={theme} onSetTheme={setTheme} isPro={isPro} canFamilySharing={canFamilySharing} canMultipleIncomes={canMultipleIncomes} accessPending={accessPending} resetBackup={resetBackup} showAi={aiAvailable} onOpenAssistant={()=>openAssistantFrom('settings')} onOpenPaywall={cap=>openPaywall(cap||null,'settings')}/>}
       </div>
       {tab==='today'&&<button onClick={()=>setShowAdd(true)} aria-label="Добавить запись"
         style={{position:'absolute',right:16,bottom:'calc(78px + env(safe-area-inset-bottom))',width:52,height:52,borderRadius:26,border:'none',background:C.orange,color:'#fff',fontSize:26,fontWeight:600,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',boxShadow:'0 6px 16px rgba(0,0,0,.18)',fontFamily:'inherit',zIndex:120}}>+</button>}
@@ -940,8 +1023,8 @@ useEffect(() => {
               <button onClick={()=>openAssistantFrom(tab)} style={{width:'100%',display:'flex',alignItems:'center',gap:13,border:`1.5px solid ${C.orange}`,background:C.orangeL,borderRadius:14,padding:'14px 16px',cursor:'pointer',textAlign:'left',fontFamily:'inherit',boxSizing:'border-box',marginBottom:8}}>
                 <span style={{fontSize:19,flexShrink:0}}>✨</span>
                 <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:14,fontWeight:600,color:C.orangeD}}>Спросить помощника</div>
-                  <div style={{fontSize:11.5,color:C.orangeD,opacity:.8,marginTop:1}}>Разобраться с бюджетом или приложением</div>
+                  <div style={{fontSize:14,fontWeight:600,color:C.orangeD}}>{canAiAssistant?'Спросить про свои деньги':'Спросить про приложение'}</div>
+                  <div style={{fontSize:11.5,color:C.orangeD,opacity:.8,marginTop:1}}>{canAiAssistant?'FamilyFlow уже знает ваш финансовый план':'Ответы по вашему бюджету — в Pro'}</div>
                 </div>
               </button>
             )}
@@ -956,9 +1039,14 @@ useEffect(() => {
           </div>
         </div>
       )}
-      {showAssistant&&<Suspense fallback={<OverlayLoader/>}><AssistantScreen screen={assistantOrigin} getFinancialContext={()=>buildAiFinancialContext(appState)} onClose={()=>setShowAssistant(false)}/></Suspense>}
+      {showAssistant&&<Suspense fallback={<OverlayLoader/>}><AssistantScreen screen={assistantOrigin} initialDraft={assistantPrefill} getFinancialContext={()=>buildAiFinancialContext(appState)} canAskAboutBudget={canAiAssistant} onUpgrade={cap=>{setShowAssistant(false);openPaywall(cap||'aiAssistant','assistant');}} onClose={()=>setShowAssistant(false)}/></Suspense>}
       {showTips&&<Suspense fallback={<OverlayLoader/>}><TipsPhilosophyOverlay onClose={()=>setShowTips(false)}/></Suspense>}
       {showWhatIf&&<Suspense fallback={<OverlayLoader/>}><WhatIfScreen state={appState} weeklyBalances={cashFlowProjection.weeklyBalances} onClose={()=>setShowWhatIf(false)}/></Suspense>}
+      {/* Экран Pro поверх всего: открывается из контекстных точек продажи —
+          с Сегодня, из прогноза, из «Здоровья», из помощника и из Настроек.
+          Показывать paywall ТОЛЬКО в настройках нельзя: там человек уже не
+          думает о своей проблеме с деньгами. */}
+      {paywallFor&&<Suspense fallback={<OverlayLoader/>}><Paywall capability={paywallFor==='none'?null:paywallFor} source={paywallSource} plan={effectivePlan} onClose={()=>setPaywallFor(null)}/></Suspense>}
       <EditCatModal visible={showEdit} item={editItem} members={appState.members} customCats={appState.customCats} onClose={()=>{setShowEdit(false);setEditItem(null);}} onSave={item=>{const{isNew,...rest}=item||{};handleEditPlanned(isNew?{...rest,isNew:true}:rest);}} onDelete={handleDeletePlanned}/>
       <EditPaymentModal visible={showEditPay} payment={editPayment} onClose={()=>{setShowEditPay(false);setEditPayment(null);}} onSave={handleSavePayment} onDelete={handleDeleteExtra}/>
       <SalaryCheckModal visible={showSalaryCheck} payment={salaryCheckPayment} onConfirm={handleSalaryCheckConfirm} onNotYet={handleSalaryCheckNotYet}/>

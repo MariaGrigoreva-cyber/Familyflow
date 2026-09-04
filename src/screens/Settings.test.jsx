@@ -375,9 +375,9 @@ describe('BillingSection', () => {
     api.billingStatus.mockResolvedValue({ plan: 'free', prices: { monthly: 199, yearly: 999 } });
     const user = userEvent.setup();
     render(<SettingsScreen {...baseProps} />);
-    expect(await screen.findByText('Бесплатный тариф')).toBeInTheDocument();
-    expect(screen.getByText(/Месяц ·/)).toBeDisabled();
-    await user.click(screen.getByText(/Месяц ·/));
+    expect(await screen.findByText('Тариф Free')).toBeInTheDocument();
+    expect(screen.getByText('Попробовать Pro')).toBeDisabled();
+    await user.click(screen.getByText('Попробовать Pro'));
     expect(api.billingCheckout).not.toHaveBeenCalled();
   });
 
@@ -386,10 +386,10 @@ describe('BillingSection', () => {
     api.billingCheckout.mockResolvedValue({ confirmationUrl: 'https://yookassa.ru/pay/1' });
     const user = userEvent.setup();
     render(<SettingsScreen {...baseProps} />);
-    await screen.findByText('Бесплатный тариф');
+    await screen.findByText('Тариф Free');
     const consentCheckboxes = document.querySelectorAll('input[type="checkbox"]');
     await user.click(consentCheckboxes[consentCheckboxes.length - 1]);
-    await user.click(screen.getByText(/Месяц ·/));
+    await user.click(screen.getByText('Попробовать Pro'));
     await waitFor(() => expect(api.billingCheckout).toHaveBeenCalledWith('monthly', true));
     expect(window.location.href).toBe('https://yookassa.ru/pay/1');
   });
@@ -416,7 +416,7 @@ describe('BillingSection', () => {
     expect(await screen.findByText('Не удалось загрузить статус подписки')).toBeInTheDocument();
     api.billingStatus.mockResolvedValue({ plan: 'free', prices: { monthly: 199, yearly: 999 } });
     await user.click(screen.getByText('Повторить'));
-    expect(await screen.findByText('Бесплатный тариф')).toBeInTheDocument();
+    expect(await screen.findByText('Тариф Free')).toBeInTheDocument();
   });
 });
 
