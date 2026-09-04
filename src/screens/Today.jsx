@@ -1,9 +1,14 @@
 // FamilyFlow — экран Сегодня
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,paymentTypeLabel,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,buildPaymentScheduleSpan,applyPaymentEdit,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
-import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,PiggyLogo,CatIcon} from '../lib/ui';
+import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,ProHint,ProInline,PiggyLogo,CatIcon} from '../lib/ui';
+import {ymGoal} from '../lib/metrika';
 
-export function TodayScreen({state,onToggle,onEditPayment,onEditTx,onQuickMark,onWithdrawPiggy,onOpenWhatIf,tourStep,freeSpendableNow=0,weeklyBalances=[]}){
+// canForecast / canSafeSpendable / canScenarios / canSpendingCheck приходят из
+// App.jsx и берутся
+// из карты возможностей сервера (см. lib/plan.js can()). Своего представления о
+// тарифе экран не имеет и иметь не должен.
+export function TodayScreen({state,onToggle,onEditPayment,onEditTx,onQuickMark,onWithdrawPiggy,onOpenWhatIf,onOpenSpendingCheck,onUpgrade,tourStep,freeSpendableNow=0,weeklyBalances=[],outlook=null,canForecast=true,canSafeSpendable=true,canScenarios=true,canSpendingCheck=true,accessPending=false}){
   const{members,incomes,planned,weekItems,startBalance=0,payments={},customCats=[],transactions=[],budgetStartDate,extraPayments=[]}=state;
   const week=todayKey();
   const wItems=weekItems[week]||[];
@@ -57,6 +62,10 @@ export function TodayScreen({state,onToggle,onEditPayment,onEditTx,onQuickMark,o
     });
     return{rows,firstNeg};
   },[simBaseWeeks,extraSpend,simMax]);
+  // Показ предупреждения о будущей нехватке денег — главный WOW-момент
+  // («я вижу проблему раньше, чем она случилась»), поэтому он размечен
+  // отдельной целью: без неё не видно, доходит ли ценность до людей вообще.
+  useEffect(()=>{if(canForecast&&sim.firstNeg)ymGoal('cashflow_warning_view',{plan:'pro'});},[canForecast,sim.firstNeg]);
   // Нижний отступ с запасом под плавающие кнопки «+»/«?» (см. App.jsx) — на
   // вкладке Сегодня они стоят одна над другой (+: 78-130px, ?: 138-186px от
   // низа), иначе последние карточки экрана прячутся у них под низом.
@@ -130,19 +139,50 @@ export function TodayScreen({state,onToggle,onEditPayment,onEditTx,onQuickMark,o
           </div>}
         </div>}
       </div>
-      {/* Свободно сверх плана — сразу с бегунком, без отдельного разворачивания */}
-      <div style={{...s.card,marginBottom:10}}>
-        <div style={{display:'flex',alignItems:'center',gap:10}}>
-          <span style={{fontSize:14}}>💡</span>
-          <span style={{flex:1,fontSize:13,color:C.text}}>Свободно сверх плана</span>
-          <span style={{fontFamily:MONO,fontSize:15,fontWeight:600,color:C.orangeD}}>{fmt(freeSpendableNow)}</span>
-        </div>
-        <div style={{fontSize:11.5,color:C.text2,lineHeight:'17px',marginTop:8}}>
-          {freeSpendableNow>0
-            ?'Столько можно потратить дополнительно прямо сейчас — и накопительный баланс не уйдёт в минус ни на одной будущей неделе (с учётом уже запланированных трат и доходов).'
-            :'Сейчас свободных денег нет — весь буфер уже расписан планом на будущее.'}
-        </div>
-        {sim.rows.length>0&&<div style={{borderTop:`1px solid ${C.border}`,marginTop:12,paddingTop:12}}>
+      {/* ── WOW-блок: «что будет с деньгами дальше» ─────────────────────────
+          Главный экран должен отвечать на вопрос «хватит ли мне денег» сразу,
+          а не после трёх переходов. Для Pro и триала — полный ответ: свободный
+          остаток, бегунок «а если потратить ещё» и прогноз баланса на 10 недель.
+          Для Free — тот же вывод, но качественный, и переход на объяснение Pro.
+          Сам расчёт один и тот же (projectCashFlow в App.jsx), различается
+          только то, сколько из него показано. */}
+      {!canForecast&&!canSafeSpendable&&outlook&&outlook.tone!=='unknown'&&(
+        <ProHint icon={outlook.tone==='calm'?'🔭':'🔎'}
+          title={outlook.tone==='calm'
+            ?`Следующие ${outlook.weeks} недель выглядят спокойно`
+            :'В плане есть неделя, которая требует внимания'}
+          desc={outlook.tone==='calm'
+            ?'Сколько можно потратить прямо сейчас и сколько останется на каждой из недель — в Pro.'
+            :'FamilyFlow нашёл риск в будущем бюджете. Точная неделя, размер нехватки и что сделать — в Pro.'}
+          cta="Посмотреть прогноз →"
+          goal={outlook.tone==='calm'?'forecast_locked_view':'cashflow_warning_view'}
+          onUpgrade={onUpgrade} pending={accessPending}/>
+      )}
+      {/* Карточка отвечает на ДВА разных вопроса, и каждый закрывается своей
+          возможностью:
+            «сколько можно потратить прямо сейчас»  → safeSpendable
+            «что будет в следующие 10 недель»       → forecast
+          Поэтому и рисуются они независимо: карточка появляется, если открыт
+          хотя бы один из них, а внутри каждая половина проверяется отдельно. */}
+      {(canSafeSpendable||canForecast)&&<div style={{...s.card,marginBottom:10}}>
+        {canSafeSpendable?<>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <span style={{fontSize:14}}>💡</span>
+            <span style={{flex:1,fontSize:13,color:C.text}}>Свободно сверх плана</span>
+            <span style={{fontFamily:MONO,fontSize:15,fontWeight:600,color:C.orangeD}}>{fmt(freeSpendableNow)}</span>
+          </div>
+          <div style={{fontSize:11.5,color:C.text2,lineHeight:'17px',marginTop:8}}>
+            {freeSpendableNow>0
+              ?'Столько можно потратить дополнительно прямо сейчас — и накопительный баланс не уйдёт в минус ни на одной будущей неделе (с учётом уже запланированных трат и доходов).'
+              :'Сейчас свободных денег нет — весь буфер уже расписан планом на будущее.'}
+          </div>
+        </>:(
+          /* Прогноз открыт, а сумма — нет. Показываем сам вопрос: он и есть
+             то, что человек покупает, поэтому называем его его словами. */
+          <ProInline label="Сколько можно потратить прямо сейчас" goal="safe_spendable_locked_view"
+            onUpgrade={()=>onUpgrade&&onUpgrade('safeSpendable')} pending={accessPending}/>
+        )}
+        {canForecast&&sim.rows.length>0&&<div style={{borderTop:`1px solid ${C.border}`,marginTop:12,paddingTop:12}}>
           <div style={{fontSize:11,color:C.muted,marginBottom:8}}>А если потратить сверх плана ещё:</div>
           <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:12}}>
             <input type="range" min={0} max={simMax} step={simStep} value={extraSpend}
@@ -162,18 +202,39 @@ export function TodayScreen({state,onToggle,onEditPayment,onEditTx,onQuickMark,o
             {sim.rows.map(w=><div key={w.wk} style={{flex:1,textAlign:'center',fontFamily:MONO,fontSize:8.5,color:C.muted}}>{w.num}</div>)}
           </div>
           <div style={{fontSize:11.5,lineHeight:'16px',fontWeight:500,color:sim.firstNeg?C.red:C.green}}>
-            {sim.firstNeg?`⚠ Минус в нед. ${sim.firstNeg.num}: −${fmt(sim.firstNeg.v)}`:'✓ Безопасно на все 10 недель вперёд'}
+            {/* Тон спокойный и без восклицаний: задача — снизить финансовую
+                тревожность, а не напугать. «Требует внимания», а не «Вы
+                останетесь без денег». */}
+            {sim.firstNeg?`Нед. ${sim.firstNeg.num} требует внимания: остаток −${fmt(sim.firstNeg.v)}`:'✓ Безопасно на все 10 недель вперёд'}
           </div>
         </div>}
-      </div>
+      </div>}
+      {/* «Можно ли мне это купить?» — вторая по силе причина платить, поэтому
+          она стоит прямо на главном экране, а не спрятана внутри помощника.
+          В интерфейсе человек видит свой вопрос, а не название технологии:
+          не «AI Assistant», а «Можно ли мне это купить?». */}
+      {onOpenSpendingCheck&&<button onClick={()=>canSpendingCheck?onOpenSpendingCheck():onUpgrade&&onUpgrade('spendingCheck')}
+        style={{display:'flex',alignItems:'center',gap:12,background:'var(--c-surface)',border:`1px solid ${C.border}`,borderRadius:14,padding:14,marginBottom:8,cursor:'pointer',fontFamily:'inherit',textAlign:'left',width:'100%',boxSizing:'border-box',color:C.text}}>
+        <span style={{fontSize:20}}>💬</span>
+        <div style={{flex:1}}>
+          <div style={{fontSize:14,fontWeight:600}}>Можно ли мне это купить?</div>
+          <div style={{fontSize:12,color:C.text2,lineHeight:1.45,marginTop:2}}>Назовите сумму — ответим по вашему бюджету</div>
+        </div>
+        {canSpendingCheck
+          ?<div style={{width:34,height:34,borderRadius:12,background:C.orangeL,border:`1px solid ${C.orangeB}`,color:C.orangeD,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:700,flexShrink:0}}>→</div>
+          :<span style={{fontSize:11,fontWeight:600,color:C.orangeD,flexShrink:0}}>🔒 Pro ›</span>}
+      </button>}
       {/* «А что если?» — песочница для проверки крупных решений до того, как их приняли */}
-      {onOpenWhatIf&&<button onClick={onOpenWhatIf} style={{display:'flex',alignItems:'center',gap:12,background:'var(--c-surface)',border:`1px solid ${C.border}`,borderRadius:14,padding:14,marginBottom:8,cursor:'pointer',fontFamily:'inherit',textAlign:'left',width:'100%',boxSizing:'border-box',color:C.text}}>
+      {onOpenWhatIf&&<button onClick={()=>canScenarios?onOpenWhatIf():onUpgrade&&onUpgrade('scenarios')}
+        style={{display:'flex',alignItems:'center',gap:12,background:'var(--c-surface)',border:`1px solid ${C.border}`,borderRadius:14,padding:14,marginBottom:8,cursor:'pointer',fontFamily:'inherit',textAlign:'left',width:'100%',boxSizing:'border-box',color:C.text}}>
         <span style={{fontSize:20}}>🔮</span>
         <div style={{flex:1}}>
-          <div style={{fontSize:14,fontWeight:600}}>А что если?</div>
-          <div style={{fontSize:12,color:C.text2,lineHeight:1.45,marginTop:2}}>Прикиньте крупную трату — пока не потратили</div>
+          <div style={{fontSize:14,fontWeight:600}}>Что будет, если я это куплю?</div>
+          <div style={{fontSize:12,color:C.text2,lineHeight:1.45,marginTop:2}}>Проверьте крупное решение — пока не потратили</div>
         </div>
-        <div style={{width:34,height:34,borderRadius:12,background:C.orangeL,border:`1px solid ${C.orangeB}`,color:C.orangeD,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:700,flexShrink:0}}>→</div>
+        {canScenarios
+          ?<div style={{width:34,height:34,borderRadius:12,background:C.orangeL,border:`1px solid ${C.orangeB}`,color:C.orangeD,display:'flex',alignItems:'center',justifyContent:'center',fontSize:16,fontWeight:700,flexShrink:0}}>→</div>
+          :<span style={{fontSize:11,fontWeight:600,color:C.orangeD,flexShrink:0}}>🔒 Pro ›</span>}
       </button>}
       {/* План пуст — направляем в настройки */}
       {planned.length===0&&(
