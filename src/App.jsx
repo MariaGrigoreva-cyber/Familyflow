@@ -85,9 +85,10 @@ export default function App({initialYandexError}={}){
 
   const[consented,setConsentedRaw]=useState(()=>savedState?.consented||false);
   const[onboarded,setOnboardedRaw]=useState(()=>savedState?.onboarded||false);
-  // Экран «30 дней бесплатно» — раз на аккаунт, сразу после регистрации, до
-  // онбординга (в RuStore нет лендинга с ценой, это сейчас единственное место,
-  // где новый пользователь вообще узнаёт про 199/999 и бесплатный период).
+  // Экран Pro — раз на аккаунт, сразу после регистрации, до онбординга (в
+  // RuStore нет лендинга, и это сейчас единственное место, где новый
+  // пользователь узнаёт, что будет после пробного периода и сколько это стоит).
+  // Сумму экран не знает: она приходит с сервера, см. screens/Paywall.jsx.
   const[pricingSeen,setPricingSeenRaw]=useState(()=>savedState?.pricingSeen||false);
   const setPricingSeen=(v)=>{setPricingSeenRaw(v);try{localStorage.setItem('ff_state',JSON.stringify({...loadFromStorage(),pricingSeen:v}));}catch{}};
   // Тема: 'auto' следует системной, 'light'/'dark' — ручной выбор, запоминается отдельно от бюджета
