@@ -70,8 +70,24 @@ export function PricingIntro({onDone}){
   // человеку экраном, который не может отрисоваться корректно, просто пропускаем его.
   useEffect(()=>{if(failed)onDone();},[failed,onDone]);
   if(!status)return null;
+  // Заголовок ВЫВОДИТСЯ из срока, который назначил сервер, и не содержит
+  // зашитого числа. Это принципиально: политика длительности триала меняется
+  // переменной окружения на бэкенде, и в системе какое-то время будут
+  // одновременно 30-дневные и 14-дневные пробные периоды. Любое число,
+  // записанное здесь руками, в один из дней станет враньём.
+  // Срока не знаем (старый бэкенд, сбой) — говорим нейтрально.
+  const trialDays=typeof status.trialDaysLeft==='number'&&status.trialDaysLeft>0
+    ?status.trialDaysLeft:null;
+  const dayWord=n=>{
+    const m100=n%100,m10=m100%10;
+    if(m100>=11&&m100<=14)return 'дней';
+    if(m10===1)return 'день';
+    if(m10>=2&&m10<=4)return 'дня';
+    return 'дней';
+  };
+  const heading=trialDays?`${trialDays} ${dayWord(trialDays)} Pro бесплатно`:'Попробуйте Pro бесплатно';
   const trialLabel=(()=>{
-    if(!status.trialEndsAt)return 'ближайшие 30 дней';
+    if(!status.trialEndsAt)return null;
     const d=new Date(status.trialEndsAt);
     return `до ${d.getDate()} ${MONTH_SHORT[d.getMonth()]} ${d.getFullYear()}`;
   })();
@@ -81,10 +97,10 @@ export function PricingIntro({onDone}){
         <div style={{width:52,height:52,borderRadius:16,background:C.orangeL,display:'flex',alignItems:'center',justifyContent:'center',fontSize:24,margin:'0 auto 16px'}}>🔭</div>
         {/* Обещание, а не перечень функций: человек должен уйти с этого экрана
             с одной мыслью — приложение скажет заранее, хватит ли денег. */}
-        <h2 style={{fontSize:22,fontWeight:600,letterSpacing:-.3,color:C.text,margin:'0 0 8px',textAlign:'center',lineHeight:1.25}}>Знайте заранее, хватит ли денег</h2>
+        <h2 style={{fontSize:22,fontWeight:600,letterSpacing:-.3,color:C.text,margin:'0 0 8px',textAlign:'center',lineHeight:1.25}}>{heading}</h2>
         <div style={{fontSize:12.5,color:C.text2,lineHeight:1.55,textAlign:'center',marginBottom:22}}>
-          «Семейный поток» с подпиской Pro смотрит на ваш будущий бюджет, предупреждает о рисках и помогает
-          принимать решения о деньгах до того, как они станут проблемой. {trialLabel.charAt(0).toUpperCase()+trialLabel.slice(1)} — бесплатно.
+          Попробуйте прогноз, «Свободно сейчас», проверку покупок и AI по вашему финансовому плану.
+          После пробного периода бюджет останется доступен бесплатно.{trialLabel?` Pro — ${trialLabel}.`:''}
         </div>
 
         <div style={{display:'flex',flexDirection:'column',gap:9,marginBottom:20}}>

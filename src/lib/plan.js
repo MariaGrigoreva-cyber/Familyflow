@@ -121,6 +121,7 @@ export function cacheBillingStatus(status) {
       isExpired: status.isExpired,
       trialEndsAt: status.trialEndsAt,
       trialDaysLeft: status.trialDaysLeft,
+      trialStage: status.trialStage,
       hasActiveSubscription: status.hasActiveSubscription,
       // Нужен, чтобы кеш оплаченного доступа не переживал саму подписку
       // (см. cacheValidUntil): у 'pro' ограничитель — именно эта дата.
@@ -170,7 +171,7 @@ const accessFrom = status =>
  * @param {boolean} loggedIn      есть ли токен
  * @param {object|null} status    ответ GET /billing/status
  * @param {Error|null} error      ошибка запроса, если он не удался
- * @returns {{state, plan, isPro, isTrial, isExpired, trialDaysLeft, trialEndsAt, capabilities, stale, accessPending}}
+ * @returns {{state, plan, isPro, isTrial, isExpired, trialDaysLeft, trialEndsAt, trialStage, capabilities, stale, accessPending}}
  */
 export function resolveAccess({ loggedIn, status = null, error = null } = {}) {
   // Незалогиненный: локальный демо-режим, сервера в этом решении нет вообще.
@@ -180,7 +181,7 @@ export function resolveAccess({ loggedIn, status = null, error = null } = {}) {
       state: isProPlan(plan) ? ACCESS.GRANTED : ACCESS.DENIED,
       plan, isPro: isProPlan(plan),
       isTrial: plan === 'trial', isExpired: plan === 'free',
-      trialDaysLeft: null, trialEndsAt: null,
+      trialDaysLeft: null, trialEndsAt: null, trialStage: null,
       // Локальный режим без аккаунта: сервера в этом решении нет вообще,
       // ограничивать нечего — capabilities не задаём, и can() опирается на
       // isPro, как и раньше. Это витрина ценности до регистрации, а не тариф.
@@ -200,6 +201,10 @@ export function resolveAccess({ loggedIn, status = null, error = null } = {}) {
       isExpired: status.isExpired ?? status.plan === 'free',
       trialDaysLeft: status.trialDaysLeft ?? null,
       trialEndsAt: status.trialEndsAt ?? null,
+      // Стадия приходит с сервера — сам клиент её не считает и часам
+      // устройства не доверяет. Старый бэкенд поля не пришлёт, тогда null,
+      // и напоминания об окончании просто не показываются.
+      trialStage: status.trialStage ?? null,
       capabilities: status.capabilities || null,
       stale: false, accessPending: false, local: false,
     };
@@ -218,6 +223,7 @@ export function resolveAccess({ loggedIn, status = null, error = null } = {}) {
       isExpired: !!cached.isExpired,
       trialDaysLeft: cached.trialDaysLeft ?? null,
       trialEndsAt: cached.trialEndsAt ?? null,
+      trialStage: cached.trialStage ?? null,
       capabilities: cached.capabilities || null,
       stale: true, accessPending: false, local: false,
     };

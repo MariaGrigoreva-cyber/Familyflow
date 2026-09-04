@@ -1,11 +1,12 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { EntryScreen, Onboarding } from './Onboarding';
+import { EntryScreen, Onboarding, PricingIntro } from './Onboarding';
 import * as api from '../api';
 
 jest.mock('../api', () => ({
   aiOnboardingDraft: jest.fn(),
+  billingStatus: jest.fn(),
   errText: () => 'Ошибка сети — попробуйте ещё раз',
 }));
 
@@ -277,5 +278,48 @@ describe('Onboarding — заполнение с помощью ИИ (шаг 2)'
 
     expect(screen.getByText('Доход в месяц (на руки)')).toBeInTheDocument();
     expect(screen.getByDisplayValue('180000')).toBeInTheDocument();
+  });
+});
+
+// ── Экран Pro после регистрации: срок берётся с сервера ─────────────────────
+// Политика длительности триала переключается переменной на бэкенде, и какое-то
+// время в системе будут одновременно 30- и 14-дневные пробные периоды. Число в
+// заголовке обязано приходить с сервера, иначе в один из дней оно станет
+// враньём. Эти тесты и стерегут отсутствие зашитого числа.
+describe('PricingIntro — длительность триала', () => {
+  const api = require('../api');
+  const renderIntro = async status => {
+    api.billingStatus.mockResolvedValue(status);
+    render(<PricingIntro onDone={() => {}}/>);
+    return screen.findByText(/Pro бесплатно/);
+  };
+  const base = { plan: 'trial', prices: { monthly: 199, yearly: 999 }, trialEndsAt: '2026-10-04T10:00:00Z' };
+
+  test('30-дневный триал — заголовок про 30 дней', async () => {
+    await renderIntro({ ...base, trialDaysLeft: 30 });
+    expect(screen.getByText('30 дней Pro бесплатно')).toBeInTheDocument();
+  });
+
+  test('14-дневный триал — тот же экран, без правок кода', async () => {
+    await renderIntro({ ...base, trialDaysLeft: 14 });
+    expect(screen.getByText('14 дней Pro бесплатно')).toBeInTheDocument();
+  });
+
+  test('склонение не ломается на единице и двойке', async () => {
+    await renderIntro({ ...base, trialDaysLeft: 1 });
+    expect(screen.getByText('1 день Pro бесплатно')).toBeInTheDocument();
+    cleanup();
+    await renderIntro({ ...base, trialDaysLeft: 3 });
+    expect(screen.getByText('3 дня Pro бесплатно')).toBeInTheDocument();
+  });
+
+  test('срок неизвестен — нейтральная формулировка, а не выдуманное число', async () => {
+    await renderIntro({ ...base, trialDaysLeft: undefined });
+    expect(screen.getByText('Попробуйте Pro бесплатно')).toBeInTheDocument();
+  });
+
+  test('обещает, что бюджет останется бесплатным после триала', async () => {
+    await renderIntro({ ...base, trialDaysLeft: 14 });
+    expect(screen.getByText(/бюджет останется доступен бесплатно/i)).toBeInTheDocument();
   });
 });

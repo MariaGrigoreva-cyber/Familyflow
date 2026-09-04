@@ -35,6 +35,7 @@ import { isMetrikaConsented, loadMetrika, ymGoal, isOwnerEmail } from './lib/met
 import { ConfirmHost, confirmAsync, alertAsync } from './lib/confirm';
 import { buildAiFinancialContext } from './lib/aiFinancialContext';
 import { PiggyLogo } from './lib/ui';
+import { TrialNotice, TrialEndedModal, shouldShowTrialEnded } from './TrialNotices';
 // Как часто фоновый пулл вправе перезапрашивать GET /state при возврате в
 // приложение. Возврат из свёрнутого состояния через полминуты — реальный повод
 // свериться с облаком; десять переключений фокуса за минуту — нет.
@@ -119,6 +120,15 @@ export default function App({initialYandexError}={}){
   // меняется на бэкенде, интерфейс за ним следует сам.
   const canForecast=can(access,'forecast');
   const canSafeSpendable=can(access,'safeSpendable');
+  // Стадия пробного периода приходит с сервера (см. lib/plan.js). Клиент сам
+  // дни не считает — иначе перевод часов на устройстве менял бы напоминания.
+  const trialStage=access.trialStage;
+  // Окно перехода на бесплатный тариф — один раз, при первом открытии после
+  // окончания триала. Держим в state, чтобы закрытие не требовало перезагрузки.
+  const[trialEndedSeen,setTrialEndedSeen]=useState(false);
+  const showTrialEnded=!trialEndedSeen&&shouldShowTrialEnded({
+    loggedIn:isLoggedIn(),stage:trialStage,trialEndsAt:access.trialEndsAt,accessPending,
+  });
   const canScenarios=can(access,'scenarios');
   const canSpendingCheck=can(access,'spendingCheck');
   const canAiAssistant=can(access,'aiAssistant');
@@ -551,6 +561,21 @@ useEffect(() => {
         baseUpdatedAt
       );
 
+      // Сервер соединил нашу версию с чужой (см. routes/state.js, PUT /state) и
+      // вернул результат. Принять его ОБЯЗАТЕЛЬНО, а не опционально: иначе при
+      // следующем сохранении нашей базой станет слитая версия, а данными — наше
+      // состояние без чужих правок, и сервер прочитает это как «клиент их
+      // удалил». То есть неприятие результата слияния молча откатывало бы то,
+      // что слияние только что спасло.
+      if (result?.merged && result.data?.appState) {
+        skipNextCloudSaveRef.current = true;
+        setAppState(result.data.appState);
+        setConsentedRaw(Boolean(result.data.consented));
+        setOnboardedRaw(Boolean(result.data.onboarded));
+        latestCloudDataRef.current = result.data;
+        try { localStorage.setItem('ff_state', JSON.stringify(result.data)); } catch {}
+      }
+
       if (result?.updatedAt) {
         localStorage.setItem(
           'ff_cloud_updated_at',
@@ -561,6 +586,28 @@ useEffect(() => {
       setCloudError(null);
     } catch (error) {
   console.error('Cloud save failed:', error);
+
+  // Бюджет семьи сбросили с другого устройства (routes/state.js вернул
+  // STATE_WAS_RESET). Принять это надо здесь и сейчас: серверное состояние
+  // пустое, а пустой appState обычным путём ниже не применяется — и наш старый
+  // снапшот следующим же сохранением воскресил бы стёртые данные.
+  // Повторяем ровно то, что делает у себя сбрасывающее устройство
+  // (screens/Settings.jsx): локальная копия на 90 дней, чистка, перезагрузка.
+  // После неё состояния нет, onboarded=false, автосейв не запускается — цикла
+  // из перезагрузок не будет.
+  if (error.status === 409 && error.body?.code === 'STATE_WAS_RESET') {
+    try {
+      const raw = localStorage.getItem('ff_state');
+      if (raw) {
+        localStorage.setItem('ff_state_trash', raw);
+        localStorage.setItem('ff_state_trash_at', new Date().toISOString());
+      }
+      localStorage.removeItem('ff_state');
+      localStorage.removeItem('ff_cloud_updated_at');
+    } catch {}
+    window.location.reload();
+    return;
+  }
 
   if (
     error.status === 409 &&
@@ -995,7 +1042,7 @@ useEffect(() => {
         )}
       </div>
       <div style={{flex:1,display:'flex',flexDirection:'column',minHeight:0}} onTouchStart={handleTabTouchStart} onTouchEnd={handleTabTouchEnd}>
-        {tab==='today'&&<TodayScreen state={appState} onToggle={handleToggle} onEditPayment={handleEditPayment} onEditTx={handleEditTx} onQuickMark={handleQuickMark} onWithdrawPiggy={()=>setShowWithdrawPiggy(true)} onOpenWhatIf={openWhatIf} onOpenSpendingCheck={openSpendingCheck} onUpgrade={cap=>openPaywall(cap||'forecast','today')} tourStep={tourStep} freeSpendableNow={cashFlowProjection.freeSpendableNow} weeklyBalances={cashFlowProjection.weeklyBalances} outlook={outlook} canForecast={canForecast} canSafeSpendable={canSafeSpendable} canScenarios={canScenarios} canSpendingCheck={canSpendingCheck} accessPending={accessPending}/>}
+        {tab==='today'&&<TodayScreen state={appState} onToggle={handleToggle} onEditPayment={handleEditPayment} onEditTx={handleEditTx} onQuickMark={handleQuickMark} onWithdrawPiggy={()=>setShowWithdrawPiggy(true)} onOpenWhatIf={openWhatIf} onOpenSpendingCheck={openSpendingCheck} onUpgrade={cap=>openPaywall(cap||'forecast','today')} tourStep={tourStep} freeSpendableNow={cashFlowProjection.freeSpendableNow} weeklyBalances={cashFlowProjection.weeklyBalances} outlook={outlook} trialStage={trialStage} trialEndsAt={access.trialEndsAt} canForecast={canForecast} canSafeSpendable={canSafeSpendable} canScenarios={canScenarios} canSpendingCheck={canSpendingCheck} accessPending={accessPending}/>}
         {tab==='plan'&&<PlanScreen state={appState} onToggle={handleToggle} onAdd={(wk)=>{setAddWeek(wk);setShowAdd(true);}} onEditTx={handleEditTx} weeksSummary={weeksSummary} negativeWeek={cashFlowProjection.negativeWeek} outlook={outlook} isPro={canForecast} accessPending={accessPending} onUpgrade={()=>openPaywall('forecast','plan')}/>}
         {tab==='budget'&&<BudgetScreen state={appState} onEditPlanned={item=>{setEditItem(item);setShowEdit(true);}} onAddPlanned={handleAddPlanned} onEditPayment={handleEditPayment} onAddExtra={(data)=>{if(data&&data.amount){handleAddExtra(data);}else{setShowAddExtra(true);}}} onWithdrawPiggy={()=>setShowWithdrawPiggy(true)} onSetGoal={handleSetGoal} onAddGoalToPlan={handleEditPlanned}/>}
         {tab==='health'&&<HealthScreen state={appState} isPro={canBudgetHealth} accessPending={accessPending} outlook={outlook} onUpgrade={()=>openPaywall('budgetHealth','health')}/>}
@@ -1041,6 +1088,9 @@ useEffect(() => {
       )}
       {showAssistant&&<Suspense fallback={<OverlayLoader/>}><AssistantScreen screen={assistantOrigin} initialDraft={assistantPrefill} getFinancialContext={()=>buildAiFinancialContext(appState)} canAskAboutBudget={canAiAssistant} onUpgrade={cap=>{setShowAssistant(false);openPaywall(cap||'aiAssistant','assistant');}} onClose={()=>setShowAssistant(false)}/></Suspense>}
       {showTips&&<Suspense fallback={<OverlayLoader/>}><TipsPhilosophyOverlay onClose={()=>setShowTips(false)}/></Suspense>}
+      {showTrialEnded&&<TrialEndedModal trialEndsAt={access.trialEndsAt}
+        onOpenPro={()=>{setTrialEndedSeen(true);openPaywall(null,'trial_expired');}}
+        onClose={()=>setTrialEndedSeen(true)}/>}
       {showWhatIf&&<Suspense fallback={<OverlayLoader/>}><WhatIfScreen state={appState} weeklyBalances={cashFlowProjection.weeklyBalances} onClose={()=>setShowWhatIf(false)}/></Suspense>}
       {/* Экран Pro поверх всего: открывается из контекстных точек продажи —
           с Сегодня, из прогноза, из «Здоровья», из помощника и из Настроек.

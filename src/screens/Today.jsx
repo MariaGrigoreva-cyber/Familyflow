@@ -2,13 +2,35 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,paymentTypeLabel,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,buildPaymentScheduleSpan,applyPaymentEdit,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,ProHint,ProInline,PiggyLogo,CatIcon} from '../lib/ui';
+import {TrialNotice} from '../TrialNotices';
 import {ymGoal} from '../lib/metrika';
 
 // canForecast / canSafeSpendable / canScenarios / canSpendingCheck приходят из
 // App.jsx и берутся
 // из карты возможностей сервера (см. lib/plan.js can()). Своего представления о
 // тарифе экран не имеет и иметь не должен.
-export function TodayScreen({state,onToggle,onEditPayment,onEditTx,onQuickMark,onWithdrawPiggy,onOpenWhatIf,onOpenSpendingCheck,onUpgrade,tourStep,freeSpendableNow=0,weeklyBalances=[],outlook=null,canForecast=true,canSafeSpendable=true,canScenarios=true,canSpendingCheck=true,accessPending=false}){
+// Тизер «Свободно сейчас» для бесплатного тарифа. Числа не показывает —
+// безопасная сумма считается из прогноза, а это платная часть. Зато честно
+// называет вопрос, на который отвечает Pro, и ведёт ровно в тот раздел
+// paywall, который про него.
+const SafeSpendableTeaser=({onUpgrade})=>{
+  useEffect(()=>{ymGoal('safe_spendable_locked_view');},[]);
+  return(
+    <div>
+      <div style={{display:'flex',alignItems:'center',gap:10}}>
+        <span style={{fontSize:14}}>💡</span>
+        <span style={{flex:1,fontSize:13,fontWeight:600,color:C.text}}>Сколько можно потратить прямо сейчас?</span>
+        <span style={{fontSize:11}}>🔒</span>
+      </div>
+      <div style={{fontSize:11.5,color:C.text2,lineHeight:'17px',marginTop:8}}>
+        Pro рассчитает безопасную сумму с учётом следующих недель.
+      </div>
+      <button onClick={onUpgrade} style={{marginTop:11,padding:'9px 16px',borderRadius:11,border:'none',background:C.orange,color:'#fff',fontSize:12.5,fontWeight:600,cursor:'pointer',fontFamily:'inherit'}}>Рассчитать</button>
+    </div>
+  );
+};
+
+export function TodayScreen({state,onToggle,onEditPayment,onEditTx,onQuickMark,onWithdrawPiggy,onOpenWhatIf,onOpenSpendingCheck,onUpgrade,tourStep,freeSpendableNow=0,weeklyBalances=[],outlook=null,trialStage=null,trialEndsAt=null,canForecast=true,canSafeSpendable=true,canScenarios=true,canSpendingCheck=true,accessPending=false}){
   const{members,incomes,planned,weekItems,startBalance=0,payments={},customCats=[],transactions=[],budgetStartDate,extraPayments=[]}=state;
   const week=todayKey();
   const wItems=weekItems[week]||[];
@@ -81,6 +103,11 @@ export function TodayScreen({state,onToggle,onEditPayment,onEditTx,onQuickMark,o
 
   return(
     <div style={{overflowY:'auto',flex:1,minHeight:0,WebkitOverflowScrolling:'touch'}}><div style={pad}>
+      {/* Напоминание об окончании пробного периода. Появляется только с
+          warning_4 — в первые дни триала задача показать ценность, а не
+          считать дни вслух. Стадию решает сервер. */}
+      <TrialNotice stage={trialStage} trialEndsAt={trialEndsAt}
+        onOpenPro={()=>onUpgrade&&onUpgrade(null)}/>
       {/* Баланс — терракотовый hero */}
       <div data-tour="0" style={{background:C.orange,color:'#fff',borderRadius:18,padding:'20px 22px 18px',marginBottom:14,...glow(0)}}>
         <div style={{fontFamily:MONO,fontSize:10.5,letterSpacing:1.5,color:'rgba(255,255,255,.55)',textTransform:'uppercase'}}>ОСТАТОК НА РУКАХ</div>
@@ -152,7 +179,7 @@ export function TodayScreen({state,onToggle,onEditPayment,onEditTx,onQuickMark,o
             ?`Следующие ${outlook.weeks} недель выглядят спокойно`
             :'В плане есть неделя, которая требует внимания'}
           desc={outlook.tone==='calm'
-            ?'Сколько можно потратить прямо сейчас и сколько останется на каждой из недель — в Pro.'
+            ?'Сколько останется на каждой из следующих недель — в Pro.'
             :'«Семейный поток» нашёл риск в будущем бюджете. Точная неделя, размер нехватки и что сделать — в Pro.'}
           cta="Посмотреть прогноз →"
           goal={outlook.tone==='calm'?'safe_spendable_locked_view':'cashflow_warning_view'}
@@ -169,7 +196,7 @@ export function TodayScreen({state,onToggle,onEditPayment,onEditTx,onQuickMark,o
             «что будет в следующие 10 недель»       → forecast
           Поэтому и рисуются они независимо: карточка появляется, если открыт
           хотя бы один из них, а внутри каждая половина проверяется отдельно. */}
-      {(canSafeSpendable||canForecast)&&<div style={{...s.card,marginBottom:10}}>
+      {<div style={{...s.card,marginBottom:10}}>
         {canSafeSpendable?<>
           <div style={{display:'flex',alignItems:'center',gap:10}}>
             <span style={{fontSize:14}}>💡</span>
@@ -181,11 +208,13 @@ export function TodayScreen({state,onToggle,onEditPayment,onEditTx,onQuickMark,o
               ?'Столько можно потратить дополнительно прямо сейчас — и накопительный баланс не уйдёт в минус ни на одной будущей неделе (с учётом уже запланированных трат и доходов).'
               :'Сейчас свободных денег нет — весь буфер уже расписан планом на будущее.'}
           </div>
-        </>:(
-          /* Прогноз открыт, а сумма — нет. Показываем сам вопрос: он и есть
-             то, что человек покупает, поэтому называем его его словами. */
-          <ProInline label="Сколько можно потратить прямо сейчас" goal="safe_spendable_locked_view"
-            onUpgrade={()=>onUpgrade&&onUpgrade('safeSpendable')} pending={accessPending}/>
+        </>:accessPending?(
+          <div style={{fontSize:12.5,color:C.muted}}>Проверяем подписку…</div>
+        ):(
+          /* Числа нет — показываем сам вопрос: он и есть то, что человек
+             покупает. Формулируем его словами пользователя, а не названием
+             механики. */
+          <SafeSpendableTeaser onUpgrade={()=>onUpgrade&&onUpgrade('safeSpendable')}/>
         )}
         {canForecast&&sim.rows.length>0&&<div style={{borderTop:`1px solid ${C.border}`,marginTop:12,paddingTop:12}}>
           <div style={{fontSize:11,color:C.muted,marginBottom:8}}>А если потратить сверх плана ещё:</div>

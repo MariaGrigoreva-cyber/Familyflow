@@ -75,7 +75,9 @@ describe('Сегодня — состав тарифа', () => {
       canScenarios={false} canSpendingCheck={false} onUpgrade={onUpgrade}/>);
     expect(screen.queryByText('Свободно сверх плана')).not.toBeInTheDocument();
     expect(screen.getByText('Баланс на ближайшие 10 недель:')).toBeInTheDocument();
-    await user.click(screen.getByText('Сколько можно потратить прямо сейчас'));
+    expect(screen.getByText('Сколько можно потратить прямо сейчас?')).toBeInTheDocument();
+    expect(screen.getByText('Pro рассчитает безопасную сумму с учётом следующих недель.')).toBeInTheDocument();
+    await user.click(screen.getByText('Рассчитать'));
     expect(onUpgrade).toHaveBeenCalledWith('safeSpendable');
   });
 
@@ -158,7 +160,9 @@ describe('Сегодня — состав тарифа', () => {
   test('пока тариф неизвестен, paywall не показывается', () => {
     render(<TodayScreen {...proProps} canForecast={false} canSafeSpendable={false} canScenarios={false} canSpendingCheck={false}
       accessPending outlook={{ tone: 'attention', weeks: 8 }} onUpgrade={noop}/>);
-    expect(screen.getByText('Проверяем подписку…')).toBeInTheDocument();
+    expect(screen.getAllByText('Проверяем подписку…').length).toBeGreaterThan(0);
     expect(screen.queryByText('Посмотреть прогноз →')).not.toBeInTheDocument();
+    // И числа тоже нет: пока тариф неизвестен, платных данных не показываем.
+    expect(screen.queryByText('Свободно сверх плана')).not.toBeInTheDocument();
   });
 });
