@@ -1,6 +1,7 @@
 // FamilyFlow — вход с стартового экрана: после успеха облако подтянет бюджет и флаги
 import React, { useState } from 'react';
 import { C, MONO, PRIVACY_URL, TERMS_URL } from './lib/core';
+import { externalDocLinkProps } from './lib/externalDoc';
 import { login, register, errText, resetRequest, resetConfirm, yandexLoginAvailable, yandexAuthUrl } from './api';
 
 const emailOk = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
@@ -96,7 +97,7 @@ export function StartLoginForm({onClose,mandatory=false,initialError='',initialM
           {step==='login'&&mode==='register'&&<label style={{display:'flex',gap:8,alignItems:'flex-start',fontSize:10.5,lineHeight:1.5,color:C.muted,marginBottom:10,cursor:'pointer'}}>
             <input type="checkbox" checked={pdnConsent} onChange={e=>setPdnConsent(e.target.checked)}
               style={{marginTop:2,flexShrink:0}}/>
-            <span>Принимаю <a href={TERMS_URL} onClick={e=>e.stopPropagation()} style={{color:C.orangeD}}>условия использования</a> и даю согласие на <a href={PRIVACY_URL} onClick={e=>e.stopPropagation()} style={{color:C.orangeD}}>обработку персональных данных</a> (152-ФЗ).</span>
+            <span>Принимаю <a {...externalDocLinkProps(TERMS_URL,{onClick:e=>e.stopPropagation()})} style={{color:C.orangeD}}>условия использования</a> и даю согласие на <a {...externalDocLinkProps(PRIVACY_URL,{onClick:e=>e.stopPropagation()})} style={{color:C.orangeD}}>обработку персональных данных</a> (152-ФЗ).</span>
           </label>}
           {step==='login'&&<>
             <button onClick={onSubmitClick} disabled={busy||(mode==='register'&&!pdnConsent)}

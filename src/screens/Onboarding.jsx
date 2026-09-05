@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import {C,MONO,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,FUND_LABELS,getCatFund,PIE_COLORS,PRIVACY_URL,TERMS_URL,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,DaySelect,Numpad,EmojiPicker,CatIcon} from '../lib/ui';
 import {alertAsync} from '../lib/confirm';
+import {externalDocLinkProps} from '../lib/externalDoc';
 import {billingStatus,aiOnboardingDraft,errText} from '../api';
 // Список ценностей и сравнение тарифов — из одного места с paywall'ом: два
 // разных обещания про один продукт человек замечает сразу.
@@ -38,7 +39,7 @@ export function EntryScreen({onDemo,onLoginClick,onLoginExisting}){
         Уже есть аккаунт? <span style={{color:C.orangeD,fontWeight:600}}>Войти</span>
       </button>
       <div style={{textAlign:'center',marginTop:14,fontSize:11.5,color:C.muted,lineHeight:1.5}}>
-        Бюджет шифруется и хранится на сервере в РФ. <a href={TERMS_URL} style={{color:C.orangeD}}>Условия использования</a> · <a href={PRIVACY_URL} style={{color:C.orangeD}}>Политика конфиденциальности</a>
+        Бюджет шифруется и хранится на сервере в РФ. <a {...externalDocLinkProps(TERMS_URL)} style={{color:C.orangeD}}>Условия использования</a> · <a {...externalDocLinkProps(PRIVACY_URL)} style={{color:C.orangeD}}>Политика конфиденциальности</a>
       </div>
       <div style={{fontFamily:MONO,fontSize:9.5,color:C.faint,textAlign:'center',marginTop:12}}>152-ФЗ · ДАННЫЕ НЕ ПЕРЕДАЮТСЯ ТРЕТЬИМ ЛИЦАМ</div>
     </div>

@@ -6,6 +6,7 @@ import {PlanComparison} from './Paywall';
 import {isLoggedIn,logout,register,login,familyMe,familyInvite,familyJoin,errText,changePassword,deleteAccount,resetRequest,resetConfirm,resetCloudState,restoreCloudStateBackup,billingStatus,billingCheckout,billingCancelAutoRenew,billingRefund} from '../api';
 import {getPushState,enablePush,disablePush} from '../push';
 import {confirmAsync,alertAsync} from '../lib/confirm';
+import {externalDocLinkProps} from '../lib/externalDoc';
 // lib/excelBackup.js тянет за собой SheetJS (xlsx) — ~180 КБ gzip, больше чем
 // весь остальной код приложения вместе взятый. Экспорт и импорт .xlsx — редкие
 // действия по явному клику, поэтому библиотека грузится отдельным chunk'ом в
@@ -529,7 +530,7 @@ function AccountSection({isPro=true}){
         {mode==='register'&&<label style={{display:'flex',gap:8,alignItems:'flex-start',fontSize:11,lineHeight:1.5,color:C.muted,marginBottom:10,cursor:'pointer'}}>
           <input type="checkbox" checked={pdnConsent} onChange={e=>setPdnConsent(e.target.checked)}
             style={{marginTop:2,flexShrink:0}}/>
-          <span>Принимаю <a href={TERMS_URL} onClick={e=>e.stopPropagation()} style={{color:C.orangeD}}>условия использования</a> и даю согласие на <a href={PRIVACY_URL} onClick={e=>e.stopPropagation()} style={{color:C.orangeD}}>обработку персональных данных</a> (152-ФЗ).</span>
+          <span>Принимаю <a {...externalDocLinkProps(TERMS_URL,{onClick:e=>e.stopPropagation()})} style={{color:C.orangeD}}>условия использования</a> и даю согласие на <a {...externalDocLinkProps(PRIVACY_URL,{onClick:e=>e.stopPropagation()})} style={{color:C.orangeD}}>обработку персональных данных</a> (152-ФЗ).</span>
         </label>}
         {err&&<div style={{fontSize:12,color:C.red,marginBottom:8}}>{err}</div>}
         <button onClick={onSubmitClick} disabled={busy||(mode==='register'&&!pdnConsent)}
