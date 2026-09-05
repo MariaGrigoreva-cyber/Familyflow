@@ -41,8 +41,25 @@ export function getConsent() {
 export function setConsent(value) {
   const domain = consentCookieDomain();
   document.cookie = `${CONSENT_KEY}=${value}; path=/; max-age=${CONSENT_MAX_AGE}${domain ? `; domain=${domain}` : ''}; SameSite=Lax${location.protocol === 'https:' ? '; Secure' : ''}`;
-  try { localStorage.removeItem(CONSENT_KEY); } catch {}
+  try {
+    // На собственном домене cookie — единственное хранилище (она общая с
+    // лендингом), поэтому старую per-origin копию убираем, как и раньше.
+    //
+    // В нативной обёртке домена у cookie нет: origin там localhost, и на
+    // сохранность такой cookie между запусками полагаться не стоит. Потерянное
+    // согласие означало бы повторный вопрос при каждом запуске, поэтому в этом
+    // случае выбор дублируется в localStorage — его getConsent() ниже и так
+    // умеет читать.
+    if (domain) localStorage.removeItem(CONSENT_KEY);
+    else localStorage.setItem(CONSENT_KEY, value);
+  } catch {}
 }
+
+// Три состояния, и они уже были: null — человек ещё не отвечал, 'accepted' —
+// разрешил, 'declined' — отказался. Заводить четвёртое хранилище не требуется.
+export const CONSENT_UNKNOWN = null;
+export const CONSENT_ALLOWED = 'accepted';
+export const CONSENT_DENIED = 'declined';
 
 export function isMetrikaConsented() {
   return getConsent() === 'accepted';
@@ -131,5 +148,11 @@ export const PRO_GOALS = [
 // согласия ещё не было, window.ym не существует, и вызов молча ничего не
 // делает (не откладывается на потом).
 export function ymGoal(name, params) {
+  // Без согласия молчим. Раньше это держалось на том, что без согласия не
+  // грузится сам счётчик и window.ym просто не существует. Но согласие можно
+  // отозвать в настройках уже после загрузки — тогда window.ym остаётся в
+  // текущей сессии, и без этой проверки события продолжали бы уходить до
+  // перезапуска приложения.
+  if (!isMetrikaConsented()) return;
   try { if (typeof window.ym === 'function') window.ym(COUNTER_ID, 'reachGoal', name, params); } catch {}
 }

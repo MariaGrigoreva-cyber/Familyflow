@@ -433,7 +433,7 @@ describe('PushSection', () => {
     const user = userEvent.setup();
     render(<SettingsScreen {...baseProps} />);
     expect(await screen.findByText('Push-уведомления')).toBeInTheDocument();
-    await user.click(screen.getByText('Включить'));
+    await user.click(screen.getByRole('button', { name: 'Включить push-уведомления' }));
     await waitFor(() => expect(push.enablePush).toHaveBeenCalled());
   });
 
@@ -450,7 +450,7 @@ describe('PushSection', () => {
     push.getPushState.mockResolvedValue('denied');
     render(<SettingsScreen {...baseProps} />);
     expect(await screen.findByText(/Заблокированы в браузере/)).toBeInTheDocument();
-    expect(screen.queryByText('Включить')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Включить push-уведомления' })).not.toBeInTheDocument();
   });
 });
 

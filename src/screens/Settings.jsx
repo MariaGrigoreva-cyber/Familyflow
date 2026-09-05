@@ -5,6 +5,7 @@ import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,EmojiPicker,P
 import {PlanComparison} from './Paywall';
 import {isLoggedIn,logout,register,login,familyMe,familyInvite,familyJoin,errText,changePassword,deleteAccount,resetRequest,resetConfirm,resetCloudState,restoreCloudStateBackup,billingStatus,billingCheckout,billingCancelAutoRenew,billingRefund} from '../api';
 import {getPushState,enablePush,disablePush} from '../push';
+import {getConsent,setConsent,loadMetrika,CONSENT_ALLOWED,CONSENT_DENIED} from '../lib/metrika';
 import {confirmAsync,alertAsync} from '../lib/confirm';
 import {externalDocLinkProps} from '../lib/externalDoc';
 // lib/excelBackup.js тянет за собой SheetJS (xlsx) — ~180 КБ gzip, больше чем
@@ -281,6 +282,9 @@ export function SettingsScreen({state,onEditCat,onAddCat,onDeleteCustomCat,onEdi
         <SecTitle>УВЕДОМЛЕНИЯ</SecTitle>
         <PushSection/>
       </>}
+      {/* ═══ Аналитика ═══ */}
+      <SecTitle>КОНФИДЕНЦИАЛЬНОСТЬ</SecTitle>
+      <AnalyticsSection/>
       {/* ═══ Резервная копия ═══ */}
       {!isLoggedIn()&&(()=>{
         const urgent=daysSinceExport===null||daysSinceExport>7;
@@ -781,6 +785,47 @@ function BillingSection({onOpenPaywall=null}){
 }
 
 // ── Push-уведомления: раз в неделю + напоминание о платеже ─────────────────
+// ── Аналитика использования: включить или выключить в любой момент ─────────
+// Хранилище согласия то же, что у баннера в вебе и у плашки в приложении
+// (lib/metrika.js) — второй системы здесь нет, только ещё одно место, где
+// человек может передумать.
+function AnalyticsSection(){
+  const[consent,setConsentState]=useState(()=>getConsent());
+  const on=consent===CONSENT_ALLOWED;
+  const toggle=()=>{
+    const next=on?CONSENT_DENIED:CONSENT_ALLOWED;
+    setConsent(next);
+    setConsentState(next);
+    // Включили — счётчик подхватится сразу. Выключили — новых событий больше
+    // не уходит: ymGoal проверяет согласие на каждом вызове (см. metrika.js).
+    // Уже отправленную обезличенную статистику это не отменяет.
+    if(next===CONSENT_ALLOWED)loadMetrika();
+  };
+  return(
+    <div style={{...s.card,padding:16}}>
+      <div style={{display:'flex',alignItems:'center',gap:12}}>
+        <span style={{fontSize:18}}>📈</span>
+        <div style={{flex:1}}>
+          <div style={{fontSize:13,fontWeight:600,color:C.text}}>Аналитика использования</div>
+          <div style={{fontSize:11,color:C.muted,marginTop:1}}>
+            {on
+              ?'Обезличенная статистика помогает понять, какие функции полезны'
+              :'Сейчас отключена — статистика не собирается'}
+          </div>
+        </div>
+        {/* aria-label обязателен: на этом же экране есть кнопка «Включить» у
+            push-уведомлений, и по одной подписи их не различить — ни человеку
+            со скринридером, ни тесту. */}
+        <button onClick={toggle} aria-pressed={on}
+          aria-label={on?'Выключить аналитику использования':'Включить аналитику использования'}
+          style={{padding:'8px 14px',borderRadius:20,border:on?`1px solid ${C.border}`:'none',background:on?'var(--c-surface)':C.orange,color:on?C.muted:'#fff',fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',flexShrink:0}}>
+          {on?'Выключить':'Включить'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function PushSection(){
   const[state,setState]=useState('loading'); // loading|unsupported|denied|subscribed|not-subscribed
   const[busy,setBusy]=useState(false);
@@ -814,6 +859,7 @@ function PushSection(){
           </div>
         </div>
         {state!=='denied'&&<button onClick={toggle} disabled={busy}
+          aria-label={state==='subscribed'?'Отключить push-уведомления':'Включить push-уведомления'}
           style={{padding:'8px 14px',borderRadius:20,border:state==='subscribed'?`1px solid ${C.border}`:'none',background:state==='subscribed'?'var(--c-surface)':C.orange,color:state==='subscribed'?C.muted:'#fff',fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',opacity:busy?.6:1,flexShrink:0}}>
           {busy?'…':state==='subscribed'?'Отключить':'Включить'}
         </button>}

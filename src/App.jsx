@@ -31,6 +31,7 @@ import { StartLoginForm } from './StartLoginForm';
 import { AddToHomeScreenPrompt } from './AddToHomeScreenPrompt';
 import { FeedbackPrompt } from './FeedbackPrompt';
 import { CookieBanner } from './CookieBanner';
+import { NativeAnalyticsConsent } from './NativeAnalyticsConsent';
 import { isMetrikaConsented, loadMetrika, ymGoal, isOwnerEmail } from './lib/metrika';
 import { ConfirmHost, confirmAsync, alertAsync } from './lib/confirm';
 import { buildAiFinancialContext } from './lib/aiFinancialContext';
@@ -966,6 +967,7 @@ useEffect(() => {
       {startLogin&&<StartLoginForm onClose={closeStartLogin} initialError={yandexError?errText({message:yandexError}):""} initialMode={startLoginMode}/>}
       <ConfirmHost/>
       <CookieBanner/>
+      <NativeAnalyticsConsent/>
     </div>
   );
   if(demoExited)return(
@@ -976,6 +978,7 @@ useEffect(() => {
       {startLogin&&<StartLoginForm onClose={closeStartLogin} initialError={yandexError?errText({message:yandexError}):""} initialMode={startLoginMode}/>}
       <ConfirmHost/>
       <CookieBanner/>
+      <NativeAnalyticsConsent/>
     </div>
   );
   if(isLoggedIn()&&!appState.demoMode&&!onboarded&&!pricingSeen)return(
@@ -994,6 +997,7 @@ useEffect(() => {
       <AddToHomeScreenPrompt/>
       <ConfirmHost/>
       <CookieBanner/>
+      <NativeAnalyticsConsent/>
     </div>
   );
   if(!isLoggedIn()&&!appState.demoMode)return(
@@ -1001,6 +1005,7 @@ useEffect(() => {
       <StartLoginForm mandatory/>
       <ConfirmHost/>
       <CookieBanner/>
+      <NativeAnalyticsConsent/>
     </div>
   );
   return(
@@ -1057,6 +1062,7 @@ useEffect(() => {
       <FeedbackPrompt show={showFeedbackPrompt}/>
       <ConfirmHost/>
       <CookieBanner/>
+      <NativeAnalyticsConsent/>
       <AddTxModal visible={showAdd} onClose={()=>setShowAdd(false)} onSave={handleAddTx} members={appState.members} planned={appState.planned} customCats={appState.customCats}/>
       {/* Меню по кнопке «?». Помощник в нём — только при включённом AI-гейте
           (закрытый тест); «Как работает Семейный поток» доступно всем, как и
