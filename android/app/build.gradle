@@ -23,8 +23,12 @@ android {
         applicationId "ru.myfamilyflow.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 3
-        versionName "1.0 (2)"
+        // versionCode — технический счётчик для магазина, он ДОЛЖЕН расти и
+        // уже разошёлся с номером в скобках: опубликованная сборка «1.0 (2)»
+        // имеет versionCode 3. Выравнивать их задним числом нельзя — код 3
+        // израсходован, магазин не примет его повторно.
+        versionCode 4
+        versionName "1.0 (3)"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
