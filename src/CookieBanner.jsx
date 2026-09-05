@@ -4,12 +4,18 @@
 // данных при регистрации), он не покрывает аналитику для тех, кто просто
 // открыл приложение и не регистрируется, поэтому баннер отдельный.
 import React, { useState } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { C, PRIVACY_URL } from './lib/core';
 import { externalDocLinkProps } from './lib/externalDoc';
 import { loadMetrika, getConsent, setConsent } from './lib/metrika';
 
 export function CookieBanner(){
   const[choice,setChoice]=useState(()=>getConsent());
+  // В нативном Android-приложении (Capacitor) баннер про cookies не имеет
+  // смысла — WebView-обёртка не использует браузерные cookies так, как это
+  // подразумевает формулировка баннера, и RuStore прямо просит эту
+  // формулировку из приложения убрать.
+  if(Capacitor.isNativePlatform())return null;
   if(choice==='accepted'||choice==='declined')return null;
   const decide=v=>{
     setConsent(v);

@@ -42,3 +42,26 @@ test('если согласие уже было дано раньше (напр.
   render(<CookieBanner />);
   expect(screen.queryByText(/используем cookies/)).not.toBeInTheDocument();
 });
+
+// ── Нативное приложение ─────────────────────────────────────────────────────
+// В обёртке Capacitor баннер не показывается: формулировка про браузерные
+// cookies там неверна, и RuStore просит её из приложения убрать. Веб-поведение
+// при этом должно остаться прежним — это и стерегут тесты ниже.
+describe('в нативном приложении баннера нет', () => {
+  const asNative = () => jest.spyOn(
+    require('@capacitor/core').Capacitor, 'isNativePlatform').mockReturnValue(true);
+
+  afterEach(() => jest.restoreAllMocks());
+
+  test('не рисуется, даже если согласие ещё не дано', () => {
+    asNative();
+    const { container } = render(<CookieBanner />);
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  test('в вебе тот же случай баннер по-прежнему показывает', () => {
+    // Контроль: отличие вызвано именно платформой, а не сломанным условием.
+    render(<CookieBanner />);
+    expect(screen.getByText(/используем cookies/)).toBeInTheDocument();
+  });
+});
