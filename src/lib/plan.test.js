@@ -131,10 +131,60 @@ describe('локальный триал не влияет на авторизо�
     expect(a.isPro).toBe(true); // онбординг ещё не завершён — демо открыто
   });
 
-  test('локальный триал истекает через 30 дней', () => {
-    localStorage.setItem('ff_local_trial_start', new Date(Date.now() - 31 * 86400000).toISOString());
+  // Срок демо согласован с тем, что обещано новым регистрациям (14 дней):
+  // витрина до регистрации не должна показывать Pro дольше, чем человек
+  // получит после неё. Это НЕ источник срока — настоящий триал определяется
+  // датой trial_ends_at на сервере, см. блок ниже.
+  const daysAgo = n => new Date(Date.now() - n * 86400000).toISOString();
+
+  test('демо без аккаунта живёт 14 дней', () => {
+    localStorage.setItem('ff_local_trial_start', daysAgo(13));
+    expect(getLocalPlan()).toBe('trial');
+    expect(resolveAccess({ loggedIn: false }).isPro).toBe(true);
+  });
+
+  test('на 15-й день демо закрывается', () => {
+    localStorage.setItem('ff_local_trial_start', daysAgo(15));
     expect(getLocalPlan()).toBe('free');
     expect(resolveAccess({ loggedIn: false }).isPro).toBe(false);
+  });
+
+  test('срок демо больше не 30 дней', () => {
+    // Ловит возврат прежнего значения: на 20-й день демо обязано быть закрыто.
+    localStorage.setItem('ff_local_trial_start', daysAgo(20));
+    expect(getLocalPlan()).toBe('free');
+  });
+});
+
+describe('локальный срок не касается авторизованных', () => {
+  // Главное разграничение. У залогиненного человека право доступа целиком
+  // определяет сервер; ключ ff_local_trial_start для него не читается вовсе.
+  // Иначе демо-таймер незаметно обрезал бы настоящий триал — в том числе
+  // старой 30-дневной когорте, которой срок обещан и менять его нельзя.
+  const longAgo = () => new Date(Date.now() - 400 * 86400000).toISOString();
+
+  test('истёкшее демо не отбирает доступ у авторизованного', () => {
+    localStorage.setItem('ff_local_trial_start', longAgo());
+    const a = resolveAccess({ loggedIn: true, status: serverStatus({ plan: 'trial', trialDaysLeft: 23 }) });
+    expect(a.isPro).toBe(true);
+    expect(a.local).toBe(false);
+  });
+
+  test('старая 30-дневная когорта сохраняет свой срок', () => {
+    // 23 дня столько не бывает у 14-дневного триала: значение пришло с сервера
+    // и локальным сроком не ограничено.
+    localStorage.setItem('ff_local_trial_start', longAgo());
+    const a = resolveAccess({ loggedIn: true, status: serverStatus({ plan: 'trial', trialDaysLeft: 23 }) });
+    expect(a.trialDaysLeft).toBe(23);
+    expect(a.trialDaysLeft).toBeGreaterThan(14);
+    expect(a.isTrial).toBe(true);
+  });
+
+  test('демо-ключа нет — авторизованный всё равно опирается на сервер', () => {
+    localStorage.removeItem('ff_local_trial_start');
+    const a = resolveAccess({ loggedIn: true, status: serverStatus({ plan: 'free', access: false, isTrial: false, isExpired: true, trialDaysLeft: 0 }) });
+    expect(a.isPro).toBe(false);
+    expect(a.local).toBe(false);
   });
 });
 
