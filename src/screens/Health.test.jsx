@@ -39,7 +39,10 @@ test('пока тариф неизвестен, paywall не показывае�
 test('на Pro показывает числовую оценку и критерии', () => {
   render(<HealthScreen state={state} isPro />);
   expect(screen.getByText(/дохода — в сбережениях/)).toBeInTheDocument();
-  expect(screen.getByText(/уйти в минус/i)).toBeInTheDocument();
+  // Строк про «уйти в минус» бывает несколько: демо-данные строятся от сегодняшней
+  // даты, и когда в прогнозе появляется рискованная неделя, к критерию балла
+  // добавляются «следующий шаг» и сама неделя. getByText на этом падал.
+  expect(screen.getAllByText(/уйти в минус/i).length).toBeGreaterThan(0);
   expect(screen.getByText('РАСПРЕДЕЛЕНИЕ РАСХОДОВ')).toBeInTheDocument();
 });
 
