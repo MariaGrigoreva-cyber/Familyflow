@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
-import {C,MONO,uid,weekKey,todayKey,getISOWeek,calcAvgMonthlyNet,calcNetFor,generateAllWeeks,regenWeeksKeepDone,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED,DEFAULT_CATS,nextMemberTint,computeBalances,compactWeekItemsForSave,isLegacyWeekKeyFormat,computeWeeksSummary,projectCashFlow,forecastOutlook,applyExtraPaymentEdits,undoExtraPaymentEdits} from './lib/core';
+import {saveIncomeToState,C,MONO,uid,weekKey,todayKey,getISOWeek,calcAvgMonthlyNet,generateAllWeeks,regenWeeksKeepDone,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED,DEFAULT_CATS,nextMemberTint,computeBalances,compactWeekItemsForSave,isLegacyWeekKeyFormat,computeWeeksSummary,projectCashFlow,forecastOutlook,applyExtraPaymentEdits,undoExtraPaymentEdits} from './lib/core';
 // ── Пять основных вкладок нижней навигации грузятся вместе с основным бандлом ──
 // Раньше четыре из них (Поток/Бюджет/Здоровье/Ещё) были на React.lazy: первое
 // переключение вкладки упиралось в сетевую загрузку отдельного chunk'а (в проде —
@@ -875,32 +875,7 @@ useEffect(() => {
     });
   });
   const handleEditIncome=(inc,member)=>{setEditIncomeItem(inc);setEditIncomeMember(member);setShowEditIncome(true);};
-  const handleSaveIncome=guarded(updatedInc=>{
-    setAppState(prev=>{
-      const old=prev.incomes.find(i=>i.id===updatedInc.id)||{};
-      const r={...updatedInc,gross:parseInt(updatedInc.gross)||0};
-      r.net=calcNetFor(r);
-      // Дата вступления изменений: до неё выплаты считаются по прежним параметрам
-      const ef=r.effectiveFrom;
-      const effDate=ef?new Date(ef.year,ef.month-1,ef.day):null;
-      const today=new Date();today.setHours(0,0,0,0);
-      const changed=(parseInt(old.gross)||0)!==r.gross||old.incomeType!==r.incomeType||String(old.taxRate||'')!==String(r.taxRate||'');
-      if(effDate&&effDate>today&&changed){
-        r.effFromDate=effDate.toISOString();
-        r.prevGross=old.prevGross&&old.effFromDate&&new Date(old.effFromDate)>today?old.prevGross:(parseInt(old.gross)||0);
-        r.prevIncomeType=old.prevIncomeType||old.incomeType||'employed';
-        r.prevTaxRate=old.prevTaxRate||old.taxRate||'6';
-      }else{
-        // Изменение с сегодняшнего дня или прошлого — история не нужна
-        delete r.effFromDate;delete r.prevGross;delete r.prevIncomeType;delete r.prevTaxRate;
-      }
-      const newIncomes=prev.incomes.map(i=>i.id===r.id?r:i);
-      const effWeek=r.effectiveFrom?.weekKey||'1970-W01';
-      const fresh=generateAllWeeks(prev.planned);
-      const merged={};Object.keys(fresh).forEach(w=>{merged[w]=w<effWeek&&prev.weekItems[w]?prev.weekItems[w]:fresh[w];});
-      return{...prev,incomes:newIncomes,weekItems:merged};
-    });
-  });
+  const handleSaveIncome=guarded(updatedInc=>setAppState(prev=>saveIncomeToState(prev,updatedInc)));
   // Считаем один раз здесь (не в каждом экране отдельно) — Поток и Сегодня оба
   // используют один и тот же прогноз накопительного баланса.
   const weeksSummary=useMemo(()=>computeWeeksSummary(appState),[appState.weekItems,appState.incomes,appState.payments,appState.transactions,appState.extraPayments]);

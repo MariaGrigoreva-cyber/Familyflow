@@ -1,6 +1,6 @@
 // FamilyFlow — экран Бюджет
 import React, { useState, useEffect, useMemo } from 'react';
-import {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,isWorkday,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentScheduleSpan,applyPaymentEdit,regenWeeksKeepDone,computeBalances,computeBudgetMetrics,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,paymentTypeLabel,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
+import {payAmount,dismissalDateOf,C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,isWorkday,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentScheduleSpan,applyPaymentEdit,regenWeeksKeepDone,computeBalances,computeBudgetMetrics,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,paymentTypeLabel,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,PiggyLogo,CatIcon} from '../lib/ui';
 
 export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onAddExtra,onWithdrawPiggy,onSetGoal,onAddGoalToPlan}){
@@ -24,10 +24,13 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
   const now=new Date();
   const budgetStart=new Date(); budgetStart.setHours(0,0,0,0); // начало сегодняшнего дня
   const budgetEnd=new Date(budgetStart.getTime()+365*86400000);
-  const totalNet=incomes.reduce((s,i)=>s+calcNetFor(i),0);
   const txExtraIncome=(transactions||[]).filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
-  const extraYearlyIncome=(extraPayments||[]).filter(p=>{const d=new Date(p.date);return d>=budgetStart&&d<=budgetEnd;}).reduce((s,p)=>s+(p.actualAmount||p.amount),0);
-  const plannedYearlyIncome=totalNet*12;
+  const extraYearlyIncome=(extraPayments||[]).filter(p=>{const d=new Date(p.date);return d>=budgetStart&&d<=budgetEnd;}).reduce((s,p)=>s+payAmount(p),0);
+  // Уволившийся источник дохода не платит весь год: вместо «оклад × 12» берём то,
+  // что реально осталось в графике — выплаты до даты увольнения и сам расчёт.
+  const dismissedYearly=inc=>buildPaymentScheduleSpan(budgetStart.getFullYear(),inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc)
+    .filter(p=>p.date>=budgetStart&&p.date<=budgetEnd).reduce((s,p)=>s+payAmount(applyPaymentEdit(p,payments)),0);
+  const plannedYearlyIncome=incomes.reduce((s,i)=>s+(dismissalDateOf(i)?dismissedYearly(i):calcNetFor(i)*12),0);
   const totalYearlyIncome=plannedYearlyIncome+txExtraIncome+extraYearlyIncome;
   // База для расчёта отпускных. Считать её (и урезание зарплаты за месяц отпуска)
   // можно только по окладному доходу: отпускные по ст. 139 ТК РФ существуют лишь
@@ -184,7 +187,7 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
               {p.note2&&<div style={{fontSize:10,color:C.muted,marginTop:1}}>{p.note2}</div>}
             </div>
             <div style={{textAlign:'right'}}>
-              <div style={{fontFamily:MONO,fontSize:13,fontWeight:600,color:p.isExtra?C.greenD:C.text}}>{p.isExtra?'+':''}{fmtN(p.actualAmount||p.amount)}</div>
+              <div style={{fontFamily:MONO,fontSize:13,fontWeight:600,color:p.isExtra?C.greenD:C.text}}>{p.isExtra?'+':''}{fmtN(payAmount(p))}</div>
               {p.actualAmount&&p.actualAmount!==p.amount&&<div style={{fontFamily:MONO,fontSize:9,color:p.actualAmount>p.amount?C.green:C.red}}>{p.actualAmount>p.amount?'▲':'▼'}{fmtN(Math.abs(p.actualAmount-p.amount))}</div>}
             </div>
           </button>

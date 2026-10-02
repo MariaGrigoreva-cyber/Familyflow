@@ -1,6 +1,6 @@
 // FamilyFlow — экран Настройки
 import React, { useState, useEffect } from 'react';
-import {C,MONO,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,PRIVACY_URL,TERMS_URL,TELEGRAM_URL,APP_VERSION,APP_BUILD,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED,monthlyOf} from '../lib/core';
+import {dismissalDateOf,C,MONO,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,PRIVACY_URL,TERMS_URL,TELEGRAM_URL,APP_VERSION,APP_BUILD,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED,monthlyOf} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,EmojiPicker,ProInline,CatIcon} from '../lib/ui';
 import {PlanComparison} from './Paywall';
 import {isLoggedIn,logout,register,login,familyMe,familyInvite,familyJoin,errText,changePassword,deleteAccount,resetRequest,resetConfirm,resetCloudState,restoreCloudStateBackup,billingStatus,billingCheckout,billingCancelAutoRenew,billingRefund} from '../api';
@@ -130,7 +130,7 @@ export function SettingsScreen({state,onEditCat,onAddCat,onDeleteCustomCat,onEdi
         onPick={e=>onUpdateMember(emojiPickerFor,'avatar',e)}/>
       <div style={{borderBottom:`1px solid ${C.border}`,marginBottom:16}}/>
       <SecTitle right="на руки / мес">ДОХОДЫ</SecTitle>
-      {incomes.filter(i=>i.gross>0).map((inc,idx,arr)=>{
+      {incomes.filter(i=>i.gross>0||((i.salaryDays||[]).length>0||i.name||i.dismissal)).map((inc,idx,arr)=>{
         const m=members.find(x=>x.id===inc.memberId);
         return(
           <button key={inc.id} onClick={()=>onEditIncome&&onEditIncome(inc,m)} style={{display:'flex',alignItems:'center',gap:12,padding:'9px 0',width:'100%',textAlign:'left',cursor:'pointer',background:'none',border:'none',borderBottom:idx<arr.length-1?`1px dashed ${C.border}`:'none',fontFamily:'inherit'}}>
@@ -139,6 +139,7 @@ export function SettingsScreen({state,onEditCat,onAddCat,onDeleteCustomCat,onEdi
               <div style={{fontSize:13.5,fontWeight:500,color:C.text}}>{showMember?`${m?.name}${inc.name?` · ${inc.name}`:''}`:(inc.name||'Доход')}</div>
               <div style={{fontFamily:MONO,fontSize:10,color:C.muted,marginTop:1}}>GROSS {fmtN(inc.gross||0)} · {inc.incomeType==='self'?`${parseFloat(inc.taxRate)||6}%`:inc.incomeType==='manual'?'без налога':getNDFLDesc(inc.gross||0)}</div>
               {inc.effectiveFrom&&<div style={{fontFamily:MONO,fontSize:9,color:C.orangeD,marginTop:1}}>✦ изменён с {inc.effectiveFrom.day} {MONTH_SHORT[inc.effectiveFrom.month-1]} {inc.effectiveFrom.year}</div>}
+              {dismissalDateOf(inc)&&<div style={{fontFamily:MONO,fontSize:9,color:C.orangeD,marginTop:1}}>🚪 увольнение {dismissalDateOf(inc).getDate()} {MONTH_SHORT[dismissalDateOf(inc).getMonth()]} {dismissalDateOf(inc).getFullYear()}</div>}
             </div>
             <span style={{fontFamily:MONO,fontSize:13,fontWeight:600,color:C.greenD}}>{fmtN(calcNetFor(inc))}</span>
           </button>

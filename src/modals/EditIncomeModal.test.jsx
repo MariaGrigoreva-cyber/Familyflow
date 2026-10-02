@@ -48,3 +48,64 @@ test('переключение на «самозанятый» показыва�
   await user.click(screen.getByText('Самозанятый / ИП'));
   expect(screen.getByText('Ставка налога')).toBeInTheDocument();
 });
+
+test('введённый ноль сохраняется — доход можно обнулить', async () => {
+  const user = userEvent.setup();
+  const onSave = jest.fn();
+  render(<EditIncomeModal visible income={income} member={member} onClose={() => {}} onSave={onSave} />);
+  const grossInput = screen.getByDisplayValue('100000');
+  await user.clear(grossInput);
+  await user.type(grossInput, '0');
+  await user.click(screen.getByText('Сохранить изменения'));
+  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ gross: 0 }));
+});
+
+describe('увольнение', () => {
+  const employed = { ...income, gross: 371000, salaryDays: [10], advanceDays: [25], advancePct: '50' };
+
+  test('без остатка отпуска не сохраняет — спрашивает число дней', async () => {
+    jest.spyOn(window, 'alert').mockImplementation(() => {});
+    const user = userEvent.setup();
+    const onSave = jest.fn();
+    render(<EditIncomeModal visible income={employed} member={member} onClose={() => {}} onSave={onSave} />);
+    await user.click(screen.getByLabelText(/Увольняюсь с этой работы/));
+    await user.type(screen.getByLabelText('Последний рабочий день'), '2026-10-16');
+    await user.click(screen.getByText('Сохранить изменения'));
+    expect(window.alert).toHaveBeenCalledWith(expect.stringContaining('сколько дней отпуска'));
+    expect(onSave).not.toHaveBeenCalled();
+    window.alert.mockRestore();
+  });
+
+  test('дата и остаток отпуска уходят в сохранение, расчёт виден заранее', async () => {
+    const user = userEvent.setup();
+    const onSave = jest.fn();
+    render(<EditIncomeModal visible income={employed} member={member} onClose={() => {}} onSave={onSave} />);
+    await user.click(screen.getByLabelText(/Увольняюсь с этой работы/));
+    await user.type(screen.getByLabelText('Последний рабочий день'), '2026-10-16');
+    await user.type(screen.getByLabelText('Сколько дней отпуска осталось?'), '10');
+    expect(screen.getByText(/Расчёт при увольнении · 16 окт 2026/)).toBeInTheDocument();
+    expect(screen.getByText(/Компенсация отпуска · 10 дн\./)).toBeInTheDocument();
+    await user.click(screen.getByText('Сохранить изменения'));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
+      gross: 371000, dismissal: { date: '2026-10-16', vacationDays: 10 },
+    }));
+  });
+
+  test('сохранённое увольнение открывается заполненным, снятая галочка его убирает', async () => {
+    const user = userEvent.setup();
+    const onSave = jest.fn();
+    render(<EditIncomeModal visible income={{ ...employed, dismissal: { date: '2026-10-16', vacationDays: 0 } }} member={member} onClose={() => {}} onSave={onSave} />);
+    expect(screen.getByLabelText('Последний рабочий день')).toHaveValue('2026-10-16');
+    expect(screen.getByLabelText('Сколько дней отпуска осталось?')).toHaveValue('0');
+    await user.click(screen.getByLabelText(/Увольняюсь с этой работы/));
+    await user.click(screen.getByText('Сохранить изменения'));
+    expect(onSave.mock.calls[0][0].dismissal).toBeUndefined();
+  });
+
+  test('самозанятому блок увольнения не показывается', async () => {
+    const user = userEvent.setup();
+    render(<EditIncomeModal visible income={employed} member={member} onClose={() => {}} onSave={() => {}} />);
+    await user.click(screen.getByText('Самозанятый / ИП'));
+    expect(screen.queryByText(/Увольняюсь с этой работы/)).toBeNull();
+  });
+});

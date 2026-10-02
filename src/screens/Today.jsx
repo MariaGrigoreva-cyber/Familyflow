@@ -1,6 +1,6 @@
 // FamilyFlow — экран Сегодня
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,paymentTypeLabel,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,buildPaymentScheduleSpan,applyPaymentEdit,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
+import {payAmount,C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekKeyToDate,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,paymentTypeLabel,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,buildPaymentScheduleSpan,applyPaymentEdit,regenWeeksKeepDone,computeBalances,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,ProHint,ProInline,PiggyLogo,CatIcon} from '../lib/ui';
 import {TrialNotice} from '../TrialNotices';
 import {ymGoal} from '../lib/metrika';
@@ -130,7 +130,7 @@ export function TodayScreen({state,onToggle,onEditPayment,onEditTx,onQuickMark,o
                     <div style={{fontSize:11.5,color:'#fff',fontWeight:500,marginTop:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{shortDate} · {nextPay.isExtra?nextPay.label:paymentTypeLabel(nextPay)}{showMember?` · ${nextPay.memberName}`:''}</div>
                     {nextPay.shifted&&<div style={{fontFamily:MONO,fontSize:9.5,color:'#ffd9a3',marginTop:1}}>{nextPay.note}</div>}
                   </div>
-                  <span style={{fontFamily:MONO,fontSize:13,fontWeight:600,color:'#fff',flexShrink:0}}>{fmtN(nextPay.actualAmount||nextPay.amount)}</span>
+                  <span style={{fontFamily:MONO,fontSize:13,fontWeight:600,color:'#fff',flexShrink:0}}>{fmtN(payAmount(nextPay))}</span>
                 </button>
                 {restPay.length>0&&<button onClick={()=>setShowMorePay(v=>!v)} aria-expanded={showMorePay} aria-label="Показать остальные ближайшие выплаты" style={{background:'none',border:'none',fontSize:10,color:'rgba(255,255,255,.6)',cursor:'pointer',flexShrink:0,padding:'4px 0 4px 8px',fontFamily:'inherit'}}>{showMorePay?'▲':`▼ ещё ${restPay.length}`}</button>}
               </div>
@@ -143,7 +143,7 @@ export function TodayScreen({state,onToggle,onEditPayment,onEditTx,onQuickMark,o
                         <div style={{fontSize:11.5,color:'rgba(255,255,255,.85)'}}>{d} · {p.isExtra?p.label:paymentTypeLabel(p)}{showMember?` · ${p.memberName}`:''}</div>
                         {p.shifted&&<div style={{fontFamily:MONO,fontSize:9.5,color:'#ffd9a3',marginTop:1}}>{p.note}</div>}
                       </div>
-                      <span style={{fontFamily:MONO,fontSize:12,fontWeight:600,color:'#fff'}}>{fmtN(p.actualAmount||p.amount)}</span>
+                      <span style={{fontFamily:MONO,fontSize:12,fontWeight:600,color:'#fff'}}>{fmtN(payAmount(p))}</span>
                     </button>
                   );
                 })}
@@ -291,7 +291,7 @@ export function TodayScreen({state,onToggle,onEditPayment,onEditTx,onQuickMark,o
             <span style={{fontSize:18,flexShrink:0}}>💰</span>
             <div style={{flex:1}}>
               <div style={{fontSize:13,fontWeight:600,color:C.text}}>{p.isExtra?p.label:paymentTypeLabel(p)} {p.date.getDate()} {MONTH_SHORT[p.date.getMonth()]} не отмечена</div>
-              <div style={{fontFamily:MONO,fontSize:11,color:C.text2,marginTop:1}}>{fmt(p.actualAmount||p.amount)} · получили её?</div>
+              <div style={{fontFamily:MONO,fontSize:11,color:C.text2,marginTop:1}}>{fmt(payAmount(p))} · получили её?</div>
             </div>
             <button onClick={()=>onQuickMark&&onQuickMark(p.key||p.displayLabel)}
               style={{background:C.orange,color:'#fff',border:'none',borderRadius:20,padding:'7px 14px',fontSize:12,fontWeight:600,cursor:'pointer',fontFamily:'inherit',flexShrink:0}}>

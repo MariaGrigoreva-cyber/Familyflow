@@ -66,3 +66,25 @@ test('удаление обычного платежа спрашивает по
   expect(onClose).toHaveBeenCalled();
   window.confirm.mockRestore();
 });
+
+test('введённый ноль сохраняется нулём, а не плановой суммой', async () => {
+  const user = userEvent.setup();
+  const onSave = jest.fn();
+  render(<EditPaymentModal visible payment={basePayment} onClose={() => {}} onSave={onSave} />);
+  const input = screen.getByDisplayValue('5000');
+  await user.clear(input);
+  await user.type(input, '0');
+  await user.click(screen.getAllByText('Сохранить')[0]);
+  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ actualAmount: 0 }));
+});
+
+test('расчёт при увольнении показывает, из чего он сложился', () => {
+  const final = {
+    id: 'f', type: 'final', amount: 279637, actualAmount: 279637, isDone: false, note2: '', ndfl: 0, month: 10,
+    parts: [{ id: 'wage', label: 'Зарплата за окт · 12 из 22 раб. дн.', amount: 172009 }, { id: 'vacation', label: 'Компенсация отпуска · 10 дн. × 12 662', amount: 107628 }],
+  };
+  render(<EditPaymentModal visible payment={final} onClose={() => {}} onSave={() => {}} onDelete={() => {}} />);
+  expect(screen.getByText(/Расчёт при увольнении/)).toBeInTheDocument();
+  expect(screen.getByText(/Компенсация отпуска/)).toBeInTheDocument();
+  expect(screen.queryByText('Удалить выплату')).toBeNull();
+});

@@ -9,7 +9,7 @@
 // поле за полем вручную, а не копированием кусков state.
 import {
   computeBalances, computeWeeksSummary, projectCashFlow, computeBudgetMetrics, verdictFor,
-  buildPaymentScheduleSpan, applyPaymentEdit, todayKey, todayMonthKey, weekKeyToDate, monthKey,
+  buildPaymentScheduleSpan, applyPaymentEdit, payAmount, todayKey, todayMonthKey, weekKeyToDate, monthKey,
   DEFAULT_CATS, getCat,
 } from './core';
 
@@ -148,14 +148,14 @@ export function buildAiFinancialContext(state) {
         // с выходных по производственному календарю РФ, поэтому здесь именно
         // date (в отличие от weekStart у плановых трат ниже).
         date: ymd(p.date),
-        type: p.type === 'salary' ? 'зарплата' : 'аванс',
-        amount: money(p.actualAmount || p.amount),
+        type: p.type === 'final' ? 'расчёт при увольнении' : p.type === 'salary' ? 'зарплата' : 'аванс',
+        amount: money(payAmount(p)),
       }));
     const extras = (state.extraPayments || [])
       .filter(p => !p.isDone && new Date(p.date) >= now && new Date(p.date) <= horizon)
       .map(p => ({
         date: ymd(p.date),
-        type: 'разовая выплата', amount: money(p.actualAmount || p.amount),
+        type: 'разовая выплата', amount: money(payAmount(p)),
       }));
     const upcomingIncome = [...scheduled, ...extras]
       .sort((a, b) => a.date.localeCompare(b.date))
