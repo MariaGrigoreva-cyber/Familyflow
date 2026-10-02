@@ -7,6 +7,7 @@ import {isLoggedIn,logout,register,login,familyMe,familyInvite,familyJoin,errTex
 import {getPushState,enablePush,disablePush} from '../push';
 import {getConsent,setConsent,loadMetrika,CONSENT_ALLOWED,CONSENT_DENIED} from '../lib/metrika';
 import {confirmAsync,alertAsync} from '../lib/confirm';
+import {applyImportedBackup} from '../lib/importBackup';
 import {externalDocLinkProps} from '../lib/externalDoc';
 // lib/excelBackup.js тянет за собой SheetJS (xlsx) — ~180 КБ gzip, больше чем
 // весь остальной код приложения вместе взятый. Экспорт и импорт .xlsx — редкие
@@ -332,10 +333,8 @@ export function SettingsScreen({state,onEditCat,onAddCat,onDeleteCustomCat,onEdi
               const parsed=importFfStateFromXlsxArrayBuffer(ev.target.result);
               if(!parsed?.appState?.members?.length)throw new Error('это не файл Семейного потока или он пуст');
               if(!await confirmAsync('Заменить текущие данные данными из файла? Отменить будет нельзя.',{danger:true}))return;
-              // weekItems в файле — только недели с отметками (см. lib/excelBackup.js);
-              // регенерируем полный набор недель от «план», как при обычной перезагрузке.
-              parsed.appState.weekItems=regenWeeksKeepDone(parsed.appState.planned||[],parsed.appState.weekItems);
-              localStorage.setItem('ff_state',JSON.stringify(parsed));
+              // Запись и в облако, и локально — см. lib/importBackup.js.
+              await applyImportedBackup(parsed);
               window.location.reload();
             }catch(err){alertAsync('Не удалось импортировать: '+err.message);}
           };
