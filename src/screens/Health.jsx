@@ -1,6 +1,6 @@
 // FamilyFlow — экран Здоровье бюджета
 import React, { useState, useEffect, useMemo } from 'react';
-import {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBudgetMetrics,computeWeeksSummary,projectCashFlow,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
+import {C,MONO,monthlyOf,yearlyOf,fmt,fmtN,uid,isoMondayOf,getISOWeek,weekKey,todayKey,parseWeekKey,weekRange,weekLabel,prevWeekKey,nextWeekKey,monthKey,todayMonthKey,MONTH_FULL,MONTH_SHORT,DAYS_RU,monthLabel,prevMonthKey,nextMonthKey,NDFL_BRACKETS,calcAnnualNDFL,calcMonthlyNDFL,calcAvgMonthlyNet,getNDFLDesc,RU_HOLIDAYS,getActualPayDate,fmtPayDate,INCOME_TYPES,calcNetFor,calcAdvanceAmount,buildPaymentSchedule,regenWeeksKeepDone,computeBalances,computeBudgetMetrics,computeWeeksSummary,projectCashFlow,generateAllWeeks,DEFAULT_CATS,REPEAT_OPTS,getCat,PIE_COLORS,buildDemoState,DEMO_MEMBERS,DEMO_PLANNED} from '../lib/core';
 import {s,merge,Btn,Card,PBar,SecTitle,Stat,Modal,DayPicker,Numpad,ProTeaser,PiggyLogo} from '../lib/ui';
 
 export function HealthScreen({state,isPro=true,accessPending=false,outlook=null,onUpgrade}){
@@ -9,17 +9,10 @@ export function HealthScreen({state,isPro=true,accessPending=false,outlook=null,
   const allCats=[...DEFAULT_CATS,...customCats];
   const{totalNet,monthlyExp,piggyMonthly,expWithoutPiggy,freeCash,savingsRate,isDeficit}=computeBudgetMetrics(state);
   const expenseRatio=totalNet>0?Math.round(expWithoutPiggy/totalNet*100):0;
-  // transactions piggy попадает в weekItems через handleAddTx, не считаем дважды
-  // Piggy Bank: из weekItems (плановые галочки) + из transactions (ручные записи)
-  // Без дублей: если есть transaction для недели — берём только её
-  const txPiggyMap={};
-  (state.transactions||[]).filter(t=>t.catId==='piggy').forEach(t=>{
-    txPiggyMap[t.week]=(txPiggyMap[t.week]||0)+t.amount;
-  });
-  const piggyActual=Object.entries(weekItems).reduce((total,[wk,items])=>{
-    if(txPiggyMap[wk]) return total+txPiggyMap[wk]; // ручная запись приоритетнее
-    return total+items.filter(i=>i.catId==='piggy'&&i.isDone).reduce((s,i)=>s+i.amount,0);
-  },0)+Object.entries(txPiggyMap).filter(([wk])=>!weekItems[wk]).reduce((s,[,v])=>s+v,0);
+  // На всех экранах одна формула: отмеченные плановые отчисления и ручные
+  // операции складываются. Старый локальный расчёт Здоровья заменял одно другим
+  // и поэтому показывал копилку меньше, чем экран Сегодня.
+  const piggyActual=computeBalances(state).totalSaved;
   const cushion=piggyActual>0?piggyActual:Math.round(piggyMonthly/4.3*4);
   // Прогноз кассовых разрывов на ближайшие недели: та же единая формула накопительного
   // баланса, что и на Потоке/Сегодня (см. projectCashFlow) — раньше здесь была отдельная

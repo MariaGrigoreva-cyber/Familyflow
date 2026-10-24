@@ -699,6 +699,21 @@ describe('computeWeeksSummary — нерегулярный доход учиты
     const wk = computeWeeksSummary(state).find((d) => d.wk === curWk);
     expect(wk.wInc).toBeGreaterThan(0);
   });
+
+  test('employed-доход: прошлая неделя учитывает только подтверждённые выплаты', () => {
+    const pastWk = prevWeekKey(curWk);
+    const wS = weekKeyToDate(pastWk);
+    const wE = new Date(wS.getTime() + 6 * 86400000);
+    const inc = { id: 'i1', memberId: 'm1', gross: 100000, incomeType: 'employed', salaryDays: allDays, advanceDays: [] };
+    const planned = scheduledIncomeForWeek(inc, wS, wE, {}, curWk);
+    expect(planned).toBe(0);
+
+    const payments = {};
+    buildPaymentScheduleSpan(wS.getFullYear(), inc.salaryDays, [], 0, inc.gross, inc)
+      .filter((p) => p.date >= wS && p.date <= wE)
+      .forEach((p) => { payments[p.key] = { isDone: true, actualAmount: p.amount }; });
+    expect(scheduledIncomeForWeek(inc, wS, wE, payments, curWk)).toBeGreaterThan(0);
+  });
 });
 
 describe('buildDemoState — демо-данные структурно валидны', () => {

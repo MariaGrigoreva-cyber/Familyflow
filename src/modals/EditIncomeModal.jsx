@@ -15,6 +15,7 @@ export function EditIncomeModal({visible,income,member,onClose,onSave}){
   const[effDay,setEffDay]=useState(now.getDate());
   const[effMonth,setEffMonth]=useState(now.getMonth()+1);
   const[effYear,setEffYear]=useState(now.getFullYear());
+  const[isEmploymentStart,setIsEmploymentStart]=useState(false);
   // Увольнение: дата последнего рабочего дня и остаток отпуска. Поля строковые —
   // «0 дней» и «не заполнено» должны различаться: про остаток отпуска спрашиваем
   // явно, без ответа расчёт при увольнении был бы наугад.
@@ -22,7 +23,7 @@ export function EditIncomeModal({visible,income,member,onClose,onSave}){
   const[disDate,setDisDate]=useState('');
   const[disVacDays,setDisVacDays]=useState('');
   const[disEarned12,setDisEarned12]=useState('');
-  useEffect(()=>{if(income){setName(income.name||'');setGross(String(income.gross||''));setSalaryDays(income.salaryDays||[]);setAdvanceDays(income.advanceDays||[]);setAdvancePct(String(income.advancePct||'40'));setIncomeType(income.incomeType||'employed');setTaxRate(String(income.taxRate||'6'));const d=income.dismissal;setDisOn(!!d?.date);setDisDate(d?.date||'');setDisVacDays(d?.vacationDays!==undefined&&d?.vacationDays!==null?String(d.vacationDays):'');setDisEarned12(d?.earned12?String(d.earned12):'');}}, [income]);
+  useEffect(()=>{if(income){setName(income.name||'');setGross(String(income.gross||''));setSalaryDays(income.salaryDays||[]);setAdvanceDays(income.advanceDays||[]);setAdvancePct(String(income.advancePct||'40'));setIncomeType(income.incomeType||'employed');setTaxRate(String(income.taxRate||'6'));setIsEmploymentStart(!!income.startDate||income.gross==='');const savedDate=parseLocalDate(income.startDate||income.effFromDate)||new Date();setEffDay(savedDate.getDate());setEffMonth(savedDate.getMonth()+1);setEffYear(savedDate.getFullYear());const d=income.dismissal;setDisOn(!!d?.date);setDisDate(d?.date||'');setDisVacDays(d?.vacationDays!==undefined&&d?.vacationDays!==null?String(d.vacationDays):'');setDisEarned12(d?.earned12?String(d.earned12):'');}}, [income]);
   if(!income||!member)return null;
   const grossN=parseInt(gross)||0;
   const avgNet=calcNetFor({gross:grossN,incomeType,taxRate});
@@ -44,7 +45,7 @@ export function EditIncomeModal({visible,income,member,onClose,onSave}){
       if(!parseLocalDate(disDate)){alertAsync('Укажите дату увольнения — последний рабочий день');return;}
       if(String(disVacDays).trim()===''||Number.isNaN(vacDaysN)||vacDaysN<0){alertAsync('Укажите, сколько дней отпуска осталось неиспользованными. Если отпуск отгулян полностью — поставьте 0');return;}
     }
-    onSave({...draft,name:name.trim(),net:avgNet,effectiveFrom:{day:effDay,month:effMonth,year:effYear,weekKey:effWeekK}});onClose();
+    onSave({...draft,name:name.trim(),net:avgNet,isEmploymentStart,effectiveFrom:{day:effDay,month:effMonth,year:effYear,weekKey:effWeekK}});onClose();
   };
   return(
     <Modal visible={visible} onClose={onClose} title={`${member.avatar} ${member.name}`} onSave={doSave}>
@@ -150,8 +151,14 @@ export function EditIncomeModal({visible,income,member,onClose,onSave}){
             </>}
           </div>
         )}
+        {isEmployed&&income.gross!==''&&(
+          <label style={{display:'flex',alignItems:'flex-start',gap:8,cursor:'pointer',margin:'0 2px 12px'}}>
+            <input type="checkbox" checked={isEmploymentStart} onChange={e=>setIsEmploymentStart(e.target.checked)} style={{marginTop:2}}/>
+            <span style={{fontSize:12,color:C.text2,lineHeight:1.45}}>Выбранная ниже дата — первый рабочий день на новой работе</span>
+          </label>
+        )}
         <div style={{...s.card,background:C.blueL,border:`1px solid ${C.blueB}`,padding:12,marginBottom:12}}>
-          <div style={{fontSize:12,fontWeight:700,color:C.blue,marginBottom:8}}>📅 Изменение вступит в силу с:</div>
+          <div style={{fontSize:12,fontWeight:700,color:C.blue,marginBottom:8}}>📅 {isEmploymentStart?'Работа начинается с:':'Изменение вступит в силу с:'}</div>
           <div style={{display:'flex',gap:8,marginBottom:10}}>
             {[now.getFullYear(),now.getFullYear()+1].map(y=><button key={y} onClick={()=>setEffYear(y)} style={{flex:1,padding:8,borderRadius:8,border:`1px solid ${effYear===y?C.orangeB:C.border}`,background:effYear===y?C.orangeL:'var(--c-surface)',color:effYear===y?C.orangeD:C.text,fontSize:13,fontWeight:effYear===y?600:400,cursor:'pointer',fontFamily:'inherit'}}>{y}</button>)}
           </div>
@@ -159,7 +166,7 @@ export function EditIncomeModal({visible,income,member,onClose,onSave}){
             {['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'].map((name,i)=>{const m=i+1,active=effMonth===m;return<button key={m} onClick={()=>setEffMonth(m)} style={{padding:'5px 8px',borderRadius:7,border:`1px solid ${active?C.orangeB:C.border}`,background:active?C.orangeL:'var(--c-surface)',color:active?C.orangeD:C.text,fontSize:11,fontWeight:active?600:400,cursor:'pointer',fontFamily:'inherit',minWidth:'30%'}}>{name}</button>;})}
           </div>
           <DayPicker selected={[effDay]} onToggle={d=>setEffDay(d)}/>
-          <div style={{fontSize:11,color:C.blue,marginTop:8}}>До этой даты выплаты считаются по прежнему окладу, после — по новому. Месяц смены оплачивается частями, по рабочим дням.</div>
+          <div style={{fontSize:11,color:C.blue,marginTop:8}}>{isEmploymentStart?'До первого рабочего дня выплат по этому источнику нет. Первый месяц считается только за фактически отработанные дни.':'До этой даты выплаты считаются по прежнему окладу, после — по новому. Месяц смены оплачивается частями, по рабочим дням.'}</div>
         </div>
         <Btn label="Сохранить изменения" onClick={doSave}/>
       </div>

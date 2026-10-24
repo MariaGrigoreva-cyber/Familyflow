@@ -46,6 +46,17 @@ test('на Pro показывает числовую оценку и крите�
   expect(screen.getByText('РАСПРЕДЕЛЕНИЕ РАСХОДОВ')).toBeInTheDocument();
 });
 
+test('копилка складывает плановую галочку и ручное пополнение той же недели', () => {
+  const wk = Object.keys(state.weekItems)[0];
+  const piggyState = {
+    ...state,
+    weekItems: { [wk]: [{ id: 'p1', catId: 'piggy', name: 'Копилка', amount: 60000, isDone: true }] },
+    transactions: [{ id: 't1', week: wk, type: 'expense', catId: 'piggy', amount: 130997, isDone: true }],
+  };
+  render(<HealthScreen state={piggyState} isPro />);
+  expect(screen.getByText('+190 997')).toBeInTheDocument();
+});
+
 test('«Как считается балл» открывает и закрывает модалку с объяснением', async () => {
   const user = userEvent.setup();
   render(<HealthScreen state={state} isPro />);

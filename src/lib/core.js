@@ -182,6 +182,10 @@ const buildFinalSettlement=(inc,dis,mc,dropped)=>{
 };
 const buildPaymentSchedule=(year,salaryDays=[],advanceDays=[],advancePct=40,monthlyGross=0,inc=null)=>{
   const result=[];
+  // Для нового источника дохода это именно первый рабочий день, а не дата
+  // изменения уже существующего оклада. До этой даты у источника не должно быть
+  // ни зарплат, ни авансов, ни дохода в прогнозе.
+  const startDate=parseLocalDate(inc?.startDate);
   // Если у дохода задана дата вступления изменений — до неё считаем по прежним параметрам
   const effFrom=inc?.effFromDate?new Date(inc.effFromDate):null;
   if(effFrom)effFrom.setHours(0,0,0,0);
@@ -219,14 +223,23 @@ const buildPaymentSchedule=(year,salaryDays=[],advanceDays=[],advancePct=40,mont
     if(monthCalc[k])return monthCalc[k];
     const probe=new Date(year,k-1,1); // 1-е число месяца заработка (k=0 → 1 декабря прошлого года)
     const p0=paramsFor(probe);
-    const g=blendedGross(probe,p0.g),iType=p0.t,rate=p0.rate;
+    let g=blendedGross(probe,p0.g);const iType=p0.t,rate=p0.rate;
+    const mEnd=new Date(probe.getFullYear(),probe.getMonth()+1,0);
+    const startsThisMonth=startDate&&startDate>=probe&&startDate<=mEnd;
+    const beforeEmployment=startDate&&mEnd<startDate;
+    if(beforeEmployment)g=0;
+    else if(startsThisMonth){
+      const total=workdaysBetween(probe,mEnd);
+      const worked=workdaysBetween(startDate,mEnd);
+      g=total?Math.round(g*worked/total):0;
+    }
     let monthlyNet,monthlyNDFL,bracket;
     const ndflMonth=k===0?12:k; // для декабря прошлого года — 12-й месяц прогрессии
     if(iType==='employed'&&g!==p0.g){
       // Месяц смены оклада: налог нарастающим итогом от того, что реально
       // заработано с начала года по прежнему окладу. calcMonthlyNDFL считал бы
       // базу как «смешанный оклад × номер месяца» и занижал ставку.
-      const cum=inc.prevGross*(ndflMonth-1);
+      const cum=(inc.prevGross||0)*(ndflMonth-1);
       monthlyNDFL=calcAnnualNDFL(cum+g)-calcAnnualNDFL(cum);
       monthlyNet=g-monthlyNDFL;
       bracket=cum+g>5_000_000?'20%':cum+g>2_400_000?'15%':'13%';
@@ -237,7 +250,15 @@ const buildPaymentSchedule=(year,salaryDays=[],advanceDays=[],advancePct=40,mont
     // У самозанятых/на руки нет двух частей — вся сумма идёт одной выплатой,
     // иначе доля "аванса" молча пропадала бы (advanceDays у них всегда пустой,
     // отдельной записи для неё не создаётся).
-    const advAmt=iType==='employed'?(inc?calcAdvanceAmount(monthlyNet,inc):Math.round(monthlyNet*advancePct/100)):0;
+    let advAmt=iType==='employed'?(inc?calcAdvanceAmount(monthlyNet,inc):Math.round(monthlyNet*advancePct/100)):0;
+    // В первый неполный месяц аванс относится только к фактически отработанной
+    // первой половине месяца. Например, при выходе 19 октября аванс за 1–15
+    // октября равен нулю, а весь заработок с 19-го придёт зарплатой в ноябре.
+    if(startsThisMonth){
+      const worked=workdaysBetween(startDate,mEnd);
+      const firstHalfWorked=workdaysBetween(startDate,new Date(probe.getFullYear(),probe.getMonth(),15));
+      advAmt=worked?Math.round(monthlyNet*firstHalfWorked/worked):0;
+    }
     return monthCalc[k]={g,iType,monthlyNet,monthlyNDFL,bracket,advAmt,salAmt:monthlyNet-advAmt};
   };
   // Увольнение: обычные выплаты после последнего рабочего дня не приходят —
@@ -253,12 +274,12 @@ const buildPaymentSchedule=(year,salaryDays=[],advanceDays=[],advancePct=40,mont
       const day=Math.min(d,daysInM);const info=fmtPayDate(year,m,day);
       if(dis&&info.date>dis)continue;
       if(m===disM)dropped.paidAdvance+=cur.advAmt;
-      result.push({type:'advance',amount:cur.advAmt,month:m,bracket:cur.bracket,...info,displayLabel:`Аванс·${info.label}`,key:paymentKey(inc,'advance',year,m,day),actualAmount:cur.advAmt,isDone:false,note2:''});
+      if(cur.advAmt>0||!startDate)result.push({type:'advance',amount:cur.advAmt,month:m,bracket:cur.bracket,...info,displayLabel:`Аванс·${info.label}`,key:paymentKey(inc,'advance',year,m,day),actualAmount:cur.advAmt,isDone:false,note2:''});
     }
     for(const d of salaryDays){
       const day=Math.min(d,daysInM);const info=fmtPayDate(year,m,day);
       if(dis&&info.date>dis){if(m===disM)dropped.salary+=prev.salAmt;continue;}
-      result.push({type:'salary',amount:prev.salAmt,month:m,bracket:prev.bracket,...info,displayLabel:`Зарплата·${info.label}`,key:paymentKey(inc,'salary',year,m,day),actualAmount:prev.salAmt,isDone:false,note2:'',ndfl:prev.monthlyNDFL,workMonth:m===1?12:m-1,workYear:m===1?year-1:year});
+      if(prev.salAmt>0||!startDate)result.push({type:'salary',amount:prev.salAmt,month:m,bracket:prev.bracket,...info,displayLabel:`Зарплата·${info.label}`,key:paymentKey(inc,'salary',year,m,day),actualAmount:prev.salAmt,isDone:false,note2:'',ndfl:prev.monthlyNDFL,workMonth:m===1?12:m-1,workYear:m===1?year-1:year});
     }
   }
   if(disM){const fin=buildFinalSettlement(inc,dis,calcFor(disM),dropped);if(fin)result.push(fin);}
@@ -328,12 +349,20 @@ const undoExtraPaymentEdits=(payments={},extra)=>{
 const saveIncomeToState=(prev,updatedInc,now=new Date())=>{
   const old=prev.incomes.find(i=>i.id===updatedInc.id)||{};
   const r={...updatedInc,gross:parseInt(updatedInc.gross)||0};
+  const employmentStartWasExplicit=updatedInc.isEmploymentStart;
+  delete r.isEmploymentStart;
   // Увольнение имеет смысл только для наёмного дохода (расчёт по ТК РФ).
   if(!r.dismissal||(r.incomeType||'employed')!=='employed')delete r.dismissal;
   r.net=calcNetFor(r);
   // Дата вступления изменений: до неё выплаты считаются по прежним параметрам
   const ef=r.effectiveFrom;
   const effDate=ef?new Date(ef.year,ef.month-1,ef.day):null;
+  // handleAddIncomeSource сначала кладёт в state пустую заготовку (gross: '').
+  // Поэтому первый save можно надёжно отличить от изменения действующего
+  // дохода и сохранить выбранную дату как начало работы навсегда.
+  const isNewSource=old.gross===''||old.gross===undefined||old.gross===null;
+  if((isNewSource||employmentStartWasExplicit)&&effDate)r.startDate=localDateStr(effDate);
+  else if(employmentStartWasExplicit===undefined&&old.startDate)r.startDate=old.startDate;
   const today=new Date(now);today.setHours(0,0,0,0);
   const changed=(parseInt(old.gross)||0)!==r.gross||old.incomeType!==r.incomeType||String(old.taxRate||'')!==String(r.taxRate||'');
   if(effDate&&effDate>today&&changed){
@@ -515,7 +544,12 @@ const scheduledIncomeForWeek=(inc,wS,wE,payments,curWk,cache)=>{
       cache.set(inc,byYear);
     }
   }
-  return sch.filter(p=>p.date>=wS&&p.date<=wE).reduce((s,p)=>s+payAmount(p),0);
+  return sch.filter(p=>p.date>=wS&&p.date<=wE)
+    // Закрытая неделя — это история, поэтому в ней учитываем только реально
+    // подтверждённые выплаты. Раньше прошлые расходы брались по факту, а доходы
+    // целиком по плану, и накопительный баланс раздувался задним числом.
+    .filter(p=>weekKey(wS)>=curWk||p.isDone)
+    .reduce((s,p)=>s+payAmount(p),0);
 };
 
 // Доход/план/факт по каждой существующей неделе weekItems — общая основа для сводок

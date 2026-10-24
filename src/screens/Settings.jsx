@@ -139,7 +139,7 @@ export function SettingsScreen({state,onEditCat,onAddCat,onDeleteCustomCat,onEdi
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:13.5,fontWeight:500,color:C.text}}>{showMember?`${m?.name}${inc.name?` · ${inc.name}`:''}`:(inc.name||'Доход')}</div>
               <div style={{fontFamily:MONO,fontSize:10,color:C.muted,marginTop:1}}>GROSS {fmtN(inc.gross||0)} · {inc.incomeType==='self'?`${parseFloat(inc.taxRate)||6}%`:inc.incomeType==='manual'?'без налога':getNDFLDesc(inc.gross||0)}</div>
-              {inc.effectiveFrom&&<div style={{fontFamily:MONO,fontSize:9,color:C.orangeD,marginTop:1}}>✦ изменён с {inc.effectiveFrom.day} {MONTH_SHORT[inc.effectiveFrom.month-1]} {inc.effectiveFrom.year}</div>}
+              {inc.startDate?<div style={{fontFamily:MONO,fontSize:9,color:C.orangeD,marginTop:1}}>✦ работа с {new Date(`${inc.startDate}T00:00:00`).getDate()} {MONTH_SHORT[new Date(`${inc.startDate}T00:00:00`).getMonth()]} {new Date(`${inc.startDate}T00:00:00`).getFullYear()}</div>:inc.effectiveFrom&&<div style={{fontFamily:MONO,fontSize:9,color:C.orangeD,marginTop:1}}>✦ изменён с {inc.effectiveFrom.day} {MONTH_SHORT[inc.effectiveFrom.month-1]} {inc.effectiveFrom.year}</div>}
               {dismissalDateOf(inc)&&<div style={{fontFamily:MONO,fontSize:9,color:C.orangeD,marginTop:1}}>🚪 увольнение {dismissalDateOf(inc).getDate()} {MONTH_SHORT[dismissalDateOf(inc).getMonth()]} {dismissalDateOf(inc).getFullYear()}</div>}
             </div>
             <span style={{fontFamily:MONO,fontSize:13,fontWeight:600,color:C.greenD}}>{fmtN(calcNetFor(inc))}</span>

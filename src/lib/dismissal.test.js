@@ -225,4 +225,28 @@ describe('saveIncomeToState — сохранение дохода не трог�
     const self = saveIncomeToState(state, { ...inc(), incomeType: 'self', dismissal, effectiveFrom: eff(2026, 10, 2) }, now);
     expect(self.incomes[0].dismissal).toBeUndefined();
   });
+
+  test('новый источник сохраняет первый рабочий день, а не создаёт историю за весь год', () => {
+    const blank = { ...inc(), gross: '' };
+    const initial = { ...state, incomes: [blank] };
+    const next = saveIncomeToState(initial, { ...inc(), effectiveFrom: eff(2026, 10, 19) }, new Date(2026, 9, 24));
+    expect(next.incomes[0].startDate).toBe('2026-10-19');
+
+    const sch = schedule(next.incomes[0]);
+    expect(sch.some((p) => p.date < new Date(2026, 9, 19))).toBe(false);
+    expect(sch.some((p) => p.type === 'advance' && p.month === 10)).toBe(false);
+    const first = sch[0];
+    expect(first.type).toBe('salary');
+    expect(first.month).toBe(11);
+    expect(first.workMonth).toBe(10);
+    expect(first.amount).toBeGreaterThan(0);
+    expect(first.amount).toBeLessThan(calcNetFor(inc()));
+  });
+
+  test('существующий источник можно явно пометить как новую работу', () => {
+    const next = saveIncomeToState(state, { ...inc(), isEmploymentStart: true, effectiveFrom: eff(2026, 10, 19) }, new Date(2026, 9, 24));
+    expect(next.incomes[0].startDate).toBe('2026-10-19');
+    expect(next.incomes[0].isEmploymentStart).toBeUndefined();
+    expect(schedule(next.incomes[0]).some((p) => p.date < new Date(2026, 9, 19))).toBe(false);
+  });
 });
