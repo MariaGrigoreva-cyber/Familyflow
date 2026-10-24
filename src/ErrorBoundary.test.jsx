@@ -50,15 +50,18 @@ test('«Сбросить локальные данные» без подтвер
   removeItemSpy.mockRestore();
 });
 
-test('«Сбросить локальные данные» с подтверждением удаляет ff_state и перезагружает', async () => {
+test('«Сбросить локальные данные» сначала создаёт резервную копию, затем удаляет ff_state и перезагружает', async () => {
   const reload = jest.fn();
   Object.defineProperty(window, 'location', { value: { reload }, writable: true });
   const removeItemSpy = jest.spyOn(Storage.prototype, 'removeItem');
+  localStorage.setItem('ff_state', '{"budget":"important"}');
   const user = userEvent.setup();
   render(<ErrorBoundary><Bomb /></ErrorBoundary>);
   await user.click(screen.getByText('Не помогает — сбросить локальные данные'));
   await user.click(await screen.findByText('Подтвердить'));
   expect(removeItemSpy).toHaveBeenCalledWith('ff_state');
+  expect(localStorage.getItem('ff_state_trash')).toBe('{"budget":"important"}');
+  expect(localStorage.getItem('ff_state_trash_at')).toBeTruthy();
   expect(reload).toHaveBeenCalledTimes(1);
   removeItemSpy.mockRestore();
 });

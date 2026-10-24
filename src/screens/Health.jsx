@@ -13,7 +13,9 @@ export function HealthScreen({state,isPro=true,accessPending=false,outlook=null,
   // операции складываются. Старый локальный расчёт Здоровья заменял одно другим
   // и поэтому показывал копилку меньше, чем экран Сегодня.
   const piggyActual=computeBalances(state).totalSaved;
-  const cushion=piggyActual>0?piggyActual:Math.round(piggyMonthly/4.3*4);
+  // Подушка — только уже накопленные деньги. Плановое отчисление не становится
+  // накоплением, пока пользователь не отметил его выполненным.
+  const cushion=Math.max(0,piggyActual);
   // Прогноз кассовых разрывов на ближайшие недели: та же единая формула накопительного
   // баланса, что и на Потоке/Сегодня (см. projectCashFlow) — раньше здесь была отдельная
   // копия цикла, которая для будущих недель по ошибке брала только уже отмеченные траты
@@ -59,12 +61,15 @@ export function HealthScreen({state,isPro=true,accessPending=false,outlook=null,
   if(savingsRate<10&&freeCash>=0)risks.push({icon:'⚠️',text:`Откладываете мало — всего ${savingsRate}% дохода`,level:'yellow'});
   if(cushion<monthlyExp)risks.push({icon:'⚠️',text:`Копилка ${cushion>0?fmt(cushion):'пуста'} — меньше 1 мес. расходов`,level:'yellow'});
   const obligations=planned.filter(p=>['mortgage','credit'].includes(p.catId)).reduce((s,p)=>s+monthlyOf(p),0);
-  if(obligations/totalNet>.4)risks.push({icon:'🔴',text:`Кредитная нагрузка высокая — ${Math.round(obligations/totalNet*100)}% дохода`,level:'red'});
+  const obligationsRatio=totalNet>0?obligations/totalNet:null;
+  if(obligations>0&&totalNet<=0)risks.push({icon:'🔴',text:'Есть кредитные обязательства, но доход не указан',level:'red'});
+  else if(obligationsRatio>.4)risks.push({icon:'🔴',text:`Кредитная нагрузка высокая — ${Math.round(obligationsRatio*100)}% дохода`,level:'red'});
   if(risks.length===0)risks.push({icon:'✅',text:'Видимых рисков уйти в минус нет',level:'green'});
   const recs=[
     savingsRate<20&&freeCash>0?{text:`Откладывайте в копилку хотя бы ${fmt(Math.round(totalNet*.2))}/мес — это 20% дохода`,level:'yellow'}:null,
     cushion<monthlyExp*3?{text:`Цель копилки — ${fmt(monthlyExp*3)} (3 мес. расходов), сейчас ${fmt(cushion)}`,level:'yellow'}:null,
-    obligations/totalNet>.3?{text:`Кредитная нагрузка ${Math.round(obligations/totalNet*100)}% — постарайтесь снизить до 30%`,level:'red'}:null,
+    obligations>0&&totalNet<=0?{text:'Укажите доход, чтобы оценить кредитную нагрузку',level:'red'}:
+      obligationsRatio>.3?{text:`Кредитная нагрузка ${Math.round(obligationsRatio*100)}% — постарайтесь снизить до 30%`,level:'red'}:null,
     freeCash>0?{text:`Свободные средства ${fmt(freeCash)}/мес можно инвестировать`,level:'green'}:null,
   ].filter(Boolean).slice(0,3);
   const recDot={yellow:C.yellow,red:C.red,green:C.green};

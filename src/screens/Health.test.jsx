@@ -57,6 +57,34 @@ test('копилка складывает плановую галочку и р�
   expect(screen.getByText('+190 997')).toBeInTheDocument();
 });
 
+test('не выдаёт план будущих отчислений за уже накопленную подушку', () => {
+  const emptyPiggyState = {
+    ...state,
+    weekItems: {},
+    transactions: [],
+    planned: [
+      ...state.planned.filter(p => p.catId !== 'piggy'),
+      { id: 'piggy-plan', catId: 'piggy', name: 'Копилка', amount: 30000, repeat: 'monthly' },
+    ],
+  };
+  render(<HealthScreen state={emptyPiggyState} isPro />);
+  expect(screen.getAllByText('0 мес').length).toBeGreaterThan(0);
+  expect(screen.queryByText('+30 000')).not.toBeInTheDocument();
+});
+
+test('при нулевом доходе не показывает бесконечный процент кредитной нагрузки', () => {
+  const noIncomeState = {
+    ...state,
+    incomes: [],
+    planned: [{ id: 'credit', catId: 'credit', name: 'Кредит', amount: 20000, repeat: 'monthly' }],
+    weekItems: {},
+    transactions: [],
+  };
+  render(<HealthScreen state={noIncomeState} isPro />);
+  expect(screen.queryByText(/Infinity/)).not.toBeInTheDocument();
+  expect(screen.getByText('Есть кредитные обязательства, но доход не указан')).toBeInTheDocument();
+});
+
 test('«Как считается балл» открывает и закрывает модалку с объяснением', async () => {
   const user = userEvent.setup();
   render(<HealthScreen state={state} isPro />);

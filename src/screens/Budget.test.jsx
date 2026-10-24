@@ -14,6 +14,17 @@ test('показывает годовые расходы и список кат�
   expect(screen.getByText('Еда')).toBeInTheDocument();
 });
 
+test('исторический ручной доход не прибавляется к плану следующих 365 дней', () => {
+  const base = { ...state, transactions: [] };
+  const { unmount } = render(<BudgetScreen state={base} onEditPlanned={noop} onAddPlanned={noop} onEditPayment={noop} onAddExtra={noop} onWithdrawPiggy={noop} onSetGoal={noop} onAddGoalToPlan={noop} />);
+  const withoutHistory = screen.getByText(/^ДОХОД /).textContent;
+  unmount();
+
+  render(<BudgetScreen state={{ ...base, transactions: [{ id: 'old', type: 'income', amount: 999999, week: '2020-W01', name: 'Старый доход' }] }} onEditPlanned={noop} onAddPlanned={noop} onEditPayment={noop} onAddExtra={noop} onWithdrawPiggy={noop} onSetGoal={noop} onAddGoalToPlan={noop} />);
+  expect(screen.getByText(/^ДОХОД /).textContent).toBe(withoutHistory);
+  expect(screen.getByText('Старый доход')).toBeInTheDocument();
+});
+
 test('«+ Добавить» у категорий вызывает onAddPlanned', async () => {
   const user = userEvent.setup();
   const onAddPlanned = jest.fn();

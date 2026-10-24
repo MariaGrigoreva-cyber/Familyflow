@@ -448,11 +448,10 @@ useEffect(() => {
       };
       localStorage.setItem('ff_state', JSON.stringify(toSave));
     } catch(e) {
-      // Если всё равно не влезает — сохраняем без weekItems (крайний случай)
-      try {
-        const {weekItems,...rest}=appState;
-        localStorage.setItem('ff_state',JSON.stringify({consented:true,onboarded:true,appState:rest}));
-      } catch {}
+      // Не перезаписываем последнюю целую копию урезанным состоянием: weekItems
+      // содержат фактические отметки и ручные правки. При нехватке места лучше
+      // сохранить предыдущий снапшот, чем молча уничтожить историю недель.
+      console.error('Не удалось сохранить бюджет локально:',e);
     }
   }, [appState, onboarded]);
 

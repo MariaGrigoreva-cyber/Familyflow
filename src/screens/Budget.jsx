@@ -31,7 +31,10 @@ export function BudgetScreen({state,onEditPlanned,onAddPlanned,onEditPayment,onA
   const dismissedYearly=inc=>buildPaymentScheduleSpan(budgetStart.getFullYear(),inc.salaryDays||[],inc.advanceDays||[],parseInt(inc.advancePct)||40,inc.gross||0,inc)
     .filter(p=>p.date>=budgetStart&&p.date<=budgetEnd).reduce((s,p)=>s+payAmount(applyPaymentEdit(p,payments)),0);
   const plannedYearlyIncome=incomes.reduce((s,i)=>s+(dismissalDateOf(i)?dismissedYearly(i):calcNetFor(i)*12),0);
-  const totalYearlyIncome=plannedYearlyIncome+txExtraIncome+extraYearlyIncome;
+  // Ручные доходы в transactions — уже свершившийся факт. Экран показывает
+  // план на следующие 365 дней, поэтому прибавлять всю историю к будущим
+  // зарплатам нельзя: сумма росла бы при каждом новом фактическом доходе.
+  const totalYearlyIncome=plannedYearlyIncome+extraYearlyIncome;
   // База для расчёта отпускных. Считать её (и урезание зарплаты за месяц отпуска)
   // можно только по окладному доходу: отпускные по ст. 139 ТК РФ существуют лишь
   // там, где есть зарплата и аванс. Раньше здесь стоял incomes[0] — если первым

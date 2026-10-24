@@ -18,7 +18,18 @@ export class ErrorBoundary extends React.Component {
   }
   handleResetLocalData = async () => {
     if (!await confirmAsync('Сбросить локально сохранённые данные и перезагрузить? Если вы вошли в аккаунт, бюджет восстановится из облака.', { danger: true })) return;
-    try { localStorage.removeItem('ff_state'); } catch {}
+    try {
+      const raw=localStorage.getItem('ff_state');
+      if(raw){
+        localStorage.setItem('ff_state_trash',raw);
+        localStorage.setItem('ff_state_trash_at',new Date().toISOString());
+      }
+      localStorage.removeItem('ff_state');
+    } catch(e) {
+      // Если резервную копию создать не удалось, исходник не удаляем.
+      console.error('Не удалось создать резервную копию бюджета:',e);
+      return;
+    }
     window.location.reload();
   };
   render() {
@@ -28,7 +39,7 @@ export class ErrorBoundary extends React.Component {
         <div style={{ fontSize: 44, marginBottom: 16 }}>😔</div>
         <div style={{ fontSize: 18, fontWeight: 600, color: C.text, marginBottom: 8 }}>Что-то пошло не так</div>
         <div style={{ fontSize: 13, color: C.text2, lineHeight: 1.5, marginBottom: 24, maxWidth: 320 }}>
-          Приложение столкнулось с ошибкой. Ваши данные не пострадали — они сохранены на устройстве{typeof window !== 'undefined' ? ' и в облаке, если вы вошли в аккаунт' : ''}.
+          Приложение столкнулось с ошибкой. Перезагрузите страницу. Перед локальным сбросом приложение сохранит резервную копию бюджета{typeof window !== 'undefined' ? '; если вы вошли в аккаунт, доступна и облачная копия' : ''}.
         </div>
         <button onClick={() => window.location.reload()} style={{ padding: '13px 28px', borderRadius: 14, border: 'none', background: C.orange, color: '#fff', fontSize: 14.5, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
           Перезагрузить
